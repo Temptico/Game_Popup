@@ -1,7 +1,8 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useLoaderData, useNavigation } from "@remix-run/react";
+import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
 import {
   Badge,
+  Banner,
   BlockStack,
   Button,
   Card,
@@ -34,12 +35,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (form.get("intent") === "upgrade") {
     const storeHandle = session.shop.replace(".myshopify.com", "");
-    // Throws a redirect to Shopify's approval screen.
-    await billing.request({
-      plan: PRO_PLAN,
-      isTest,
-      returnUrl: `https://admin.shopify.com/store/${storeHandle}/apps/${process.env.SHOPIFY_API_KEY}/app`,
-    });
+    try {
+      // Throws a redirect to Shopify's approval screen.
+      await billing.request({
+        plan: PRO_PLAN,
+        isTest,
+        returnUrl: `https://admin.shopify.com/store/${storeHandle}/apps/${process.env.SHOPIFY_API_KEY}/app`,
+      });
+    } catch (err) {
+      if (err instanceof Response) throw err;
+      // Surface Shopify's reason (e.g. the app has no public distribution yet).
+      const data = (err as { errorData?: unknown }).errorData;
+      const details = (Array.isArray(data) ? data : [])
+        .map((e: { message?: string }) => e?.message)
+        .filter(Boolean)
+        .join(" ");
+      console.error("[billing]", err, JSON.stringify(data));
+      return { error: details || (err as Error).message };
+    }
   }
 
   if (form.get("intent") === "cancel") {
@@ -50,7 +63,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
     await publishConfig(admin, session.shop);
   }
-  return null;
+  return { error: null as string | null };
 };
 
 const FEATURES = {
@@ -61,10 +74,18 @@ const FEATURES = {
 export default function Plans() {
   const { isPro, subscriptionId } = useLoaderData<typeof loader>();
   const busy = useNavigation().state !== "idle";
+  const actionData = useActionData<typeof action>();
 
   return (
     <Page title="Plans">
       <TitleBar title="Plans" />
+      {actionData?.error && (
+        <div style={{ marginBottom: 16 }}>
+          <Banner tone="critical" title="Shopify rejected the subscription">
+            <p>{actionData.error}</p>
+          </Banner>
+        </div>
+      )}
       <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
         <Card>
           <BlockStack gap="300">

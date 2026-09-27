@@ -1,0 +1,39 @@
+{% comment %}
+  GameDiscount – app embed block.
+  All settings are managed in the GameDiscount app and published to the
+  app-data metafield app.metafields.gamediscount.config — nothing to edit here.
+{% endcomment %}
+{%- assign gd_config = app.metafields.gamediscount.config -%}
+{%- if gd_config != blank and gd_config.value.popups.size > 0 -%}
+  <script type="application/json" id="gd-config">{{ gd_config.value | json }}</script>
+  <script>
+    window.GameDiscountContext = {
+      template: {{ template.name | json }},
+      designMode: {{ request.design_mode | json }},
+      alwaysShow: {{ block.settings.always_show | json }},
+      proxy: "/apps/gamediscount"
+    };
+  </script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "GameDiscount popup",
+  "target": "body",
+  "javascript": "game-popup.js",
+  "stylesheet": "game-popup.css",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Configure the discount, game and texts in the GameDiscount app (Apps → GameDiscount)."
+    },
+    {
+      "type": "checkbox",
+      "id": "always_show",
+      "label": "Test mode: show immediately and ignore 'already played' memory",
+      "info": "Turn off before going live.",
+      "default": false
+    }
+  ]
+}
+{% endschema %}

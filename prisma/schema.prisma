@@ -1,0 +1,73 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+model Popup {
+  id             String   @id @default(cuid())
+  shop           String
+  name           String
+  active         Boolean  @default(true)
+  discountCode   String
+  delaySec       Int      @default(15)
+  surviveSec     Int      @default(15)
+  vx             Float    @default(4.5)
+  vy             Float    @default(-5.0)
+  maxAttempts    Int      @default(3)
+  primaryColor   String   @default("#830522")
+  accentColor    String   @default("#d9caa0")
+  target         String   @default("all")
+  requireConsent Boolean  @default(true)
+  autoApply      Boolean  @default(true)
+  // JSON-encoded CustomStrings ({ sl: { introTitle: "..." }, ... })
+  strings        String   @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  events         Event[]
+
+  @@index([shop])
+}
+
+// Funnel events from the storefront. No customer PII is stored here.
+model Event {
+  id        String   @id @default(cuid())
+  shop      String
+  popupId   String
+  popup     Popup    @relation(fields: [popupId], references: [id], onDelete: Cascade)
+  // view | submit | play | win
+  type      String
+  createdAt DateTime @default(now())
+
+  @@index([shop, type, createdAt])
+  @@index([popupId, type])
+}

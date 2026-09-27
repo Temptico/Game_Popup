@@ -1,0 +1,48 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+# Run `npm run config:link` to link this file to your app in the Partner Dashboard;
+# the CLI fills in client_id and the URLs.
+
+client_id = ""
+name = "GameDiscount – Gamification Popup"
+application_url = "https://example.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[access_scopes]
+# write_customers: create/update customers from the popup form (protected customer data – see README)
+# read_discounts: show discount code usage on the analytics page
+scopes = "write_customers,read_discounts"
+
+[auth]
+redirect_urls = ["https://example.com/auth/callback"]
+
+# Storefront → app calls: /apps/gamediscount/* is forwarded to /proxy/* with an HMAC signature
+[app_proxy]
+url = "https://example.com/proxy"
+subpath = "gamediscount"
+prefix = "apps"
+
+[webhooks]
+api_version = "2026-01"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled"]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/scopes_update"]
+  uri = "/webhooks/app/scopes_update"
+
+  [[webhooks.subscriptions]]
+  topics = ["app_subscriptions/update"]
+  uri = "/webhooks/app_subscriptions/update"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "/webhooks/compliance"
+
+[pos]
+embedded = false

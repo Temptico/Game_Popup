@@ -1,11 +1,13 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "@remix-run/node";
-import { Link, Outlet, useLoaderData, useRouteError } from "@remix-run/react";
+import { useEffect } from "react";
+import { Link, Outlet, useLoaderData, useLocation, useRouteError } from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
 import { authenticate } from "../shopify.server";
+import { rememberEmbeddedContext } from "../lib/embedded-context";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
@@ -17,6 +19,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function App() {
   const { apiKey } = useLoaderData<typeof loader>();
+  const location = useLocation();
+  useEffect(() => {
+    rememberEmbeddedContext(location.search, location.pathname);
+  }, [location.search, location.pathname]);
 
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>

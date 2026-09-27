@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import {
@@ -16,6 +16,7 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { login } from "../../shopify.server";
 
 import { loginErrorMessage } from "./error.server";
+import { recoveryUrl } from "../../lib/embedded-context";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
@@ -38,6 +39,16 @@ export default function Auth() {
   const actionData = useActionData<typeof action>();
   const [shop, setShop] = useState("");
   const { errors } = actionData || loaderData;
+  // Inside the Shopify admin this page only appears after the iframe lost its
+  // shop context; hop back in instead of asking the merchant to log in.
+  const [recovering, setRecovering] = useState(true);
+  useEffect(() => {
+    const url = recoveryUrl();
+    if (url) window.location.replace(url);
+    else setRecovering(false);
+  }, []);
+
+  if (recovering) return null;
 
   return (
     <PolarisAppProvider i18n={loaderData.polarisTranslations}>

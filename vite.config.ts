@@ -68,6 +68,16 @@ export default defineConfig({
     assetsInlineLimit: 0,
   },
   optimizeDeps: {
-    include: ["@shopify/app-bridge-react", "@shopify/polaris"],
+    // Pre-bundle everything the routes import. Otherwise Vite discovers them on
+    // first use and force-reloads the page, which inside the Shopify admin
+    // iframe drops the shop context and shows the login page.
+    include: [
+      "@shopify/app-bridge-react",
+      "@shopify/polaris",
+      "@shopify/shopify-app-remix/react",
+      "@shopify/shopify-app-remix/server",
+      "@remix-run/node",
+      "@prisma/client",
+    ],
   },
 }) satisfies UserConfig;

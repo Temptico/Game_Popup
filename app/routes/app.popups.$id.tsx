@@ -20,7 +20,7 @@ import {
   Text,
   TextField,
 } from "@shopify/polaris";
-import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
+import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import {
@@ -101,7 +101,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     : await db.popup.update({ where: { id: params.id }, data });
 
   await publishConfig(admin, shop);
-  return redirect(`/app/popups/${row.id}?saved=1`);
+  return redirect(`/app?saved=${encodeURIComponent(row.name)}`);
 };
 
 const TABS = [
@@ -117,19 +117,11 @@ export default function PopupEditor() {
   const errors: ValidationErrors = actionData?.errors ?? {};
   const submit = useSubmit();
   const nav = useNavigation();
-  const shopify = useAppBridge();
 
   const [s, setS] = useState<PopupSettings>(initial);
   const [tab, setTab] = useState(0);
   const [lang, setLang] = useState<Language>("en");
   useEffect(() => setS(initial), [initial]);
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("saved")) {
-      shopify.toast.show("Saved — live on your storefront");
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-  }, [shopify, id]);
 
   const set = <K extends keyof PopupSettings>(key: K) => (value: PopupSettings[K]) =>
     setS((prev) => ({ ...prev, [key]: value }));
@@ -196,8 +188,7 @@ export default function PopupEditor() {
                       </Banner>
                     )}
                     {s.codeMode === "unique" && (
-                      <>
-                        <FormLayout.Group>
+                      <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                           <Select
                             label="Discount"
                             options={[
@@ -217,8 +208,6 @@ export default function PopupEditor() {
                             error={errors.discountValue}
                             autoComplete="off"
                           />
-                        </FormLayout.Group>
-                        <FormLayout.Group>
                           <TextField
                             label="Code prefix"
                             value={s.codePrefix}
@@ -236,8 +225,7 @@ export default function PopupEditor() {
                             helpText="0 = never expires. A short window pushes winners to buy now."
                             autoComplete="off"
                           />
-                        </FormLayout.Group>
-                      </>
+                      </InlineGrid>
                     )}
                     <TextField
                       label={s.codeMode === "unique" ? "Fallback shared code (optional)" : "Discount code shown on win"}
@@ -286,14 +274,14 @@ export default function PopupEditor() {
 
                 {tab === 1 && (
                   <FormLayout>
-                    <FormLayout.Group>
+                    <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                       <TextField label="Popup delay (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" />
                       <TextField label="Survive time to win (seconds)" type="number" min={3} value={String(s.surviveSec)} onChange={setNum("surviveSec")} autoComplete="off" />
-                    </FormLayout.Group>
-                    <FormLayout.Group>
+                    </InlineGrid>
+                    <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                       <TextField label="Ball speed X (vx)" type="number" step={0.1} value={String(s.vx)} onChange={setNum("vx")} error={errors.vx} autoComplete="off" helpText="Pixels per frame at 60 fps." />
                       <TextField label="Ball speed Y (vy)" type="number" step={0.1} value={String(s.vy)} onChange={setNum("vy")} autoComplete="off" helpText="Negative = ball starts moving up." />
-                    </FormLayout.Group>
+                    </InlineGrid>
                     <TextField label="Max attempts" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off" />
                   </FormLayout>
                 )}

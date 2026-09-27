@@ -2,6 +2,8 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { readProxyRequest } from "../lib/proxy.server";
 import { upsertCustomer } from "../lib/customers.server";
 import { recordEvent } from "../lib/analytics.server";
+import { hashEmail, newToken } from "../lib/discounts.server";
+import db from "../db.server";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -22,13 +24,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return Response.json({ ok: false, error: "unknown_popup" }, { status: 404 });
   }
 
+  // One claim per (popup, email). Re-submitting the same email returns the
+  // same token, so the visitor gets back their existing code instead of a new one.
+  const emailHash = hashEmail(shop, email);
+  const claim = await db.claim.upsert({
+    where: { popupId_emailHash: { popupId, emailHash } },
+    create: { token: newToken(), shop, popupId, emailHash },
+    // Restart the play clock for claims that haven't won yet (see /claim).
+    update: { issuedAt: new Date() },
+  });
+
+  let customerOk = false;
   try {
     const result = await upsertCustomer(admin, { email, firstName, consent });
+    customerOk = result.ok;
     if (!result.ok) console.error(`[subscribe] ${shop}: ${result.error}`);
-    // The visitor can play either way; a failed customer write shouldn't block the game.
-    return Response.json({ ok: result.ok });
   } catch (err) {
     console.error(`[subscribe] ${shop}`, err);
-    return Response.json({ ok: false, error: "customer_api" }, { status: 502 });
   }
+  // The visitor can play either way; a failed customer write shouldn't block the game.
+  return Response.json({ ok: customerOk, token: claim.token });
 };

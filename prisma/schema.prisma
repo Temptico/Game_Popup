@@ -49,11 +49,19 @@ model Popup {
   target         String   @default("all")
   requireConsent Boolean  @default(true)
   autoApply      Boolean  @default(true)
+  // "static" = one shared code (discountCode); "unique" = a single-use code is
+  // created per winner (Pro). discountCode is then only a fallback.
+  codeMode       String   @default("static")
+  discountType   String   @default("percentage") // percentage | fixed
+  discountValue  Float    @default(10)
+  codePrefix     String   @default("WIN")
+  codeExpiryDays Int      @default(7) // 0 = never expires
   // JSON-encoded CustomStrings ({ sl: { introTitle: "..." }, ... })
   strings        String   @default("{}")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   events         Event[]
+  claims         Claim[]
 
   @@index([shop])
 }
@@ -70,4 +78,24 @@ model Event {
 
   @@index([shop, type, createdAt])
   @@index([popupId, type])
+}
+
+// One per (popup, email): issued by /proxy/subscribe, redeemed by /proxy/claim.
+// Ties every win to a submitted email, so a code can't be minted without
+// playing and each email gets at most one code per popup.
+model Claim {
+  id         String    @id @default(cuid())
+  token      String    @unique
+  shop       String
+  popupId    String
+  popup      Popup     @relation(fields: [popupId], references: [id], onDelete: Cascade)
+  // sha256(shop:email) – no plain-text PII stored
+  emailHash  String
+  issuedAt   DateTime  @default(now())
+  code       String?
+  discountId String?
+  claimedAt  DateTime?
+
+  @@unique([popupId, emailHash])
+  @@index([shop, claimedAt])
 }

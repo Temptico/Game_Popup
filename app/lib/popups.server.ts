@@ -41,6 +41,11 @@ export function rowToSettings(row: Popup): PopupSettings {
     target: row.target,
     requireConsent: row.requireConsent,
     autoApply: row.autoApply,
+    codeMode: row.codeMode === "unique" ? "unique" : "static",
+    discountType: row.discountType === "fixed" ? "fixed" : "percentage",
+    discountValue: row.discountValue,
+    codePrefix: row.codePrefix,
+    codeExpiryDays: row.codeExpiryDays,
     strings,
   };
 }

@@ -178,6 +178,11 @@ export interface PopupSettings {
   target: string;
   requireConsent: boolean;
   autoApply: boolean;
+  codeMode: "static" | "unique";
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+  codePrefix: string;
+  codeExpiryDays: number;
   strings: CustomStrings;
 }
 
@@ -195,6 +200,11 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   target: "all",
   requireConsent: true,
   autoApply: true,
+  codeMode: "static",
+  discountType: "percentage",
+  discountValue: 10,
+  codePrefix: "WIN",
+  codeExpiryDays: 7,
   strings: {},
 };
 
@@ -218,10 +228,28 @@ export function parseSettings(input: Record<string, unknown>): {
   const d = DEFAULT_SETTINGS;
 
   const name = String(input.name ?? "").trim().slice(0, 80) || d.name;
+  const codeMode = input.codeMode === "unique" ? "unique" : "static";
   const discountCode = String(input.discountCode ?? "").trim();
-  if (!CODE.test(discountCode)) {
+  // In unique mode the shared code is optional (fallback if Pro lapses).
+  if ((codeMode === "static" || discountCode) && !CODE.test(discountCode)) {
     errors.discountCode =
       "Enter the discount code exactly as created in Shopify (letters, numbers, - and _).";
+  }
+
+  const discountType = input.discountType === "fixed" ? "fixed" : "percentage";
+  const discountValue = num(input.discountValue, 0, 0, 1_000_000);
+  if (
+    codeMode === "unique" &&
+    (discountValue <= 0 || (discountType === "percentage" && discountValue > 100))
+  ) {
+    errors.discountValue =
+      discountType === "percentage"
+        ? "Enter a percentage between 1 and 100."
+        : "Enter an amount greater than 0.";
+  }
+  const codePrefix = String(input.codePrefix ?? "").trim().toUpperCase();
+  if (!/^[A-Z0-9-]{0,12}$/.test(codePrefix)) {
+    errors.codePrefix = "Prefix: up to 12 letters, numbers or dashes.";
   }
 
   const primaryColor = String(input.primaryColor ?? d.primaryColor);
@@ -267,6 +295,11 @@ export function parseSettings(input: Record<string, unknown>): {
       target,
       requireConsent: input.requireConsent !== false && input.requireConsent !== "false",
       autoApply: input.autoApply !== false && input.autoApply !== "false",
+      codeMode,
+      discountType,
+      discountValue,
+      codePrefix,
+      codeExpiryDays: Math.round(num(input.codeExpiryDays, d.codeExpiryDays, 0, 365)),
       strings,
     },
   };

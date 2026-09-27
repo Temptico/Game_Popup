@@ -13,8 +13,8 @@ include_config_on_deploy = true
 
 [access_scopes]
 # write_customers: create/update customers from the popup form (protected customer data – see README)
-# read_discounts: show discount code usage on the analytics page
-scopes = "write_customers,read_discounts"
+# write_discounts: create single-use codes per winner + read code usage for analytics
+scopes = "write_customers,write_discounts"
 
 [auth]
 redirect_urls = ["https://example.com/auth/callback"]

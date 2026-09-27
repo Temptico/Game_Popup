@@ -56,7 +56,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const row = await db.popup.findFirst({ where: { id: params.id, shop: session.shop } });
   if (!row) throw redirect("/app");
 
-  const usage = await getDiscountUsage(admin, row.discountCode);
+  const usage = row.discountCode ? await getDiscountUsage(admin, row.discountCode) : 0;
   return { id: row.id, settings: rowToSettings(row), plan, codeExists: usage !== null };
 };
 
@@ -72,8 +72,16 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     if (!existing) throw redirect("/app");
   }
 
+  const { plan } = await getInstallation(admin);
+  if (settings.codeMode === "unique" && !PLAN_LIMITS[plan].uniqueCodes) {
+    return {
+      errors: {
+        codeMode: "Unique codes per winner are a Pro feature. Upgrade or use one shared code.",
+      } as ValidationErrors,
+    };
+  }
+
   if (settings.active) {
-    const { plan } = await getInstallation(admin);
     const otherActive = await db.popup.count({
       where: { shop, active: true, ...(isNew ? {} : { NOT: { id: params.id } }) },
     });
@@ -167,23 +175,89 @@ export default function PopupEditor() {
                 {tab === 0 && (
                   <FormLayout>
                     <TextField label="Internal name" value={s.name} onChange={set("name")} autoComplete="off" />
+                    <Select
+                      label="Discount code type"
+                      options={[
+                        { label: "One shared code (you create it in Discounts)", value: "static" },
+                        { label: `Unique single-use code per winner${isPro ? "" : " (Pro)"}`, value: "unique" },
+                      ]}
+                      value={s.codeMode}
+                      onChange={(v) => set("codeMode")(v as PopupSettings["codeMode"])}
+                      error={errors.codeMode}
+                      helpText={
+                        s.codeMode === "unique"
+                          ? "Each winner gets their own code, valid for one order. Shared codes can't leak to coupon sites."
+                          : "Every winner sees the same code."
+                      }
+                    />
+                    {s.codeMode === "unique" && !isPro && (
+                      <Banner tone="info" action={{ content: "Upgrade to Pro", url: "/app/plans" }}>
+                        Unique codes are a Pro feature.
+                      </Banner>
+                    )}
+                    {s.codeMode === "unique" && (
+                      <>
+                        <FormLayout.Group>
+                          <Select
+                            label="Discount"
+                            options={[
+                              { label: "Percentage off order", value: "percentage" },
+                              { label: "Fixed amount off order", value: "fixed" },
+                            ]}
+                            value={s.discountType}
+                            onChange={(v) => set("discountType")(v as PopupSettings["discountType"])}
+                          />
+                          <TextField
+                            label={s.discountType === "percentage" ? "Percentage" : "Amount (store currency)"}
+                            type="number"
+                            min={0}
+                            suffix={s.discountType === "percentage" ? "%" : undefined}
+                            value={String(s.discountValue)}
+                            onChange={(v) => setS((prev) => ({ ...prev, discountValue: v as unknown as number }))}
+                            error={errors.discountValue}
+                            autoComplete="off"
+                          />
+                        </FormLayout.Group>
+                        <FormLayout.Group>
+                          <TextField
+                            label="Code prefix"
+                            value={s.codePrefix}
+                            onChange={(v) => set("codePrefix")(v.toUpperCase())}
+                            error={errors.codePrefix}
+                            helpText={`Example: ${s.codePrefix ? `${s.codePrefix}-` : ""}K7M2QX9A`}
+                            autoComplete="off"
+                          />
+                          <TextField
+                            label="Code valid for (days)"
+                            type="number"
+                            min={0}
+                            value={String(s.codeExpiryDays)}
+                            onChange={(v) => setS((prev) => ({ ...prev, codeExpiryDays: v as unknown as number }))}
+                            helpText="0 = never expires. A short window pushes winners to buy now."
+                            autoComplete="off"
+                          />
+                        </FormLayout.Group>
+                      </>
+                    )}
                     <TextField
-                      label="Discount code shown on win"
+                      label={s.codeMode === "unique" ? "Fallback shared code (optional)" : "Discount code shown on win"}
                       value={s.discountCode}
                       onChange={(v) => set("discountCode")(v.toUpperCase())}
                       error={errors.discountCode}
                       autoComplete="off"
                       helpText={
                         <>
-                          Create the code first in{" "}
+                          {s.codeMode === "unique"
+                            ? "Used only if a unique code can't be created (e.g. Pro lapsed). Create it in "
+                            : "Create the code first in "}
                           <Link url="shopify:admin/discounts" target="_top">
                             Discounts
                           </Link>
-                          . It is only revealed to visitors after they win — never in the page source.
+                          . Codes are only revealed after a win — never in the page source.
                         </>
                       }
                     />
-                    {id && !codeExists && (
+                    {id && initial.discountCode && !codeExists && (
                       <Banner tone="warning">
                         “{initial.discountCode}” doesn’t exist in your Discounts yet — winners will get a code
                         that doesn’t work at checkout.

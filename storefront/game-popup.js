@@ -193,6 +193,8 @@
 
   // ---------- flow ----------
   var player = { name: '', email: '' };
+  // Resolves to the claim token issued by /subscribe (null if unavailable).
+  var tokenPromise = Promise.resolve(null);
 
   startBtn.addEventListener('click', function () { show(form); nameInput.focus(); });
 
@@ -214,10 +216,13 @@
     // Don't make the visitor wait on the network for more than ~2.5s.
     var done = false;
     var timeout = setTimeout(function () { if (!done) { done = true; proceed(); } }, 2500);
-    post('/subscribe', { name: name, email: email, consent: consent })
-      .then(function (res) { if (!res || !res.ok) return contactFallback(name, email, consent); })
-      .catch(function () { return contactFallback(name, email, consent); })
-      .then(function () { if (!done) { done = true; clearTimeout(timeout); proceed(); } });
+    tokenPromise = post('/subscribe', { name: name, email: email, consent: consent })
+      .then(function (res) {
+        var token = (res && res.token) || null;
+        if (!res || !res.ok) return contactFallback(name, email, consent).then(function () { return token; });
+        return token;
+      }, function () { return contactFallback(name, email, consent).then(function () { return null; }); });
+    tokenPromise.then(function () { if (!done) { done = true; clearTimeout(timeout); proceed(); } });
   });
 
   retryBtn.addEventListener('click', function () { retryBtn.hidden = true; startGame(); });
@@ -240,6 +245,12 @@
     show(reward);
     var reveal = function (code) {
       codeEl.textContent = code;
+      if (code === '—') {
+        // Claim failed (network / server). Let them come back and try again;
+        // the same email gets the same claim token, so no duplicate codes.
+        if (!testMode) local.set(KEY_ATTEMPTS, '0');
+        return;
+      }
       if (!testMode) local.set(KEY_CLAIMED, code);
       if (popup.autoApply && !testMode) {
         // Sets the discount cookie so the code is pre-applied at checkout.
@@ -247,9 +258,12 @@
       }
       copyBtn.focus({ preventScroll: true });
     };
-    post('/claim', { test: testMode }).then(function (res) {
-      reveal(res && res.ok && res.code ? res.code : testMode ? 'TESTCODE' : '—');
-    }, function () { reveal(testMode ? 'TESTCODE' : '—'); });
+    // A slow /subscribe may still be in flight — wait for its token.
+    tokenPromise
+      .then(function (token) { return post('/claim', { test: testMode, token: token }); })
+      .then(function (res) {
+        reveal(res && res.ok && res.code ? res.code : '—');
+      }, function () { reveal('—'); });
   }
 
   // ---------- game ----------

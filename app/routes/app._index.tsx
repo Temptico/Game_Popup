@@ -41,7 +41,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       name: p.name,
       active: p.active,
       live: live.has(p.id),
-      discountCode: p.discountCode,
+      discountCode: p.codeMode === "unique" ? "Unique per winner" : p.discountCode,
       target: p.target,
       counts: byPopup[p.id] ?? { view: 0, submit: 0, play: 0, win: 0 },
     })),

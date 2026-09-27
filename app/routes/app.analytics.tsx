@@ -16,6 +16,7 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { getInstallation } from "../lib/popups.server";
 import { getCounts, getDiscountUsage } from "../lib/analytics.server";
+import { getUniqueCodeUsage } from "../lib/discounts.server";
 import { PLAN_LIMITS } from "../lib/plans";
 
 const RANGES = [
@@ -41,24 +42,48 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   ]);
 
   // Code usage comes from Shopify and is lifetime (not range-filtered).
-  const codes = [...new Set(popups.map((p) => p.discountCode))];
+  const codes = [...new Set(popups.map((p) => p.discountCode).filter(Boolean))];
   const usageEntries = await Promise.all(
     codes.map(async (c) => [c, await getDiscountUsage(admin, c)] as const),
   );
   const usage = Object.fromEntries(usageEntries);
-  const totalUses = usageEntries.reduce((sum, [, n]) => sum + (n ?? 0), 0);
+
+  // Generated single-use codes: sum redemptions of the most recent 1,000 per popup.
+  const uniqueUsage = Object.fromEntries(
+    await Promise.all(
+      popups.map(async (p) => {
+        const claims = await db.claim.findMany({
+          where: { popupId: p.id, discountId: { not: null } },
+          select: { discountId: true },
+          orderBy: { claimedAt: "desc" },
+          take: 1000,
+        });
+        const ids = claims.map((c) => c.discountId!);
+        return [p.id, ids.length ? await getUniqueCodeUsage(admin, ids) : 0] as const;
+      }),
+    ),
+  );
+
+  const rows = popups.map((p) => {
+    const shared = p.discountCode ? usage[p.discountCode] : 0;
+    return {
+      name: p.name,
+      code: p.codeMode === "unique" ? `Unique (${p.codePrefix || "no prefix"}-…)` : p.discountCode,
+      counts: byPopup[p.id] ?? { view: 0, submit: 0, play: 0, win: 0 },
+      // null = the shared code doesn't exist in Shopify
+      uses: shared === null && p.codeMode === "static" ? null : (shared ?? 0) + uniqueUsage[p.id],
+    };
+  });
+  const totalUses =
+    usageEntries.reduce((sum, [, n]) => sum + (n ?? 0), 0) +
+    Object.values(uniqueUsage).reduce((a, b) => a + b, 0);
 
   return {
     locked: false as const,
     range,
     total,
     totalUses,
-    rows: popups.map((p) => ({
-      name: p.name,
-      code: p.discountCode,
-      counts: byPopup[p.id] ?? { view: 0, submit: 0, play: 0, win: 0 },
-      uses: usage[p.discountCode],
-    })),
+    rows,
   };
 };
 

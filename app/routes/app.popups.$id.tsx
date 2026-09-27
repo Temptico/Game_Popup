@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { redirect } from "@remix-run/node";
 import { useActionData, useLoaderData, useNavigate, useNavigation, useSubmit } from "@remix-run/react";
 import {
   Banner,
@@ -47,7 +46,7 @@ import { getDiscountUsage } from "../lib/analytics.server";
 import { PLAN_LIMITS } from "../lib/plans";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { admin, session, redirect } = await authenticate.admin(request);
   const { plan } = await getInstallation(admin);
 
   if (params.id === "new") {
@@ -61,7 +60,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  // Shopify's redirect keeps the embedded-app context (shop/host); a plain
+  // Remix redirect can land on the login page inside the admin.
+  const { admin, session, redirect } = await authenticate.admin(request);
   const shop = session.shop;
   const { settings, errors } = parseSettings(await request.json());
   if (Object.keys(errors).length) return { errors };
@@ -144,9 +145,6 @@ export default function PopupEditor() {
   return (
     <Page>
       <TitleBar title={id ? s.name : "New popup"}>
-        <a variant="breadcrumb" href="/app">
-          Popups
-        </a>
         <button variant="primary" onClick={save} disabled={saving}>
           {saving ? "Saving…" : "Save"}
         </button>

@@ -77,7 +77,7 @@ export default function Plans() {
   const actionData = useActionData<typeof action>();
 
   return (
-    <Page title="Plans">
+    <Page>
       <TitleBar title="Plans" />
       {actionData?.error && (
         <div style={{ marginBottom: 16 }}>

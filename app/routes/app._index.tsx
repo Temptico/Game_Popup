@@ -10,6 +10,8 @@ import {
   EmptyState,
   IndexTable,
   InlineStack,
+  Link,
+  Modal,
   Page,
   Text,
 } from "@shopify/polaris";
@@ -20,6 +22,7 @@ import { livePopups, publishConfig } from "../lib/popups.server";
 import { getCounts } from "../lib/analytics.server";
 import { PLAN_LIMITS } from "../lib/plans";
 import { TARGETS } from "../lib/popup-defaults";
+import { APP_VERSION } from "../lib/version";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -95,6 +98,7 @@ export default function Index() {
   const shopify = useAppBridge();
   const [params, setParams] = useSearchParams();
   const [showEmbedHint, setShowEmbedHint] = useState(false);
+  const [toDelete, setToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     try {
@@ -134,25 +138,30 @@ export default function Index() {
     }
   };
 
+  // The header lives in the Shopify admin title bar (TitleBar); the Polaris Page
+  // has no title of its own, otherwise the admin shows two headers.
   return (
-    <Page
-      title="Popups"
-      titleMetadata={
-        plan === "pro" ? <Badge tone="success">Pro</Badge> : <Badge>Free plan</Badge>
-      }
-      primaryAction={{ content: "Create popup", url: "/app/popups/new" }}
-      secondaryActions={
-        plan === "pro"
-          ? [{ content: "Analytics", url: "/app/analytics" }]
-          : [{ content: "Upgrade to Pro — $9/month", url: "/app/plans" }]
-      }
-    >
-      <TitleBar title="GameDiscount">
+    <Page>
+      <TitleBar title="Popups">
         <button variant="primary" onClick={() => navigate("/app/popups/new")}>
           Create popup
         </button>
+        {plan === "pro" ? (
+          <button onClick={() => navigate("/app/analytics")}>Analytics</button>
+        ) : (
+          <button onClick={() => navigate("/app/plans")}>Upgrade to Pro</button>
+        )}
       </TitleBar>
       <BlockStack gap="400">
+        <InlineStack gap="200" blockAlign="center">
+          <Text as="span" tone="subdued">
+            Plan:
+          </Text>
+          {plan === "pro" ? <Badge tone="success">Pro</Badge> : <Badge>Free</Badge>}
+          {plan !== "pro" && (
+            <Link url="/app/plans">Upgrade to Pro — $9/month</Link>
+          )}
+        </InlineStack>
         {showEmbedHint && (
           <Banner
             title="Step 1: turn on the popup in your theme"
@@ -198,9 +207,11 @@ export default function Index() {
                 >
                   <IndexTable.Cell>
                     <BlockStack gap="050">
-                      <Text as="span" fontWeight="semibold">
-                        {p.name}
-                      </Text>
+                      <Link url={`/app/popups/${p.id}`} removeUnderline>
+                        <Text as="span" fontWeight="semibold">
+                          {p.name}
+                        </Text>
+                      </Link>
                       <Text as="span" variant="bodySm" tone="subdued">
                         {targetLabel(p.target)}
                       </Text>
@@ -237,11 +248,7 @@ export default function Index() {
                         <Button
                           size="slim"
                           tone="critical"
-                          onClick={() => {
-                            if (confirm(`Delete "${p.name}"? Its analytics will be deleted too.`)) {
-                              submit("delete", p.id);
-                            }
-                          }}
+                          onClick={() => setToDelete({ id: p.id, name: p.name })}
                         >
                           Delete
                         </Button>
@@ -258,7 +265,28 @@ export default function Index() {
             Last 30 days. Emails = share of views that entered an email; Wins = share of emails that won.
           </Text>
         )}
+        <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+          GameDiscount v{APP_VERSION}
+        </Text>
       </BlockStack>
+      <Modal
+        open={toDelete !== null}
+        onClose={() => setToDelete(null)}
+        title={`Delete “${toDelete?.name ?? ""}”?`}
+        primaryAction={{
+          content: "Delete",
+          destructive: true,
+          onAction: () => {
+            if (toDelete) submit("delete", toDelete.id);
+            setToDelete(null);
+          },
+        }}
+        secondaryActions={[{ content: "Cancel", onAction: () => setToDelete(null) }]}
+      >
+        <Modal.Section>
+          <Text as="p">The popup and its analytics will be deleted. This can’t be undone.</Text>
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }

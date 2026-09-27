@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
-import { useActionData, useLoaderData, useNavigation, useSubmit } from "@remix-run/react";
+import { useActionData, useLoaderData, useNavigate, useNavigation, useSubmit } from "@remix-run/react";
 import {
-  Badge,
   Banner,
+  Button,
   BlockStack,
   Box,
   Card,
@@ -117,6 +117,7 @@ export default function PopupEditor() {
   const errors: ValidationErrors = actionData?.errors ?? {};
   const submit = useSubmit();
   const nav = useNavigation();
+  const navigate = useNavigate();
 
   const [s, setS] = useState<PopupSettings>(initial);
   const [tab, setTab] = useState(0);
@@ -141,13 +142,16 @@ export default function PopupEditor() {
   const saving = nav.state === "submitting";
 
   return (
-    <Page
-      backAction={{ url: "/app" }}
-      title={id ? s.name : "New popup"}
-      titleMetadata={s.active ? <Badge tone="success">Active</Badge> : <Badge>Paused</Badge>}
-      primaryAction={{ content: "Save", onAction: save, loading: saving }}
-    >
-      <TitleBar title={id ? "Edit popup" : "New popup"} />
+    <Page>
+      <TitleBar title={id ? s.name : "New popup"}>
+        <a variant="breadcrumb" href="/app">
+          Popups
+        </a>
+        <button variant="primary" onClick={save} disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button onClick={() => navigate("/app")}>Cancel</button>
+      </TitleBar>
       <Layout>
         {Object.keys(errors).length > 0 && (
           <Layout.Section>
@@ -331,6 +335,14 @@ export default function PopupEditor() {
               </Box>
             </Tabs>
           </Card>
+        </Layout.Section>
+        <Layout.Section>
+          <InlineStack align="end" gap="200">
+            <Button onClick={() => navigate("/app")}>Cancel</Button>
+            <Button variant="primary" onClick={save} loading={saving}>
+              Save
+            </Button>
+          </InlineStack>
         </Layout.Section>
       </Layout>
     </Page>

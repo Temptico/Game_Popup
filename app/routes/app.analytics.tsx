@@ -95,7 +95,7 @@ export default function Analytics() {
 
   if (data.locked) {
     return (
-      <Page title="Analytics">
+      <Page>
         <TitleBar title="Analytics" />
         <Banner
           title="Analytics is a Pro feature"
@@ -121,7 +121,7 @@ export default function Analytics() {
   ];
 
   return (
-    <Page title="Analytics">
+    <Page>
       <TitleBar title="Analytics" />
       <Layout>
         <Layout.Section>

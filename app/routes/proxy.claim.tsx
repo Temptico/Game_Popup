@@ -1,8 +1,8 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import db from "../db.server";
 import { readProxyRequest } from "../lib/proxy.server";
-import { getInstallation } from "../lib/popups.server";
-import { createUniqueDiscount } from "../lib/discounts.server";
+import { getInstallation, parseTierValues } from "../lib/popups.server";
+import { createUniqueDiscount, getShopCurrency } from "../lib/discounts.server";
 import { PLAN_LIMITS } from "../lib/plans";
 
 // Game time can only run slower than wall time, so a real win always takes at
@@ -10,6 +10,9 @@ import { PLAN_LIMITS } from "../lib/plans";
 const SLACK_MS = 1000;
 
 const fail = (error: string, status: number) => Response.json({ ok: false, error }, { status });
+
+const reply = (code: string, valueLabel: string | null, expiresAt: Date | null) =>
+  Response.json({ ok: true, code, value: valueLabel, expiresAt: expiresAt?.toISOString() ?? null });
 
 // The discount code never ships in the page source — it's released here after a win.
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -19,20 +22,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const popup = await db.popup.findFirst({ where: { id: popupId, shop, active: true } });
   if (!popup) return fail("unknown_popup", 404);
 
+  // 1 = won on the first attempt (best reward). Client-reported: the spread
+  // between tiers is small and each code is single-use anyway.
+  const tier = Math.min(3, Math.max(1, Math.round(Number(body.tier) || 3)));
+  const amount = popup.tiered ? parseTierValues(popup.tierValues)[tier - 1] : popup.discountValue;
+
   // Theme-editor test mode: show a placeholder, never a real code, and don't
   // touch analytics. (A real code here would let anyone skip the game.)
   if (body.test === true) {
-    return Response.json({
-      ok: true,
-      code: `${popup.codePrefix || "TEST"}-PREVIEW`,
-    });
+    const unique = popup.codeMode === "unique";
+    return reply(
+      `${popup.codePrefix || "TEST"}-PREVIEW`,
+      unique && popup.discountType === "percentage" ? `${amount}%` : null,
+      unique && popup.urgencyMinutes > 0 ? new Date(Date.now() + popup.urgencyMinutes * 60_000) : null,
+    );
   }
 
   const claim = await db.claim.findFirst({
     where: { token: String(body.token ?? ""), shop, popupId: popup.id },
   });
   if (!claim) return fail("invalid_token", 403);
-  if (claim.code) return Response.json({ ok: true, code: claim.code });
+  if (claim.code) return reply(claim.code, claim.valueLabel, claim.expiresAt);
 
   if (Date.now() - claim.issuedAt.getTime() < popup.surviveSec * 1000 - SLACK_MS) {
     return fail("too_fast", 403);
@@ -40,13 +50,28 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   let code: string | null = null;
   let discountId: string | null = null;
+  let valueLabel: string | null = null;
+  let expiresAt: Date | null = null;
+
   if (popup.codeMode === "unique") {
     const { plan } = await getInstallation(admin);
     if (PLAN_LIMITS[plan].uniqueCodes) {
+      // The countdown is only shown when it's real: the code actually expires.
+      expiresAt =
+        popup.urgencyMinutes > 0
+          ? new Date(Date.now() + popup.urgencyMinutes * 60_000)
+          : popup.codeExpiryDays > 0
+            ? new Date(Date.now() + popup.codeExpiryDays * 86400_000)
+            : null;
       try {
-        ({ code, discountId } = await createUniqueDiscount(admin, popup));
+        ({ code, discountId } = await createUniqueDiscount(admin, popup, { amount, endsAt: expiresAt }));
+        valueLabel =
+          popup.discountType === "percentage"
+            ? `${amount}%`
+            : `${amount} ${await getShopCurrency(admin).catch(() => "")}`.trim();
       } catch (err) {
         console.error(`[claim] ${shop}`, err);
+        expiresAt = null;
       }
     }
   }
@@ -57,13 +82,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Guard against a double-submit racing us: only the first write wins.
   const { count } = await db.claim.updateMany({
     where: { id: claim.id, code: null },
-    data: { code, discountId, claimedAt: new Date() },
+    data: { code, discountId, valueLabel, expiresAt, claimedAt: new Date() },
   });
   if (count === 0) {
     const existing = await db.claim.findUnique({ where: { id: claim.id } });
-    return Response.json({ ok: true, code: existing?.code });
+    return reply(existing?.code ?? code, existing?.valueLabel ?? null, existing?.expiresAt ?? null);
   }
 
   await db.event.create({ data: { shop, popupId: popup.id, type: "win" } });
-  return Response.json({ ok: true, code });
+  return reply(code, valueLabel, expiresAt);
 };

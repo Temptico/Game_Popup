@@ -55,7 +55,19 @@ Then:
 - `BILLING_TEST=false` in production. Anything else creates test charges.
 
 ### Editing the storefront script
-Edit `storefront/game-popup.js`. `npm run build:storefront` (which `dev` and `deploy` also run) minifies it into `extensions/gamediscount-popup/assets/game-popup.js`. Commit both files.
+The storefront code lives in `storefront/`:
+- `game-popup.js` is the core: triggers, form, floating button, reward and countdown. It is loaded on every page, so it must stay **under 10 KB minified** (Theme Check's app-block limit).
+- `games/gd-paddle.js` and `games/gd-flipper.js` are the games. Each one registers `window.GameDiscountGames[name] = (canvas, opts) => ({ start({ tick, end }), stop() })` and is loaded only when the popup opens.
+- `games/gd-fx.js` holds optional extras (confetti, and the `/contact` fallback for when the app proxy is unreachable).
+
+`npm run build:storefront` (which `dev` and `deploy` also run) minifies all of them into `extensions/gamediscount-popup/assets/`. Commit both the sources and the built files. To add a game, create `games/gd-<name>.js`, add it to the build script, the `assets` map in `blocks/game-popup.liquid`, and `GAMES` in `app/lib/popup-defaults.ts`.
+
+### Conversion features
+- **Trigger:** exit intent (mouse leaving through the top of the window, desktop only), the delay, or whichever comes first. Touch devices always use the delay.
+- **Floating button:** after the popup is closed, a pill in the bottom-left reopens the game. After a win, it shows the code and the countdown on every page until the code expires.
+- **Reward by attempt** (unique codes): the discount depends on which attempt the visitor won on (default 15/10/5%). The tier is reported by the client. The spread is small and each code is single-use, so the value of cheating it is low.
+- **Countdown:** it is only ever shown when it is real. With "Urgency countdown" set, the generated code's `endsAt` is exactly that many minutes out. A fake timer would be misleading under EU consumer law (UCPD).
+- **Flipper difficulty:** gravity 0.12 and a speed cap of 10 were tuned with a headless simulation. With the default 15 s, an idle player loses in about 5 s, a typical player (120 ms reactions, 20% misses) wins about 39% per attempt (about 77% over 3 attempts), and a slow player wins about 45% over 3 attempts.
 
 ### Production notes
 - SQLite is fine for dev. Before launch, switch the Prisma `datasource` to Postgres or MySQL, because the Event table grows with traffic.

@@ -29,7 +29,9 @@ import {
   LANGUAGES,
   STRING_KEYS,
   STRING_LABELS,
+  GAMES,
   TARGETS,
+  TRIGGERS,
   parseSettings,
   type Language,
   type PopupSettings,
@@ -78,6 +80,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     return {
       errors: {
         codeMode: "Unique codes per winner are a Pro feature. Upgrade or use one shared code.",
+      } as ValidationErrors,
+    };
+  }
+
+  if (settings.gameType === "flipper" && !PLAN_LIMITS[plan].flipper) {
+    return {
+      errors: {
+        gameType: "The Flipper game is a Pro feature. Upgrade or choose Paddle & ball.",
       } as ValidationErrors,
     };
   }
@@ -208,6 +218,8 @@ export default function PopupEditor() {
                             value={String(s.discountValue)}
                             onChange={(v) => setS((prev) => ({ ...prev, discountValue: v as unknown as number }))}
                             error={errors.discountValue}
+                            disabled={s.tiered}
+                            helpText={s.tiered ? "Set per attempt below." : undefined}
                             autoComplete="off"
                           />
                           <TextField
@@ -224,10 +236,53 @@ export default function PopupEditor() {
                             min={0}
                             value={String(s.codeExpiryDays)}
                             onChange={(v) => setS((prev) => ({ ...prev, codeExpiryDays: v as unknown as number }))}
-                            helpText="0 = never expires. A short window pushes winners to buy now."
+                            disabled={s.urgencyMinutes > 0}
+                            helpText={s.urgencyMinutes > 0 ? "Overridden by the urgency countdown below." : "0 = never expires. A short window pushes winners to buy now."}
                             autoComplete="off"
                           />
                       </InlineGrid>
+                    )}
+                    {s.codeMode === "unique" && (
+                      <BlockStack gap="300">
+                        <Checkbox
+                          label="Reward by attempt: better discount for winning on the first try"
+                          checked={s.tiered}
+                          onChange={set("tiered")}
+                          helpText="Replaces the single value above. Makes replays more exciting."
+                        />
+                        {s.tiered && (
+                          <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
+                            {(["1st attempt", "2nd attempt", "3rd attempt or later"] as const).map((label, i) => (
+                              <TextField
+                                key={label}
+                                label={`Won on ${label}`}
+                                type="number"
+                                min={0}
+                                suffix={s.discountType === "percentage" ? "%" : undefined}
+                                value={String(s.tierValues[i])}
+                                onChange={(v) =>
+                                  setS((prev) => {
+                                    const next = [...prev.tierValues] as PopupSettings["tierValues"];
+                                    next[i] = v as unknown as number;
+                                    return { ...prev, tierValues: next };
+                                  })
+                                }
+                                error={i === 0 ? errors.tierValues : undefined}
+                                autoComplete="off"
+                              />
+                            ))}
+                          </InlineGrid>
+                        )}
+                        <TextField
+                          label="Urgency countdown (minutes)"
+                          type="number"
+                          min={0}
+                          value={String(s.urgencyMinutes)}
+                          onChange={(v) => setS((prev) => ({ ...prev, urgencyMinutes: v as unknown as number }))}
+                          helpText="0 = off. When set, each winner's code really expires after this many minutes and a live countdown is shown. (A fake countdown would be misleading under EU consumer law, so it's always real.)"
+                          autoComplete="off"
+                        />
+                      </BlockStack>
                     )}
                     <TextField
                       label={s.codeMode === "unique" ? "Fallback shared code (optional)" : "Discount code shown on win"}
@@ -276,15 +331,46 @@ export default function PopupEditor() {
 
                 {tab === 1 && (
                   <FormLayout>
+                    <Select
+                      label="Game"
+                      options={GAMES.map((g) => ({ ...g, label: isPro ? g.label.replace(" (Pro)", "") : g.label }))}
+                      value={s.gameType}
+                      onChange={(v) => set("gameType")(v as PopupSettings["gameType"])}
+                      error={errors.gameType}
+                      helpText={
+                        s.gameType === "flipper"
+                          ? "Keep the ball in play with two flippers (tap left/right side or arrow keys)."
+                          : "Keep the ball bouncing with a paddle (mouse, finger or arrow keys)."
+                      }
+                    />
+                    {s.gameType === "flipper" && !isPro && (
+                      <Banner tone="info" action={{ content: "Upgrade to Pro", url: "/app/plans" }}>
+                        Flipper is a Pro feature.
+                      </Banner>
+                    )}
+                    <Select
+                      label="When to show the popup"
+                      options={[...TRIGGERS]}
+                      value={s.trigger}
+                      onChange={(v) => set("trigger")(v as PopupSettings["trigger"])}
+                    />
                     <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
-                      <TextField label="Popup delay (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" />
+                      <TextField label="Popup delay (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />
                       <TextField label="Survive time to win (seconds)" type="number" min={3} value={String(s.surviveSec)} onChange={setNum("surviveSec")} autoComplete="off" />
                     </InlineGrid>
-                    <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
-                      <TextField label="Ball speed X (vx)" type="number" step={0.1} value={String(s.vx)} onChange={setNum("vx")} error={errors.vx} autoComplete="off" helpText="Pixels per frame at 60 fps." />
-                      <TextField label="Ball speed Y (vy)" type="number" step={0.1} value={String(s.vy)} onChange={setNum("vy")} autoComplete="off" helpText="Negative = ball starts moving up." />
-                    </InlineGrid>
+                    {s.gameType === "paddle" && (
+                      <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
+                        <TextField label="Ball speed X (vx)" type="number" step={0.1} value={String(s.vx)} onChange={setNum("vx")} error={errors.vx} autoComplete="off" helpText="Pixels per frame at 60 fps." />
+                        <TextField label="Ball speed Y (vy)" type="number" step={0.1} value={String(s.vy)} onChange={setNum("vy")} autoComplete="off" helpText="Negative = ball starts moving up." />
+                      </InlineGrid>
+                    )}
                     <TextField label="Max attempts" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off" />
+                    <Checkbox
+                      label="Show a floating “Play for a discount” button after the popup is closed"
+                      helpText="Visitors who close the popup too early can come back to it. After a win it reminds them of their code."
+                      checked={s.teaser}
+                      onChange={set("teaser")}
+                    />
                   </FormLayout>
                 )}
 

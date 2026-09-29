@@ -67,8 +67,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 const FEATURES = {
-  free: ["1 active popup", "Paddle game + email capture", "4 languages (sl, hr, ro, en)", "“Powered by GameDiscount” branding"],
-  pro: ["Unique single-use code per winner", "Unlimited popups (per page type)", "No branding", "Custom colors", "Analytics dashboard", "Everything in Free"],
+  free: ["1 active popup", "Paddle game + email capture", "Exit intent + floating reopen button", "4 languages (sl, hr, ro, en)", "“Powered by GameDiscount” branding"],
+  pro: ["Flipper game", "Unique single-use code per winner", "Reward by attempt (e.g. 15/10/5%)", "Real-expiry countdown", "Unlimited popups (per page type)", "No branding", "Custom colors", "Analytics dashboard", "Everything in Free"],
 };
 
 export default function Plans() {

@@ -46,12 +46,23 @@ export function rowToSettings(row: Popup): PopupSettings {
     discountValue: row.discountValue,
     codePrefix: row.codePrefix,
     codeExpiryDays: row.codeExpiryDays,
+    gameType: row.gameType === "flipper" ? "flipper" : "paddle",
+    trigger: row.trigger === "delay" || row.trigger === "exit" ? row.trigger : "both",
+    teaser: row.teaser,
+    tiered: row.tiered,
+    tierValues: parseTierValues(row.tierValues),
+    urgencyMinutes: row.urgencyMinutes,
     strings,
   };
 }
 
+export function parseTierValues(raw: string): [number, number, number] {
+  const v = raw.split(",").map(Number);
+  return [v[0] || 15, v[1] || 10, v[2] || 5];
+}
+
 export function settingsToRow(s: PopupSettings) {
-  return { ...s, strings: JSON.stringify(s.strings) };
+  return { ...s, strings: JSON.stringify(s.strings), tierValues: s.tierValues.join(",") };
 }
 
 /**
@@ -116,6 +127,10 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         target: s.target,
         requireConsent: s.requireConsent,
         autoApply: s.autoApply,
+        // Flipper is Pro; a lapsed plan falls back to the paddle game.
+        gameType: limits.flipper ? s.gameType : "paddle",
+        trigger: s.trigger,
+        teaser: s.teaser,
         // Resolved per language so the storefront script carries no translations.
         strings: Object.fromEntries(
           LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }]),

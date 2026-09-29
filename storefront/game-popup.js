@@ -1,6 +1,6 @@
 /* GameDiscount – gamification popup (storefront). Settings: app.metafields.gamediscount.config
- * Source file. `npm run build:storefront` minifies it into
- * extensions/gamediscount-popup/assets/game-popup.js — edit here, not there. */
+ * Source file. `npm run build:storefront` minifies it (and storefront/games/*)
+ * into extensions/gamediscount-popup/assets/ — edit here, not there. */
 (function () {
   'use strict';
   if (window.__gameDiscountLoaded) return;
@@ -38,14 +38,23 @@
   var KEY_ATTEMPTS = 'gd_attempts_' + popup.id;
   var KEY_DISMISSED = 'gd_dismissed_' + popup.id;
 
+  var KEY_TEASER_OFF = 'gd_teaser_off_' + popup.id;
+
   var maxAttempts = Math.max(1, popup.maxAttempts | 0);
   var attemptsUsed = testMode ? 0 : parseInt(local.get(KEY_ATTEMPTS) || '0', 10) || 0;
 
+  // Claimed reward: { code, value, expiresAt } (older builds stored the bare code).
+  var claimed = null;
   if (!testMode) {
-    if (local.get(KEY_CLAIMED)) return;
-    if (attemptsUsed >= maxAttempts) return;
-    if (session.get(KEY_DISMISSED)) return;
+    var rawClaim = local.get(KEY_CLAIMED);
+    if (rawClaim) {
+      try { claimed = JSON.parse(rawClaim); } catch (e) { claimed = { code: rawClaim }; }
+      if (!claimed || typeof claimed !== 'object') claimed = { code: rawClaim };
+      if (claimed.expiresAt && Date.parse(claimed.expiresAt) < Date.now()) return;
+    }
+    if (!claimed && attemptsUsed >= maxAttempts) return;
   }
+  var dismissed = !testMode && !!session.get(KEY_DISMISSED);
 
   // ---------- language ----------
   // The app publishes fully resolved strings per language (defaults + merchant overrides).
@@ -56,10 +65,7 @@
   if (!t) return;
 
   function fmt(str, vars) {
-    return String(str)
-      .replace(/\{(\w+)\}/g, function (m, k) { return vars[k] != null ? vars[k] : m; })
-      .replace(/\[ime\]/g, vars.name != null ? vars.name : '[ime]') // legacy placeholders
-      .replace(/#/g, vars.n != null ? vars.n : '#');
+    return String(str).replace(/\{(\w+)\}/g, function (m, k) { return vars[k] != null ? vars[k] : m; });
   }
 
   // ---------- network (via app proxy, same origin) ----------
@@ -77,17 +83,9 @@
     post('/track', { type: type }).catch(function () {});
   }
 
-  // Fallback if the app proxy is unreachable: store email as a newsletter
-  // contact through the theme's own customer form, without reloading the page.
+  // Fallback if the app proxy is unreachable (lives in gd-fx.js to keep this file small).
   function contactFallback(name, email, consent) {
-    var fd = new FormData();
-    fd.append('form_type', 'customer');
-    fd.append('utf8', '✓');
-    fd.append('contact[email]', email);
-    fd.append('contact[first_name]', name);
-    fd.append('contact[tags]', consent ? 'gamediscount,newsletter' : 'gamediscount');
-    if (consent) fd.append('contact[accepts_marketing]', 'true');
-    return fetch('/contact', { method: 'POST', body: fd, redirect: 'manual', credentials: 'same-origin' }).catch(function () {});
+    return window.GameDiscountFx ? window.GameDiscountFx.contact(name, email, consent) : Promise.resolve();
   }
 
   // ---------- DOM ----------
@@ -129,8 +127,8 @@
   ]);
 
   // Screen 3: game
-  var W = 356, H = 220;
-  var canvas = el('canvas', { class: 'gd-canvas', width: String(W), height: String(H), 'aria-label': t.playing });
+  var gameType = popup.gameType === 'flipper' ? 'flipper' : 'paddle';
+  var canvas = el('canvas', { class: 'gd-canvas', 'aria-label': t.playing });
   var timerEl = el('div', { class: 'gd-timer', text: Number(popup.surviveSec).toFixed(1) + 's' });
   var statusEl = el('p', { class: 'gd-status', 'aria-live': 'polite' });
   var retryBtn = el('button', { class: 'gd-btn-ghost', type: 'button', hidden: '' });
@@ -141,11 +139,13 @@
 
   // Screen 4: reward
   var rewardIntro = el('p', { class: 'gd-muted' });
+  var valueEl = el('p', { class: 'gd-value', hidden: '' });
   var codeEl = el('span', { class: 'gd-code', text: '······' });
+  var expiryEl = el('p', { class: 'gd-expiry', hidden: '' });
   var copyBtn = el('button', { class: 'gd-btn', type: 'button', text: t.copyBtn });
   var closeReward = el('button', { class: 'gd-btn-ghost', type: 'button', text: t.closeBtn });
   var reward = el('div', { class: 'gd-screen', hidden: '' }, [
-    rewardIntro, codeEl,
+    rewardIntro, valueEl, codeEl, expiryEl,
     el('p', { class: 'gd-muted', text: t.rewardTeaser }),
     el('div', { class: 'gd-reward-actions' }, [copyBtn, closeReward])
   ]);
@@ -168,28 +168,81 @@
   // ---------- open / close ----------
   var prevOverflow = '';
   var lastFocus = null;
+  var opened = false;
   function open() {
+    if (!overlay.hidden && overlay.parentNode) return;
     lastFocus = document.activeElement;
     document.body.appendChild(overlay);
     overlay.hidden = false;
+    teaser.hidden = true;
     prevOverflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
     requestAnimationFrame(function () { overlay.classList.add('gd-open'); });
-    startBtn.focus({ preventScroll: true });
-    track('view');
+    (claimed ? copyBtn : startBtn).focus({ preventScroll: true });
+    if (!opened) { opened = true; track('view'); loadGame(); }
   }
   function close() {
-    stopGame();
+    // Closing mid-game counts as a lost attempt; the retry button waits on reopen.
+    if (running) { stopGame(); lose(); } else stopGame();
     overlay.classList.remove('gd-open');
     overlay.hidden = true;
     document.documentElement.style.overflow = prevOverflow;
     session.set(KEY_DISMISSED, '1');
+    showTeaser();
     if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
   }
   closeBtn.addEventListener('click', close);
   closeReward.addEventListener('click', close);
   overlay.addEventListener('click', function (e) { if (e.target === overlay && !running) close(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !overlay.hidden) close(); });
+
+  // Floating button: reopen the game, or remind the winner of their code.
+  var teaserLabel = el('span');
+  var teaserX = el('span', { class: 'gd-teaser-x', role: 'button', 'aria-label': t.closeBtn, text: '✕' });
+  var teaser = el('button', { class: 'gd-teaser', type: 'button', hidden: '' }, [teaserLabel, teaserX]);
+  teaser.style.setProperty('--gd-primary', popup.primaryColor || '#830522');
+  teaser.style.setProperty('--gd-accent', popup.accentColor || '#d9caa0');
+  teaser.addEventListener('click', function (e) {
+    if (e.target === teaserX) { teaser.hidden = true; session.set(KEY_TEASER_OFF, '1'); return; }
+    open();
+  });
+  function showTeaser() {
+    if (!popup.teaser || session.get(KEY_TEASER_OFF)) return;
+    if (!claimed && attemptsUsed >= maxAttempts) return;
+    if (!teaser.parentNode) document.body.appendChild(teaser);
+    teaser.hidden = false;
+    renderTeaser();
+  }
+  function renderTeaser() {
+    teaserLabel.textContent = claimed ? '🎁 ' + claimed.code + (claimed.expiresAt ? ' · ' + remaining(claimed.expiresAt) : '') : t.teaser;
+  }
+
+  // ---------- countdown ----------
+  function remaining(iso) {
+    var ms = Math.max(0, Date.parse(iso) - Date.now());
+    var m = Math.floor(ms / 60000), sec = Math.floor(ms / 1000) % 60;
+    return m >= 120 ? '' : m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+  setInterval(function () {
+    if (!claimed || !claimed.expiresAt) return;
+    var left = remaining(claimed.expiresAt);
+    if (left) expiryEl.textContent = fmt(t.expiresIn, { time: left });
+    if (!teaser.hidden) renderTeaser();
+    if (Date.parse(claimed.expiresAt) < Date.now()) teaser.hidden = true;
+  }, 1000);
+
+  function renderReward() {
+    codeEl.textContent = claimed.code;
+    valueEl.hidden = !claimed.value;
+    if (claimed.value) valueEl.textContent = fmt(t.rewardValue, { value: claimed.value });
+    expiryEl.hidden = !claimed.expiresAt;
+    if (claimed.expiresAt) {
+      var left = remaining(claimed.expiresAt);
+      expiryEl.textContent = left
+        ? fmt(t.expiresIn, { time: left })
+        : fmt(t.validUntil, { date: new Date(claimed.expiresAt).toLocaleDateString(document.documentElement.lang || undefined) });
+    }
+  }
 
   // ---------- flow ----------
   var player = { name: '', email: '' };
@@ -241,144 +294,73 @@
 
   function win() {
     local.set(KEY_ATTEMPTS, String(maxAttempts)); // no replays after a win
+    var tier = Math.min(3, attemptsUsed);          // 1 = won on the first attempt
     rewardIntro.textContent = fmt(t.rewardIntro, { name: player.name });
     show(reward);
-    var reveal = function (code) {
-      codeEl.textContent = code;
-      if (code === '—') {
+    if (window.GameDiscountFx) window.GameDiscountFx.confetti(overlay, [popup.accentColor, popup.primaryColor, '#fff', '#f5b400']);
+    var reveal = function (res) {
+      if (!res || !res.ok || !res.code) {
         // Claim failed (network / server). Let them come back and try again;
         // the same email gets the same claim token, so no duplicate codes.
+        codeEl.textContent = '—';
         if (!testMode) local.set(KEY_ATTEMPTS, '0');
         return;
       }
-      if (!testMode) local.set(KEY_CLAIMED, code);
+      claimed = { code: res.code, value: res.value || null, expiresAt: res.expiresAt || null };
+      renderReward();
+      if (!testMode) local.set(KEY_CLAIMED, JSON.stringify(claimed));
       if (popup.autoApply && !testMode) {
         // Sets the discount cookie so the code is pre-applied at checkout.
-        fetch('/discount/' + encodeURIComponent(code), { redirect: 'manual', credentials: 'same-origin' }).catch(function () {});
+        fetch('/discount/' + encodeURIComponent(claimed.code), { redirect: 'manual', credentials: 'same-origin' }).catch(function () {});
       }
       copyBtn.focus({ preventScroll: true });
     };
     // A slow /subscribe may still be in flight — wait for its token.
     tokenPromise
-      .then(function (token) { return post('/claim', { test: testMode, token: token }); })
-      .then(function (res) {
-        reveal(res && res.ok && res.code ? res.code : '—');
-      }, function () { reveal('—'); });
+      .then(function (token) { return post('/claim', { test: testMode, token: token, tier: tier }); })
+      .then(reveal, function () { reveal(null); });
   }
 
-  // ---------- game ----------
-  var c2d = canvas.getContext('2d');
-  var dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = W * dpr; canvas.height = H * dpr;
-  c2d.scale(dpr, dpr);
-
-  var PADDLE_W = 72, PADDLE_H = 10, PADDLE_Y = H - 18, R = 7;
-  var baseVx = Math.abs(Number(popup.vx) || 4.5);
-  var baseVy = Math.abs(Number(popup.vy) || 5);
-  var startDir = (Number(popup.vy) || -5) < 0 ? -1 : 1;
+  // ---------- game (module loaded on demand from the theme extension assets) ----------
   var surviveMs = Math.max(3, Number(popup.surviveSec) || 15) * 1000;
-
-  var running = false, raf = 0, last = 0, elapsed = 0;
-  var ball = { x: 0, y: 0, vx: 0, vy: 0 };
-  var paddleX = (W - PADDLE_W) / 2;
-  var keys = { left: false, right: false };
-
-  function setPaddleFromClient(clientX) {
-    var rect = canvas.getBoundingClientRect();
-    var x = ((clientX - rect.left) / rect.width) * W;
-    paddleX = Math.max(0, Math.min(W - PADDLE_W, x - PADDLE_W / 2));
+  var running = false, engine = null, gameReady = null;
+  function loadGame() {
+    if (gameReady) return gameReady;
+    var assets = ctx.assets || {};
+    if (!window.GameDiscountFx && assets.fx) script(assets.fx).catch(function () {}); // confetti is optional
+    gameReady = ((window.GameDiscountGames || {})[gameType] ? Promise.resolve() : script(assets[gameType])).then(function () {
+      engine = window.GameDiscountGames[gameType](canvas, {
+        primary: popup.primaryColor || '#830522', vx: popup.vx, vy: popup.vy, surviveMs: surviveMs
+      });
+    });
+    return gameReady;
   }
-  canvas.addEventListener('pointermove', function (e) { setPaddleFromClient(e.clientX); });
-  canvas.addEventListener('pointerdown', function (e) {
-    setPaddleFromClient(e.clientX);
-    if (canvas.setPointerCapture) { try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } }
-  });
-  canvas.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
-  document.addEventListener('keydown', function (e) {
-    if (!running) return;
-    if (e.key === 'ArrowLeft') { keys.left = true; e.preventDefault(); }
-    if (e.key === 'ArrowRight') { keys.right = true; e.preventDefault(); }
-  });
-  document.addEventListener('keyup', function (e) {
-    if (e.key === 'ArrowLeft') keys.left = false;
-    if (e.key === 'ArrowRight') keys.right = false;
-  });
 
-  function draw() {
-    var cs = getComputedStyle(overlay);
-    var primary = cs.getPropertyValue('--gd-primary').trim() || '#830522';
-    c2d.clearRect(0, 0, W, H);
-    c2d.fillStyle = primary;
-    roundRect(paddleX, PADDLE_Y, PADDLE_W, PADDLE_H, 5);
-    c2d.fillStyle = '#11151c';
-    c2d.beginPath(); c2d.arc(ball.x, ball.y, R, 0, Math.PI * 2); c2d.fill();
-  }
-  function roundRect(x, y, w, h, r) {
-    c2d.beginPath();
-    c2d.moveTo(x + r, y);
-    c2d.arcTo(x + w, y, x + w, y + h, r);
-    c2d.arcTo(x + w, y + h, x, y + h, r);
-    c2d.arcTo(x, y + h, x, y, r);
-    c2d.arcTo(x, y, x + w, y, r);
-    c2d.closePath(); c2d.fill();
+  function script(src) {
+    return new Promise(function (resolve, reject) {
+      var sc = document.createElement('script');
+      sc.src = src; sc.async = true; sc.onload = resolve; sc.onerror = reject;
+      document.head.appendChild(sc);
+    });
   }
 
   function startGame() {
     attemptsUsed += 1;
     if (!testMode) local.set(KEY_ATTEMPTS, String(attemptsUsed));
     track('play');
-    ball.x = W / 2; ball.y = H * 0.45;
-    ball.vx = (Math.random() < 0.5 ? -1 : 1) * baseVx;
-    ball.vy = startDir * baseVy;
-    paddleX = (W - PADDLE_W) / 2;
-    elapsed = 0;
-    statusEl.textContent = t.playing;
+    statusEl.textContent = gameType === 'flipper' ? t.flipperHelp : t.playing;
     timerEl.textContent = (surviveMs / 1000).toFixed(1) + 's';
-    running = true;
-    last = performance.now();
-    draw();
-    raf = requestAnimationFrame(tick);
+    loadGame().then(function () {
+      running = true;
+      engine.start({
+        tick: function (ms) { timerEl.textContent = (ms / 1000).toFixed(1) + 's'; },
+        end: function (won) { running = false; if (won) win(); else lose(); }
+      });
+    }, function () { statusEl.textContent = '—'; });
   }
-  function stopGame() { running = false; cancelAnimationFrame(raf); }
-
-  function tick(now) {
-    if (!running) return;
-    // Normalize to 60 fps; cap dt so a background tab can't teleport the ball.
-    var dt = Math.min((now - last) / (1000 / 60), 3);
-    last = now;
-    elapsed += dt * (1000 / 60);
-
-    if (keys.left) paddleX = Math.max(0, paddleX - 7 * dt);
-    if (keys.right) paddleX = Math.min(W - PADDLE_W, paddleX + 7 * dt);
-
-    ball.x += ball.vx * dt;
-    ball.y += ball.vy * dt;
-
-    if (ball.x - R < 0) { ball.x = R; ball.vx = Math.abs(ball.vx); }
-    if (ball.x + R > W) { ball.x = W - R; ball.vx = -Math.abs(ball.vx); }
-    if (ball.y - R < 0) { ball.y = R; ball.vy = Math.abs(ball.vy); }
-
-    // Paddle hit: bounce up, angle depends on where the ball hits the paddle.
-    if (ball.vy > 0 && ball.y + R >= PADDLE_Y && ball.y + R <= PADDLE_Y + PADDLE_H + Math.abs(ball.vy) * dt + 1 &&
-        ball.x + R >= paddleX && ball.x - R <= paddleX + PADDLE_W) {
-      ball.y = PADDLE_Y - R;
-      ball.vy = -baseVy;
-      var offset = (ball.x - (paddleX + PADDLE_W / 2)) / (PADDLE_W / 2); // -1..1
-      var dir = Math.abs(offset) < 0.05 ? (ball.vx < 0 ? -1 : 1) : (offset < 0 ? -1 : 1);
-      ball.vx = dir * baseVx * (0.6 + 0.8 * Math.min(1, Math.abs(offset)));
-    }
-
-    var left = Math.max(0, surviveMs - elapsed);
-    timerEl.textContent = (left / 1000).toFixed(1) + 's';
-    draw();
-
-    if (ball.y - R > H) return lose();
-    if (left <= 0) { stopGame(); return win(); }
-    raf = requestAnimationFrame(tick);
-  }
+  function stopGame() { running = false; if (engine) engine.stop(); }
 
   function lose() {
-    stopGame();
     var remaining = maxAttempts - attemptsUsed;
     if (remaining > 0) {
       statusEl.textContent = t.fail;
@@ -391,6 +373,26 @@
   }
 
   // ---------- trigger ----------
-  var delay = testMode ? 500 : Math.max(0, Number(popup.delaySec) || 0) * 1000;
-  setTimeout(open, delay);
+  if (claimed) {
+    // Winner on a later page: show their code in the floating button.
+    renderReward();
+    show(reward);
+    rewardIntro.textContent = '';
+    return showTeaser();
+  }
+  if (dismissed) return showTeaser();
+
+  var fired = false;
+  function fire() { if (!fired) { fired = true; open(); } }
+  var mode = testMode ? 'delay' : popup.trigger || 'both';
+  // Exit intent needs a mouse; touch devices always use the delay.
+  var hasMouse = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
+  if (mode !== 'delay' && hasMouse) {
+    document.addEventListener('mouseout', function (e) {
+      if (!e.relatedTarget && e.clientY <= 0) fire();
+    });
+  }
+  if (mode !== 'exit' || !hasMouse) {
+    setTimeout(fire, testMode ? 500 : Math.max(0, Number(popup.delaySec) || 0) * 1000);
+  }
 })();

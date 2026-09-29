@@ -56,6 +56,12 @@ model Popup {
   discountValue  Float    @default(10)
   codePrefix     String   @default("WIN")
   codeExpiryDays Int      @default(7) // 0 = never expires
+  gameType       String   @default("paddle") // paddle | flipper
+  trigger        String   @default("both") // both | delay | exit
+  teaser         Boolean  @default(true)
+  tiered         Boolean  @default(false)
+  tierValues     String   @default("15,10,5") // best → worst attempt
+  urgencyMinutes Int      @default(0)
   // JSON-encoded CustomStrings ({ sl: { introTitle: "..." }, ... })
   strings        String   @default("{}")
   createdAt      DateTime @default(now())
@@ -94,6 +100,8 @@ model Claim {
   issuedAt   DateTime  @default(now())
   code       String?
   discountId String?
+  valueLabel String?
+  expiresAt  DateTime?
   claimedAt  DateTime?
 
   @@unique([popupId, emailHash])

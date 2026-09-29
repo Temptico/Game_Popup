@@ -28,20 +28,14 @@ export const hashEmail = (shop: string, email: string) =>
  */
 export async function createUniqueDiscount(
   admin: AdminApi,
-  popup: Pick<
-    Popup,
-    "name" | "discountType" | "discountValue" | "codePrefix" | "codeExpiryDays"
-  >,
+  popup: Pick<Popup, "name" | "discountType" | "codePrefix">,
+  { amount, endsAt }: { amount: number; endsAt: Date | null },
 ): Promise<{ code: string; discountId: string }> {
   const now = new Date();
-  const endsAt =
-    popup.codeExpiryDays > 0
-      ? new Date(now.getTime() + popup.codeExpiryDays * 86400_000).toISOString()
-      : null;
   const value =
     popup.discountType === "fixed"
-      ? { discountAmount: { amount: popup.discountValue, appliesOnEachItem: false } }
-      : { percentage: Math.min(100, popup.discountValue) / 100 };
+      ? { discountAmount: { amount, appliesOnEachItem: false } }
+      : { percentage: Math.min(100, amount) / 100 };
 
   // Retry on the (astronomically unlikely) event of a code collision.
   let lastError = "";
@@ -61,7 +55,7 @@ export async function createUniqueDiscount(
             title: `GameDiscount – ${popup.name} – ${code}`,
             code,
             startsAt: now.toISOString(),
-            endsAt,
+            endsAt: endsAt ? endsAt.toISOString() : null,
             context: { all: "ALL" },
             customerGets: { value, items: { all: true } },
             usageLimit: 1,
@@ -106,4 +100,11 @@ export async function getUniqueCodeUsage(admin: AdminApi, discountIds: string[])
     }
   }
   return total;
+}
+
+export async function getShopCurrency(admin: AdminApi): Promise<string> {
+  const res = await admin.graphql(`#graphql
+    query GameDiscountCurrency { shop { currencyCode } }`);
+  const json = await res.json();
+  return json.data?.shop?.currencyCode ?? "";
 }

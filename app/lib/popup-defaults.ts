@@ -32,6 +32,11 @@ export const STRING_KEYS = [
   "copyBtn",
   "copied",
   "closeBtn",
+  "teaser",
+  "rewardValue",
+  "expiresIn",
+  "validUntil",
+  "flipperHelp",
 ] as const;
 export type StringKey = (typeof STRING_KEYS)[number];
 export type Strings = Record<StringKey, string>;
@@ -58,6 +63,11 @@ export const STRING_LABELS: Record<StringKey, string> = {
   copyBtn: "Copy button",
   copied: "Copied confirmation",
   closeBtn: "Close button",
+  teaser: "Floating button to reopen the game",
+  rewardValue: "Won value ({value} = e.g. 15%)",
+  expiresIn: "Countdown ({time} = mm:ss)",
+  validUntil: "Expiry date ({date})",
+  flipperHelp: "Flipper instructions",
 };
 
 export const DEFAULT_STRINGS: Record<Language, Strings> = {
@@ -82,6 +92,11 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     copyBtn: "Kopiraj kodo",
     copied: "Kopirano!",
     closeBtn: "Zapri",
+    teaser: "🎁 Igraj za popust",
+    rewardValue: "Osvojil si {value} popusta!",
+    expiresIn: "Koda poteče čez {time}",
+    validUntil: "Koda velja do {date}",
+    flipperHelp: "Tapni levo ali desno za loparčka",
   },
   hr: {
     introTitle: "Igraj za tajni popust",
@@ -104,6 +119,11 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     copyBtn: "Kopiraj kod",
     copied: "Kopirano!",
     closeBtn: "Zatvori",
+    teaser: "🎁 Igraj za popust",
+    rewardValue: "Osvojio si {value} popusta!",
+    expiresIn: "Kod istječe za {time}",
+    validUntil: "Kod vrijedi do {date}",
+    flipperHelp: "Dodirni lijevo ili desno za lopatice",
   },
   ro: {
     introTitle: "Joacă pentru reducere misterioasă",
@@ -126,6 +146,11 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     copyBtn: "Copiază codul",
     copied: "Copiat!",
     closeBtn: "Închide",
+    teaser: "🎁 Joacă pentru reducere",
+    rewardValue: "Ai câștigat {value} reducere!",
+    expiresIn: "Codul expiră în {time}",
+    validUntil: "Codul este valabil până la {date}",
+    flipperHelp: "Atinge stânga sau dreapta pentru palete",
   },
   en: {
     introTitle: "Play for a mystery discount",
@@ -148,6 +173,11 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     copyBtn: "Copy code",
     copied: "Copied!",
     closeBtn: "Close",
+    teaser: "🎁 Play for a discount",
+    rewardValue: "You won {value} off!",
+    expiresIn: "Code expires in {time}",
+    validUntil: "Code valid until {date}",
+    flipperHelp: "Tap left or right to flip",
   },
 };
 
@@ -159,6 +189,17 @@ export const TARGETS = [
   { label: "Cart page", value: "cart" },
   { label: "Blog & article pages", value: "blog" },
   { label: "Content pages", value: "page" },
+] as const;
+
+export const GAMES = [
+  { label: "Paddle & ball", value: "paddle" },
+  { label: "Flipper (Pro)", value: "flipper" },
+] as const;
+
+export const TRIGGERS = [
+  { label: "Exit intent or delay – whichever comes first (recommended)", value: "both" },
+  { label: "After the delay", value: "delay" },
+  { label: "On exit intent only (desktop; mobile falls back to delay)", value: "exit" },
 ] as const;
 
 export const DEFAULT_PRIMARY = "#830522";
@@ -183,6 +224,14 @@ export interface PopupSettings {
   discountValue: number;
   codePrefix: string;
   codeExpiryDays: number;
+  gameType: "paddle" | "flipper";
+  trigger: "both" | "delay" | "exit";
+  teaser: boolean;
+  tiered: boolean;
+  // Best → worst: won on 1st, 2nd, 3rd+ attempt
+  tierValues: [number, number, number];
+  // >0: unique codes expire this many minutes after winning (shown as a countdown)
+  urgencyMinutes: number;
   strings: CustomStrings;
 }
 
@@ -205,6 +254,12 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   discountValue: 10,
   codePrefix: "WIN",
   codeExpiryDays: 7,
+  gameType: "paddle",
+  trigger: "both",
+  teaser: true,
+  tiered: false,
+  tierValues: [15, 10, 5],
+  urgencyMinutes: 0,
   strings: {},
 };
 
@@ -250,6 +305,20 @@ export function parseSettings(input: Record<string, unknown>): {
   const codePrefix = String(input.codePrefix ?? "").trim().toUpperCase();
   if (!/^[A-Z0-9-]{0,12}$/.test(codePrefix)) {
     errors.codePrefix = "Prefix: up to 12 letters, numbers or dashes.";
+  }
+
+  const tiered = codeMode === "unique" && (input.tiered === true || input.tiered === "true");
+  const rawTiers = Array.isArray(input.tierValues) ? input.tierValues : d.tierValues;
+  const tierValues = [0, 1, 2].map((i) => num(rawTiers[i], d.tierValues[i], 0, 1_000_000)) as [
+    number,
+    number,
+    number,
+  ];
+  if (
+    tiered &&
+    tierValues.some((v) => v <= 0 || (discountType === "percentage" && v > 100))
+  ) {
+    errors.tierValues = "Each tier needs a value greater than 0 (percentages up to 100).";
   }
 
   const primaryColor = String(input.primaryColor ?? d.primaryColor);
@@ -300,6 +369,12 @@ export function parseSettings(input: Record<string, unknown>): {
       discountValue,
       codePrefix,
       codeExpiryDays: Math.round(num(input.codeExpiryDays, d.codeExpiryDays, 0, 365)),
+      gameType: input.gameType === "flipper" ? "flipper" : "paddle",
+      trigger: input.trigger === "delay" || input.trigger === "exit" ? input.trigger : "both",
+      teaser: input.teaser !== false && input.teaser !== "false",
+      tiered,
+      tierValues,
+      urgencyMinutes: Math.round(num(input.urgencyMinutes, 0, 0, 1440)),
       strings,
     },
   };

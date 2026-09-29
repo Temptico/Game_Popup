@@ -156,3 +156,34 @@
 @media (prefers-reduced-motion: reduce) {
   .gd-overlay, .gd-card { transition: none; }
 }
+
+.gd-value { font-size: 18px; font-weight: bold; color: var(--gd-text); margin: 0 0 10px; }
+.gd-expiry { font-size: 13px; color: var(--gd-accent); margin: -4px 0 12px; font-family: monospace; }
+.gd-confetti { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+
+.gd-teaser {
+  --gd-primary: #830522;
+  --gd-accent: #d9caa0;
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 2147482999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  background: var(--gd-primary);
+  color: #f5eeea;
+  border: 2px solid var(--gd-accent);
+  border-radius: 999px;
+  padding: 10px 12px 10px 16px;
+  font: bold 14px/1.2 Georgia, serif;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  animation: gd-pop 0.35s ease-out;
+}
+.gd-teaser[hidden] { display: none; }
+.gd-teaser-x { opacity: 0.7; font-size: 12px; padding: 2px 4px; }
+.gd-teaser-x:hover { opacity: 1; }
+@keyframes gd-pop { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .gd-teaser { animation: none; } }

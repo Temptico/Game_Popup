@@ -11,7 +11,12 @@
       template: {{ template.name | json }},
       designMode: {{ request.design_mode | json }},
       alwaysShow: {{ block.settings.always_show | json }},
-      proxy: "/apps/gamediscount"
+      proxy: "/apps/gamediscount",
+      assets: {
+        paddle: {{ 'gd-paddle.js' | asset_url | json }},
+        flipper: {{ 'gd-flipper.js' | asset_url | json }},
+        fx: {{ 'gd-fx.js' | asset_url | json }}
+      }
     };
   </script>
 {%- endif -%}

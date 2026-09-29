@@ -4,6 +4,7 @@ import {
   Badge,
   Banner,
   BlockStack,
+  Box,
   Button,
   Card,
   InlineGrid,
@@ -14,31 +15,45 @@ import {
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
-import { publishConfig } from "../lib/popups.server";
-import { PRO_PLAN, PRO_PRICE } from "../lib/plans";
+import { getInstallation, publishConfig } from "../lib/popups.server";
+import { getBillingStatus } from "../lib/revenue.server";
+import { PLANS, PLAN_LABELS, planFromSubscriptionName, type PlanName } from "../lib/plans";
 
 // Test charges unless explicitly running in production billing mode.
 const isTest = process.env.BILLING_TEST !== "false";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { billing } = await authenticate.admin(request);
-  const { hasActivePayment, appSubscriptions } = await billing.check({
-    plans: [PRO_PLAN],
+  const { admin, session, billing } = await authenticate.admin(request);
+  const { plan } = await getInstallation(admin);
+  const status = await getBillingStatus(session.shop, plan);
+  const { appSubscriptions } = await billing.check({
+    plans: PLANS.flatMap((p) => (p.billingName ? [p.billingName] : [])),
     isTest,
   });
-  return { isPro: hasActivePayment, subscriptionId: appSubscriptions[0]?.id ?? null };
+  const current = appSubscriptions.find((s) => planFromSubscriptionName(s.name) === plan);
+  return {
+    plan,
+    revenueUsd: status.revenueUsd,
+    required: status.required,
+    subscriptionId: current?.id ?? appSubscriptions[0]?.id ?? null,
+    // JSON can't carry Infinity; null = unlimited.
+    plans: PLANS.map((p) => ({ ...p, revenueCap: Number.isFinite(p.revenueCap) ? p.revenueCap : null })),
+  };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { billing, session, admin } = await authenticate.admin(request);
   const form = await request.formData();
+  const intent = form.get("intent");
 
-  if (form.get("intent") === "upgrade") {
+  if (intent === "subscribe") {
+    const target = PLANS.find((p) => p.key === form.get("plan"));
+    if (!target?.billingName) return { error: "Unknown plan" };
     const storeHandle = session.shop.replace(".myshopify.com", "");
     try {
-      // Throws a redirect to Shopify's approval screen.
+      // Throws a redirect to Shopify's approval screen; approving replaces any current plan.
       await billing.request({
-        plan: PRO_PLAN,
+        plan: target.billingName,
         isTest,
         returnUrl: `https://admin.shopify.com/store/${storeHandle}/apps/${process.env.SHOPIFY_API_KEY}/app`,
       });
@@ -55,7 +70,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
   }
 
-  if (form.get("intent") === "cancel") {
+  if (intent === "cancel") {
     await billing.cancel({
       subscriptionId: String(form.get("subscriptionId")),
       isTest,
@@ -66,62 +81,122 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return { error: null as string | null };
 };
 
-const FEATURES = {
-  free: ["1 active popup", "Paddle game + email capture", "Exit intent + floating reopen button", "4 languages (sl, hr, ro, en)", "“Powered by GameDiscount” branding"],
-  pro: ["Flipper game", "Unique single-use code per winner", "Reward by attempt (e.g. 15/10/5%)", "Real-expiry countdown", "Unlimited popups (per page type)", "No branding", "Custom colors", "Analytics dashboard", "Everything in Free"],
-};
+const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
 export default function Plans() {
-  const { isPro, subscriptionId } = useLoaderData<typeof loader>();
-  const busy = useNavigation().state !== "idle";
+  const { plan, revenueUsd, required, subscriptionId, plans } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const nav = useNavigation();
+  const busyPlan = nav.state !== "idle" ? nav.formData?.get("plan") ?? nav.formData?.get("intent") : null;
+  const rank = (k: PlanName) => plans.findIndex((p) => p.key === k);
 
   return (
     <Page>
       <TitleBar title="Plans" />
-      {actionData?.error && (
-        <div style={{ marginBottom: 16 }}>
+      <BlockStack gap="400">
+        {actionData?.error && (
           <Banner tone="critical" title="Shopify rejected the subscription">
             <p>{actionData.error}</p>
           </Banner>
-        </div>
-      )}
-      <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
+        )}
         <Card>
-          <BlockStack gap="300">
-            <InlineStack align="space-between">
-              <Text as="h2" variant="headingLg">Free</Text>
-              {!isPro && <Badge tone="success">Current</Badge>}
+          <BlockStack gap="200">
+            <Text as="h2" variant="headingMd">
+              Pay only when GameDiscount makes you money
+            </Text>
+            <Text as="p">
+              Every plan includes every feature: all games, unique codes, reward tiers, countdown,
+              unlimited popups and analytics. Plans differ only by how much revenue the popup
+              generates for you (orders that use a GameDiscount code, last 30 days).
+            </Text>
+            <InlineStack gap="200" blockAlign="center">
+              <Text as="span" tone="subdued">
+                Your popup revenue (30 days):
+              </Text>
+              <Text as="span" variant="headingLg">
+                {usd(revenueUsd)}
+              </Text>
             </InlineStack>
-            <Text as="p" variant="heading2xl">$0</Text>
-            <List>{FEATURES.free.map((f) => <List.Item key={f}>{f}</List.Item>)}</List>
           </BlockStack>
         </Card>
-        <Card>
-          <BlockStack gap="300">
-            <InlineStack align="space-between">
-              <Text as="h2" variant="headingLg">Pro</Text>
-              {isPro && <Badge tone="success">Current</Badge>}
-            </InlineStack>
-            <Text as="p" variant="heading2xl">${PRO_PRICE}<Text as="span" tone="subdued"> / month</Text></Text>
-            <List>{FEATURES.pro.map((f) => <List.Item key={f}>{f}</List.Item>)}</List>
-            <Form method="post">
-              {isPro ? (
-                <>
-                  <input type="hidden" name="intent" value="cancel" />
-                  <input type="hidden" name="subscriptionId" value={subscriptionId ?? ""} />
-                  <Button submit tone="critical" loading={busy}>Cancel Pro</Button>
-                </>
-              ) : (
-                <>
-                  <input type="hidden" name="intent" value="upgrade" />
-                  <Button submit variant="primary" loading={busy}>Upgrade to Pro</Button>
-                </>
-              )}
-            </Form>
-          </BlockStack>
-        </Card>
-      </InlineGrid>
+
+        <InlineGrid columns={{ xs: 1, sm: 2, lg: 4 }} gap="400">
+          {plans.map((p) => {
+            const isCurrent = p.key === plan;
+            const recommended = p.key === required && !isCurrent && rank(required) > rank(plan);
+            return (
+              <Card key={p.key} background={recommended ? "bg-surface-success" : undefined}>
+                <BlockStack gap="300">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text as="h3" variant="headingLg">
+                      {PLAN_LABELS[p.key]}
+                    </Text>
+                    {isCurrent && <Badge tone="success">Current</Badge>}
+                    {recommended && <Badge tone="attention">Recommended</Badge>}
+                  </InlineStack>
+                  <Text as="p" variant="heading2xl">
+                    {p.price === 0 ? "$0" : `$${p.price}`}
+                    {p.price > 0 && (
+                      <Text as="span" tone="subdued" variant="bodyMd">
+                        {" "}
+                        / month
+                      </Text>
+                    )}
+                  </Text>
+                  <Box minHeight="72px">
+                    <List>
+                      <List.Item>
+                        {p.revenueCap === null
+                          ? "Unlimited popup revenue"
+                          : `Up to ${usd(p.revenueCap)} popup revenue / 30 days`}
+                      </List.Item>
+                      <List.Item>All features</List.Item>
+                      <List.Item>{p.key === "free" ? "“Powered by GameDiscount”" : "No branding"}</List.Item>
+                    </List>
+                  </Box>
+                  {isCurrent ? (
+                    p.key !== "free" && subscriptionId ? (
+                      <Form method="post">
+                        <input type="hidden" name="intent" value="cancel" />
+                        <input type="hidden" name="subscriptionId" value={subscriptionId} />
+                        <Button submit tone="critical" variant="plain" loading={busyPlan === "cancel"}>
+                          Switch to Free
+                        </Button>
+                      </Form>
+                    ) : (
+                      <Text as="p" tone="subdued">
+                        Your current plan
+                      </Text>
+                    )
+                  ) : p.key === "free" ? (
+                    <Text as="p" tone="subdued">
+                      Cancel your plan to return to Free
+                    </Text>
+                  ) : (
+                    <Form method="post">
+                      <input type="hidden" name="intent" value="subscribe" />
+                      <input type="hidden" name="plan" value={p.key} />
+                      <Button
+                        submit
+                        fullWidth
+                        variant={recommended ? "primary" : "secondary"}
+                        loading={busyPlan === p.key}
+                      >
+                        {rank(p.key) > rank(plan) ? `Upgrade to ${PLAN_LABELS[p.key]}` : `Switch to ${PLAN_LABELS[p.key]}`}
+                      </Button>
+                    </Form>
+                  )}
+                </BlockStack>
+              </Card>
+            );
+          })}
+        </InlineGrid>
+        <Text as="p" tone="subdued" variant="bodySm">
+          If your popup revenue goes above your plan, the popup keeps running for 14 days so you
+          have time to upgrade. Revenue in other currencies is converted to USD at approximate
+          rates.
+        </Text>
+      </BlockStack>
     </Page>
   );
 }

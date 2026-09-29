@@ -193,7 +193,7 @@ export const TARGETS = [
 
 export const GAMES = [
   { label: "Paddle & ball", value: "paddle" },
-  { label: "Flipper (Pro)", value: "flipper" },
+  { label: "Flipper", value: "flipper" },
 ] as const;
 
 export const TRIGGERS = [

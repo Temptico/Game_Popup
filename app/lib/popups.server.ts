@@ -1,14 +1,13 @@
 import type { Popup } from "@prisma/client";
 import db from "../db.server";
 import {
-  DEFAULT_ACCENT,
-  DEFAULT_PRIMARY,
   DEFAULT_STRINGS,
   LANGUAGES,
   type CustomStrings,
   type PopupSettings,
 } from "./popup-defaults";
-import { PLAN_LIMITS, PRO_PLAN, type PlanName } from "./plans";
+import { PLAN_LIMITS, planFromSubscriptionName, type PlanName } from "./plans";
+import { getBillingStatus } from "./revenue.server";
 
 export const METAFIELD_NAMESPACE = "gamediscount";
 export const METAFIELD_KEY = "config";
@@ -83,18 +82,21 @@ export async function getInstallation(admin: AdminApi) {
   );
   const json = await res.json();
   const inst = json.data.currentAppInstallation;
-  const isPro = (inst.activeSubscriptions as { name: string; status: string }[]).some(
-    (s) => s.name === PRO_PLAN && s.status === "ACTIVE",
-  );
-  return { id: inst.id as string, plan: (isPro ? "pro" : "free") as PlanName };
+  const active = (inst.activeSubscriptions as { name: string; status: string }[])
+    .filter((s) => s.status === "ACTIVE")
+    .map((s) => planFromSubscriptionName(s.name))
+    .filter((p): p is PlanName => p !== null);
+  // If several are active (e.g. mid-switch), the highest plan wins.
+  const order: PlanName[] = ["scale", "growth", "standard", "free"];
+  const plan = order.find((p) => active.includes(p)) ?? "free";
+  return { id: inst.id as string, plan };
 }
 
-/** Popups that are actually live on the storefront given the plan's limits. */
-export function livePopups(popups: Popup[], plan: PlanName) {
-  const active = popups
+/** Active popups in creation order (every plan allows unlimited popups). */
+export function livePopups(popups: Popup[]) {
+  return popups
     .filter((p) => p.active)
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  return active.slice(0, PLAN_LIMITS[plan].activePopups);
 }
 
 /**
@@ -109,12 +111,14 @@ export async function publishConfig(admin: AdminApi, shop: string) {
     db.popup.findMany({ where: { shop } }),
   ]);
   const limits = PLAN_LIMITS[plan];
+  // Over the plan's revenue cap past the grace period → pause the storefront popup.
+  const billing = await getBillingStatus(shop, plan);
 
   const config = {
     v: 1,
     plan,
     branding: limits.branding,
-    popups: livePopups(popups, plan).map((p) => {
+    popups: (billing.paused ? [] : livePopups(popups)).map((p) => {
       const s = rowToSettings(p);
       return {
         id: p.id,
@@ -123,13 +127,12 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         vx: s.vx,
         vy: s.vy,
         maxAttempts: s.maxAttempts,
-        primaryColor: limits.customColors ? s.primaryColor : DEFAULT_PRIMARY,
-        accentColor: limits.customColors ? s.accentColor : DEFAULT_ACCENT,
+        primaryColor: s.primaryColor,
+        accentColor: s.accentColor,
         target: s.target,
         requireConsent: s.requireConsent,
         autoApply: s.autoApply,
-        // Flipper is Pro; a lapsed plan falls back to the paddle game.
-        gameType: limits.flipper ? s.gameType : "paddle",
+        gameType: s.gameType,
         trigger: s.trigger,
         frequency: s.frequency,
         teaser: s.teaser,
@@ -167,5 +170,5 @@ export async function publishConfig(admin: AdminApi, shop: string) {
   if (errors.length) {
     throw new Error(`metafieldsSet failed: ${JSON.stringify(errors)}`);
   }
-  return { plan, config };
+  return { plan, config, billing };
 }

@@ -108,3 +108,28 @@ model Claim {
   @@unique([popupId, emailHash])
   @@index([shop, claimedAt])
 }
+
+// Orders that used a GameDiscount code (shared or unique). Drives the
+// revenue-based plans and the analytics revenue figures. No customer data.
+model AttributedOrder {
+  id        String   @id @default(cuid())
+  shop      String
+  orderId   String
+  popupId   String?
+  code      String
+  // Order total in the shop currency, and converted to USD for plan limits
+  amount    Float
+  currency  String
+  amountUsd Float
+  createdAt DateTime @default(now())
+
+  @@unique([shop, orderId])
+  @@index([shop, createdAt])
+}
+
+// Per-shop billing state for revenue-based plans.
+model ShopState {
+  shop           String    @id
+  // When the store first exceeded its plan's revenue cap (null = within plan)
+  overLimitSince DateTime?
+}

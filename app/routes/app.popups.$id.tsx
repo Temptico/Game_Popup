@@ -47,7 +47,6 @@ import {
   settingsToRow,
 } from "../lib/popups.server";
 import { getDiscountUsage } from "../lib/analytics.server";
-import { PLAN_LIMITS } from "../lib/plans";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -76,37 +75,6 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   if (!isNew) {
     const existing = await db.popup.findFirst({ where: { id: params.id, shop } });
     if (!existing) throw redirect("/app");
-  }
-
-  const { plan } = await getInstallation(admin);
-  if (settings.codeMode === "unique" && !PLAN_LIMITS[plan].uniqueCodes) {
-    return {
-      errors: {
-        codeMode: "Unique codes per winner are a Pro feature. Upgrade or use one shared code.",
-      } as ValidationErrors,
-    };
-  }
-
-  if (settings.gameType === "flipper" && !PLAN_LIMITS[plan].flipper) {
-    return {
-      errors: {
-        gameType: "The Flipper game is a Pro feature. Upgrade or choose Paddle & ball.",
-      } as ValidationErrors,
-    };
-  }
-
-  if (settings.active) {
-    const otherActive = await db.popup.count({
-      where: { shop, active: true, ...(isNew ? {} : { NOT: { id: params.id } }) },
-    });
-    if (otherActive >= PLAN_LIMITS[plan].activePopups) {
-      return {
-        errors: {
-          active:
-            "The Free plan allows 1 active popup. Pause the other popup or upgrade to Pro.",
-        } as ValidationErrors,
-      };
-    }
   }
 
   const data = settingsToRow(settings);
@@ -152,7 +120,7 @@ export default function PopupEditor() {
   const save = () =>
     submit(s as unknown as Record<string, string>, { method: "POST", encType: "application/json" });
 
-  const isPro = plan === "pro";
+  const branded = plan === "free";
   const saving = nav.state === "submitting";
 
   return (
@@ -186,7 +154,7 @@ export default function PopupEditor() {
                       label="Discount code type"
                       options={[
                         { label: "One shared code (you create it in Discounts)", value: "static" },
-                        { label: `Unique single-use code per winner${isPro ? "" : " (Pro)"}`, value: "unique" },
+                        { label: "Unique single-use code per winner", value: "unique" },
                       ]}
                       value={s.codeMode}
                       onChange={(v) => set("codeMode")(v as PopupSettings["codeMode"])}
@@ -197,11 +165,6 @@ export default function PopupEditor() {
                           : "Every winner sees the same code."
                       }
                     />
-                    {s.codeMode === "unique" && !isPro && (
-                      <Banner tone="info" action={{ content: "Upgrade to Pro", url: "/app/plans" }}>
-                        Unique codes are a Pro feature.
-                      </Banner>
-                    )}
                     {s.codeMode === "unique" && (
                       <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                           <Select
@@ -296,7 +259,7 @@ export default function PopupEditor() {
                       helpText={
                         <>
                           {s.codeMode === "unique"
-                            ? "Used only if a unique code can't be created (e.g. Pro lapsed). Create it in "
+                            ? "Used only if a unique code can't be created (e.g. a temporary Shopify error). Create it in "
                             : "Create the code first in "}
                           <Link url="shopify:admin/discounts" target="_top">
                             Discounts
@@ -336,7 +299,7 @@ export default function PopupEditor() {
                   <FormLayout>
                     <Select
                       label="Game"
-                      options={GAMES.map((g) => ({ ...g, label: isPro ? g.label.replace(" (Pro)", "") : g.label }))}
+                      options={[...GAMES]}
                       value={s.gameType}
                       onChange={(v) => set("gameType")(v as PopupSettings["gameType"])}
                       error={errors.gameType}
@@ -346,11 +309,6 @@ export default function PopupEditor() {
                           : "Keep the ball bouncing with a paddle (mouse, finger or arrow keys)."
                       }
                     />
-                    {s.gameType === "flipper" && !isPro && (
-                      <Banner tone="info" action={{ content: "Upgrade to Pro", url: "/app/plans" }}>
-                        Flipper is a Pro feature.
-                      </Banner>
-                    )}
                     <Select
                       label="When to show the popup"
                       options={[...TRIGGERS]}
@@ -386,17 +344,11 @@ export default function PopupEditor() {
 
                 {tab === 2 && (
                   <BlockStack gap="400">
-                    {!isPro && (
-                      <Banner tone="info" action={{ content: "Upgrade to Pro", url: "/app/plans" }}>
-                        Custom colors are a Pro feature. You can pick them now; the storefront uses the
-                        default colors until you upgrade.
-                      </Banner>
-                    )}
                     <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                       <ColorField label="Primary color (background)" value={s.primaryColor} onChange={set("primaryColor")} error={errors.primaryColor} />
                       <ColorField label="Accent color (buttons, code)" value={s.accentColor} onChange={set("accentColor")} error={errors.accentColor} />
                     </InlineGrid>
-                    <Preview settings={s} branding={!isPro} />
+                    <Preview settings={s} branding={branded} />
                   </BlockStack>
                 )}
 

@@ -1,7 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
 import {
-  Banner,
   BlockStack,
   Card,
   DataTable,
@@ -14,10 +13,9 @@ import {
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { getInstallation } from "../lib/popups.server";
 import { getCounts, getDiscountUsage } from "../lib/analytics.server";
 import { getUniqueCodeUsage } from "../lib/discounts.server";
-import { PLAN_LIMITS } from "../lib/plans";
+import { getRevenue } from "../lib/revenue.server";
 
 const RANGES = [
   { label: "Last 7 days", value: "7" },
@@ -29,16 +27,15 @@ const RANGES = [
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
-  const { plan } = await getInstallation(admin);
-  if (!PLAN_LIMITS[plan].analytics) return { locked: true as const };
 
   const range = new URL(request.url).searchParams.get("range") ?? "30";
   const days = parseInt(range, 10);
   const since = Number.isFinite(days) ? new Date(Date.now() - days * 86400_000) : null;
 
-  const [popups, { total, byPopup }] = await Promise.all([
+  const [popups, { total, byPopup }, revenue] = await Promise.all([
     db.popup.findMany({ where: { shop }, orderBy: { createdAt: "asc" } }),
     getCounts(shop, since),
+    getRevenue(shop, since),
   ]);
 
   // Code usage comes from Shopify and is lifetime (not range-filtered).
@@ -70,6 +67,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       name: p.name,
       code: p.codeMode === "unique" ? `Unique (${p.codePrefix || "no prefix"}-…)` : p.discountCode,
       counts: byPopup[p.id] ?? { view: 0, submit: 0, play: 0, win: 0 },
+      revenue: revenue.byPopup[p.id] ?? { amount: 0, orders: 0 },
       // null = the shared code doesn't exist in Shopify
       uses: shared === null && p.codeMode === "static" ? null : (shared ?? 0) + uniqueUsage[p.id],
     };
@@ -79,8 +77,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     Object.values(uniqueUsage).reduce((a, b) => a + b, 0);
 
   return {
-    locked: false as const,
     range,
+    revenue: { amount: revenue.amount, currency: revenue.currency, usd: revenue.usd, orders: revenue.orders },
     total,
     totalUses,
     rows,
@@ -93,26 +91,13 @@ export default function Analytics() {
   const data = useLoaderData<typeof loader>();
   const [params, setParams] = useSearchParams();
 
-  if (data.locked) {
-    return (
-      <Page>
-        <TitleBar title="Analytics" />
-        <Banner
-          title="Analytics is a Pro feature"
-          tone="info"
-          action={{ content: "Upgrade to Pro — $9/month", url: "/app/plans" }}
-        >
-          <p>
-            Events are already being recorded on the Free plan, so your full history is available
-            the moment you upgrade.
-          </p>
-        </Banner>
-      </Page>
-    );
-  }
-
-  const { total, totalUses, rows, range } = data;
+  const { total, totalUses, rows, range, revenue } = data;
+  const money = (n: number) =>
+    revenue.currency
+      ? new Intl.NumberFormat(undefined, { style: "currency", currency: revenue.currency, maximumFractionDigits: 0 }).format(n)
+      : `$${Math.round(n).toLocaleString("en-US")}`;
   const stats = [
+    { label: "Revenue from popup", value: money(revenue.currency ? revenue.amount : revenue.usd), sub: `${revenue.orders} orders with a GameDiscount code` },
     { label: "Popup views", value: total.view, sub: "" },
     { label: "Form submissions", value: total.submit, sub: `${pct(total.submit, total.view)} of views` },
     { label: "Games played", value: total.play, sub: "incl. retries" },
@@ -136,7 +121,7 @@ export default function Analytics() {
           </div>
         </Layout.Section>
         <Layout.Section>
-          <InlineGrid columns={{ xs: 2, md: 5 }} gap="400">
+          <InlineGrid columns={{ xs: 2, md: 3, lg: 6 }} gap="400">
             {stats.map((s) => (
               <Card key={s.label}>
                 <BlockStack gap="100">
@@ -157,8 +142,8 @@ export default function Analytics() {
         <Layout.Section>
           <Card padding="0">
             <DataTable
-              columnContentTypes={["text", "text", "numeric", "numeric", "numeric", "numeric", "numeric"]}
-              headings={["Popup", "Code", "Views", "Submissions", "Games", "Wins", "Code uses"]}
+              columnContentTypes={["text", "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"]}
+              headings={["Popup", "Code", "Views", "Submissions", "Games", "Wins", "Code uses", "Revenue"]}
               rows={rows.map((r) => [
                 r.name,
                 r.code,
@@ -167,6 +152,7 @@ export default function Analytics() {
                 r.counts.play,
                 r.counts.win,
                 r.uses === null ? "code not found" : r.uses,
+                `${money(r.revenue.amount)} (${r.revenue.orders})`,
               ])}
             />
           </Card>

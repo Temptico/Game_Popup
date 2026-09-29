@@ -1,9 +1,8 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import db from "../db.server";
 import { readProxyRequest } from "../lib/proxy.server";
-import { getInstallation, parseTierValues } from "../lib/popups.server";
+import { parseTierValues } from "../lib/popups.server";
 import { createUniqueDiscount, getShopCurrency } from "../lib/discounts.server";
-import { PLAN_LIMITS } from "../lib/plans";
 
 // Game time can only run slower than wall time, so a real win always takes at
 // least surviveSec since the token was issued. Allow a little clock slack.
@@ -54,28 +53,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   let expiresAt: Date | null = null;
 
   if (popup.codeMode === "unique") {
-    const { plan } = await getInstallation(admin);
-    if (PLAN_LIMITS[plan].uniqueCodes) {
-      // The countdown is only shown when it's real: the code actually expires.
-      expiresAt =
-        popup.urgencyMinutes > 0
-          ? new Date(Date.now() + popup.urgencyMinutes * 60_000)
-          : popup.codeExpiryDays > 0
-            ? new Date(Date.now() + popup.codeExpiryDays * 86400_000)
-            : null;
-      try {
-        ({ code, discountId } = await createUniqueDiscount(admin, popup, { amount, endsAt: expiresAt }));
-        valueLabel =
-          popup.discountType === "percentage"
-            ? `${amount}%`
-            : `${amount} ${await getShopCurrency(admin).catch(() => "")}`.trim();
-      } catch (err) {
-        console.error(`[claim] ${shop}`, err);
-        expiresAt = null;
-      }
+    // The countdown is only shown when it's real: the code actually expires.
+    expiresAt =
+      popup.urgencyMinutes > 0
+        ? new Date(Date.now() + popup.urgencyMinutes * 60_000)
+        : popup.codeExpiryDays > 0
+          ? new Date(Date.now() + popup.codeExpiryDays * 86400_000)
+          : null;
+    try {
+      ({ code, discountId } = await createUniqueDiscount(admin, popup, { amount, endsAt: expiresAt }));
+      valueLabel =
+        popup.discountType === "percentage"
+          ? `${amount}%`
+          : `${amount} ${await getShopCurrency(admin).catch(() => "")}`.trim();
+    } catch (err) {
+      console.error(`[claim] ${shop}`, err);
+      expiresAt = null;
     }
   }
-  // Static mode, Pro lapsed, or the discount API failed → shared fallback code.
+  // Static mode, or the discount API failed → shared fallback code.
   code ??= popup.discountCode || null;
   if (!code) return fail("code_unavailable", 502);
 

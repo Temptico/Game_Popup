@@ -21,6 +21,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (topic === "SHOP_REDACT") {
     await db.$transaction([
       db.claim.deleteMany({ where: { shop } }),
+      db.attributedOrder.deleteMany({ where: { shop } }),
+      db.shopState.deleteMany({ where: { shop } }),
       db.event.deleteMany({ where: { shop } }),
       db.popup.deleteMany({ where: { shop } }),
       db.session.deleteMany({ where: { shop } }),

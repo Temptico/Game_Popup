@@ -14,7 +14,8 @@ include_config_on_deploy = true
 [access_scopes]
 # write_customers: create/update customers from the popup form (protected customer data – see README)
 # write_discounts: create single-use codes per winner + read code usage for analytics
-scopes = "write_customers,write_discounts"
+# read_orders: attribute orders that used a GameDiscount code (revenue-based plans)
+scopes = "write_customers,write_discounts,read_orders"
 
 [auth]
 redirect_urls = ["https://example.com/auth/callback"]
@@ -39,6 +40,10 @@ api_version = "2026-01"
   [[webhooks.subscriptions]]
   topics = ["app_subscriptions/update"]
   uri = "/webhooks/app_subscriptions/update"
+
+  [[webhooks.subscriptions]]
+  topics = ["orders/create"]
+  uri = "/webhooks/orders/create"
 
   [[webhooks.subscriptions]]
   compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]

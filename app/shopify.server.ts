@@ -7,7 +7,7 @@ import {
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
-import { PRO_PLAN, PRO_PRICE } from "./lib/plans";
+import { LEGACY_PLANS, PLANS } from "./lib/plans";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -18,17 +18,17 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
-  billing: {
-    [PRO_PLAN]: {
-      lineItems: [
-        {
-          amount: PRO_PRICE,
-          currencyCode: "USD",
-          interval: BillingInterval.Every30Days,
-        },
-      ],
-    },
-  },
+  billing: Object.fromEntries([
+    ...PLANS.filter((p) => p.billingName).map((p) => [
+      p.billingName!,
+      { lineItems: [{ amount: p.price, currencyCode: "USD", interval: BillingInterval.Every30Days }] },
+    ]),
+    // Keep the legacy plan registered so existing subscriptions are still recognised.
+    ...Object.keys(LEGACY_PLANS).map((name) => [
+      name,
+      { lineItems: [{ amount: 9, currencyCode: "USD", interval: BillingInterval.Every30Days }] },
+    ]),
+  ]),
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     expiringOfflineAccessTokens: true,

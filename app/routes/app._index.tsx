@@ -20,7 +20,7 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { livePopups, publishConfig } from "../lib/popups.server";
 import { getCounts } from "../lib/analytics.server";
-import { PLAN_LIMITS } from "../lib/plans";
+import { PLAN_LABELS, getPlan } from "../lib/plans";
 import { TARGETS } from "../lib/popup-defaults";
 import { APP_VERSION } from "../lib/version";
 
@@ -30,14 +30,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   // Republishing here keeps the storefront in sync after plan changes
   // (e.g. returning from the billing approval screen).
-  const { plan } = await publishConfig(admin, shop);
+  const { plan, billing } = await publishConfig(admin, shop);
   const popups = await db.popup.findMany({ where: { shop }, orderBy: { createdAt: "asc" } });
-  const live = new Set(livePopups(popups, plan).map((p) => p.id));
+  const live = new Set(billing.paused ? [] : livePopups(popups).map((p) => p.id));
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
   const { byPopup } = await getCounts(shop, since);
 
   return {
     plan,
+    billing,
     apiKey: process.env.SHOPIFY_API_KEY || "",
     popups: popups.map((p) => ({
       id: p.id,
@@ -69,16 +70,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (intent === "toggle") {
     const activate = !popup.active;
-    if (activate) {
-      const { plan } = await publishConfig(admin, shop);
-      const activeCount = await db.popup.count({ where: { shop, active: true } });
-      if (activeCount >= PLAN_LIMITS[plan].activePopups) {
-        return {
-          ok: false,
-          message: "Free plan allows 1 active popup. Upgrade to Pro for unlimited.",
-        };
-      }
-    }
     await db.popup.update({ where: { id }, data: { active: activate } });
     await publishConfig(admin, shop);
     return { ok: true, message: activate ? "Popup activated" : "Popup paused" };
@@ -87,12 +78,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return { ok: false, message: "Unknown action" };
 };
 
+const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 const rate = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "–");
 const targetLabel = (v: string) => TARGETS.find((t) => t.value === v)?.label ?? v;
 const EMBED_HINT_KEY = "gd_embed_hint_dismissed";
 
 export default function Index() {
-  const { popups, plan, apiKey } = useLoaderData<typeof loader>();
+  const { popups, plan, billing, apiKey } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const navigate = useNavigate();
   const shopify = useAppBridge();
@@ -146,22 +138,37 @@ export default function Index() {
         <button variant="primary" onClick={() => navigate("/app/popups/new")}>
           Create popup
         </button>
-        {plan === "pro" ? (
-          <button onClick={() => navigate("/app/analytics")}>Analytics</button>
-        ) : (
-          <button onClick={() => navigate("/app/plans")}>Upgrade to Pro</button>
-        )}
+        <button onClick={() => navigate("/app/analytics")}>Analytics</button>
       </TitleBar>
       <BlockStack gap="400">
         <InlineStack gap="200" blockAlign="center">
           <Text as="span" tone="subdued">
             Plan:
           </Text>
-          {plan === "pro" ? <Badge tone="success">Pro</Badge> : <Badge>Free</Badge>}
-          {plan !== "pro" && (
-            <Link url="/app/plans">Upgrade to Pro — $9/month</Link>
-          )}
+          <Badge tone={plan === "free" ? undefined : "success"}>{PLAN_LABELS[plan]}</Badge>
+          <Text as="span" tone="subdued">
+            · Sales from GameDiscount (30 days): <b>{usd(billing.revenueUsd)}</b>
+            {Number.isFinite(billing.cap) ? ` of ${usd(billing.cap)} included` : " · unlimited"}
+          </Text>
+          <Link url="/app/plans">Plans</Link>
         </InlineStack>
+        {billing.overLimit && (
+          <Banner
+            tone={billing.paused ? "critical" : "warning"}
+            title={
+              billing.paused
+                ? "Your popup is paused"
+                : `GameDiscount made you ${usd(billing.revenueUsd)} in the last 30 days 🎉`
+            }
+            action={{ content: `Upgrade to ${PLAN_LABELS[billing.required]} — $${getPlan(billing.required).price}/month`, url: "/app/plans" }}
+          >
+            <p>
+              {billing.paused
+                ? `Sales from the popup exceeded your ${PLAN_LABELS[plan]} plan (${usd(billing.cap)}/30 days) and the grace period has ended. Upgrade to switch it back on.`
+                : `That's more than your ${PLAN_LABELS[plan]} plan includes (${usd(billing.cap)}/30 days). The popup keeps running until ${new Date(billing.graceEndsAt!).toLocaleDateString()} — upgrade before then to keep it live.`}
+            </p>
+          </Banner>
+        )}
         {showEmbedHint && (
           <Banner
             title="Step 1: turn on the popup in your theme"

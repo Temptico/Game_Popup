@@ -23,17 +23,16 @@ assets/game-popup.js  (minified)                 /app/analytics    funnel + code
 - **Email capture** goes through the app proxy to the Admin GraphQL API (`customerCreate`, or `tagsAdd` plus `customerEmailMarketingConsentUpdate` if the customer already exists). It works on every Shopify plan. Customers get the tag `gamediscount`. Marketing consent is recorded only when the visitor ticks the checkbox. Consent is never downgraded, and an existing customer's name is never overwritten. If the proxy can't be reached, the script falls back to `fetch('/contact', { redirect: 'manual' })`.
 - **Anti-replay.** `localStorage` stores `gd_claimed_<id>` and `gd_attempts_<id>`, and `sessionStorage` stores `gd_dismissed_<id>`. A visitor who closes the popup doesn't see it again in that session.
 - **Languages.** Supported languages are sl, hr, ro and en, picked from `document.documentElement.lang`. The server resolves the strings (defaults plus the merchant's overrides) and publishes them in the metafield, so the storefront JS carries no translations and stays under Theme Check's 10 KB app-block limit.
-- **Plans.** Enforced when a popup is saved or activated, and again when the config is published:
+- **Plans (revenue-based).** Every plan has every feature. Plans differ only by how much revenue the popup generates, meaning orders that used a GameDiscount code (shared or unique), over a rolling 30 days, converted to USD at approximate rates:
 
-  | | Free | Pro ($9 / 30 days) |
+  | Plan | Price | Popup revenue / 30 days |
   |---|---|---|
-  | Active popups | 1 | Unlimited (each can target a page type) |
-  | "Powered by GameDiscount" | shown | hidden |
-  | Custom colors | defaults used | yes |
-  | Analytics page | locked (events still recorded) | yes |
-  | Unique single-use code per winner | – | yes |
+  | Free | $0 | up to $500 (with "Powered by GameDiscount") |
+  | Standard | $9.99 | up to $3,000 |
+  | Growth | $19.99 | up to $12,000 |
+  | Scale | $29.99 | unlimited |
 
-  The `app_subscriptions/update` webhook republishes the config, so an upgrade or downgrade reaches the storefront immediately.
+  The `orders/create` webhook records matching orders in `AttributedOrder`. When a store goes over its plan's cap, the admin shows an upgrade banner and the popup keeps running for a **14-day grace period** (`ShopState.overLimitSince`). After that it pauses (the published config has no popups) until the store upgrades or the rolling revenue drops back under the cap. Subscriptions from the earlier single "GameDiscount Pro" plan are treated as Growth.
 
 ## Setup
 
@@ -50,7 +49,7 @@ Then:
 3. To test on the storefront, turn on *Test mode* in the embed settings. The popup then shows after 0.5 s, ignores the "already played" memory, and doesn't record analytics. Turn it off before going live.
 
 ### Required Partner Dashboard settings
-- **Protected customer data access** (API access → Protected customer data). Request access to *name* and *email*, because the app writes customers. Without it, `customerCreate` fails on production stores.
+- **Protected customer data access** (API access → Protected customer data). Fill in the reasons for protected customer data (needed for the `orders/create` webhook) and request the *name* and *email* fields, because the app writes customers. Without it, `customerCreate` and the orders webhook fail on production stores.
 - The **app proxy** is declared in `shopify.app.toml` (`/apps/gamediscount` → `/proxy`). The CLI keeps its URL in sync while `npm run dev` is running.
 - `BILLING_TEST=false` in production. Anything else creates test charges.
 
@@ -76,4 +75,4 @@ The storefront code lives in `storefront/`:
 - Every generated code is its own discount in Shopify → Discounts, titled `GameDiscount – <popup> – <code>`. With an expiry set, they expire on their own.
 
 ## Scopes
-`write_customers` (email capture), `write_discounts` (unique codes per winner and code usage on the analytics page). Merchants who installed with the old `read_discounts` scope are asked to approve the new scope the next time they open the app.
+`write_customers` (email capture), `write_discounts` (unique codes per winner and code usage on the analytics page), `read_orders` (revenue attribution for plans and analytics). Merchants who installed with the old `read_discounts` scope are asked to approve the new scope the next time they open the app.

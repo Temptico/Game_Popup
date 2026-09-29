@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
+import { Link as RemixLink, useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
 import {
   Badge,
   Banner,
@@ -23,6 +23,7 @@ import { getCounts } from "../lib/analytics.server";
 import { PLAN_LABELS, getPlan } from "../lib/plans";
 import { TARGETS } from "../lib/popup-defaults";
 import { APP_VERSION } from "../lib/version";
+import { BrandHero } from "../components/BrandHero";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -85,6 +86,10 @@ const EMBED_HINT_KEY = "gd_embed_hint_dismissed";
 
 export default function Index() {
   const { popups, plan, billing, apiKey } = useLoaderData<typeof loader>();
+  const totals = popups.reduce(
+    (t, p) => ({ view: t.view + p.counts.view, submit: t.submit + p.counts.submit, win: t.win + p.counts.win }),
+    { view: 0, submit: 0, win: 0 },
+  );
   const fetcher = useFetcher<typeof action>();
   const navigate = useNavigate();
   const shopify = useAppBridge();
@@ -141,17 +146,26 @@ export default function Index() {
         <button onClick={() => navigate("/app/analytics")}>Analytics</button>
       </TitleBar>
       <BlockStack gap="400">
-        <InlineStack gap="200" blockAlign="center">
-          <Text as="span" tone="subdued">
-            Plan:
-          </Text>
-          <Badge tone={plan === "free" ? undefined : "success"}>{PLAN_LABELS[plan]}</Badge>
-          <Text as="span" tone="subdued">
-            · Sales from GameDiscount (30 days): <b>{usd(billing.revenueUsd)}</b>
-            {Number.isFinite(billing.cap) ? ` of ${usd(billing.cap)} included` : " · unlimited"}
-          </Text>
-          <Link url="/app/plans">Plans</Link>
-        </InlineStack>
+        <BrandHero
+          title="Turn visitors into buyers"
+          subtitle="Visitors play a quick game, leave their email and win a discount. Here's how your popups did in the last 30 days."
+          action={{ label: "+ Create popup", to: "/app/popups/new" }}
+          stats={[
+            { label: "Popup views", value: totals.view.toLocaleString() },
+            { label: "Emails collected", value: totals.submit.toLocaleString() },
+            { label: "Wins", value: totals.win.toLocaleString() },
+            { label: "Revenue from popup", value: usd(billing.revenueUsd) },
+          ]}
+          footer={
+            <>
+              Plan: <b>{PLAN_LABELS[plan]}</b> ·{" "}
+              {Number.isFinite(billing.cap)
+                ? `${usd(billing.revenueUsd)} of ${usd(billing.cap)} included`
+                : "unlimited popup revenue"}{" "}
+              · <RemixLink to="/app/plans">See plans</RemixLink>
+            </>
+          }
+        />
         {billing.overLimit && (
           <Banner
             tone={billing.paused ? "critical" : "warning"}

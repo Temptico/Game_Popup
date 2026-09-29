@@ -1,14 +1,11 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
 import {
-  BlockStack,
   Card,
   DataTable,
-  InlineGrid,
   Layout,
   Page,
   Select,
-  Text,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
@@ -121,23 +118,15 @@ export default function Analytics() {
           </div>
         </Layout.Section>
         <Layout.Section>
-          <InlineGrid columns={{ xs: 2, md: 3, lg: 6 }} gap="400">
-            {stats.map((s) => (
-              <Card key={s.label}>
-                <BlockStack gap="100">
-                  <Text as="p" tone="subdued">
-                    {s.label}
-                  </Text>
-                  <Text as="p" variant="headingXl">
-                    {s.value.toLocaleString()}
-                  </Text>
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    {s.sub || " "}
-                  </Text>
-                </BlockStack>
-              </Card>
+          <div className="gd-tiles">
+            {stats.map((s, i) => (
+              <div key={s.label} className={`gd-tile${i === 0 ? " gd-tile-hero" : ""}`}>
+                <div className="gd-tile-label">{s.label}</div>
+                <div className="gd-tile-value">{s.value.toLocaleString()}</div>
+                <div className="gd-tile-sub">{s.sub}</div>
+              </div>
             ))}
-          </InlineGrid>
+          </div>
         </Layout.Section>
         <Layout.Section>
           <Card padding="0">

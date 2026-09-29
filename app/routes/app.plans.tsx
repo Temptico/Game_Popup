@@ -1,19 +1,8 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
-import {
-  Badge,
-  Banner,
-  BlockStack,
-  Box,
-  Button,
-  Card,
-  InlineGrid,
-  InlineStack,
-  List,
-  Page,
-  Text,
-} from "@shopify/polaris";
+import { Banner, BlockStack, Page, Text } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
+import { BrandHero } from "../components/BrandHero";
 import { authenticate } from "../shopify.server";
 import { getInstallation, publishConfig } from "../lib/popups.server";
 import { getBillingStatus } from "../lib/revenue.server";
@@ -93,108 +82,86 @@ export default function Plans() {
   return (
     <Page>
       <TitleBar title="Plans" />
-      <BlockStack gap="400">
+      <BlockStack gap="500">
         {actionData?.error && (
           <Banner tone="critical" title="Shopify rejected the subscription">
             <p>{actionData.error}</p>
           </Banner>
         )}
-        <Card>
-          <BlockStack gap="200">
-            <Text as="h2" variant="headingMd">
-              Pay only when GameDiscount makes you money
-            </Text>
-            <Text as="p">
-              Every plan includes every feature: all games, unique codes, reward tiers, countdown,
-              unlimited popups and analytics. Plans differ only by how much revenue the popup
-              generates for you (orders that use a GameDiscount code, last 30 days).
-            </Text>
-            <InlineStack gap="200" blockAlign="center">
-              <Text as="span" tone="subdued">
-                Your popup revenue (30 days):
-              </Text>
-              <Text as="span" variant="headingLg">
-                {usd(revenueUsd)}
-              </Text>
-            </InlineStack>
-          </BlockStack>
-        </Card>
+        <BrandHero
+          eyebrow="Plans"
+          title="Pay only when GameDiscount makes you money"
+          subtitle="Every plan includes every feature: all games, unique codes, reward tiers, countdown, unlimited popups and analytics. Plans differ only by the revenue the popup generates for you (orders using a GameDiscount code, last 30 days)."
+          stats={[
+            { label: "Your popup revenue (30 days)", value: usd(revenueUsd) },
+            { label: "Current plan", value: PLAN_LABELS[plan] },
+            { label: "Plan that fits you", value: PLAN_LABELS[required] },
+          ]}
+        />
 
-        <InlineGrid columns={{ xs: 1, sm: 2, lg: 4 }} gap="400">
+        <div className="gd-plans">
           {plans.map((p) => {
             const isCurrent = p.key === plan;
-            const recommended = p.key === required && !isCurrent && rank(required) > rank(plan);
+            const needsUpgrade = rank(required) > rank(plan);
+            const recommended = needsUpgrade && p.key === required;
+            // Highlight the plan the store needs, otherwise Growth as the default pick.
+            const featured = recommended || (!needsUpgrade && p.key === "growth" && !isCurrent);
             return (
-              <Card key={p.key} background={recommended ? "bg-surface-success" : undefined}>
-                <BlockStack gap="300">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text as="h3" variant="headingLg">
-                      {PLAN_LABELS[p.key]}
-                    </Text>
-                    {isCurrent && <Badge tone="success">Current</Badge>}
-                    {recommended && <Badge tone="attention">Recommended</Badge>}
-                  </InlineStack>
-                  <Text as="p" variant="heading2xl">
-                    {p.price === 0 ? "$0" : `$${p.price}`}
-                    {p.price > 0 && (
-                      <Text as="span" tone="subdued" variant="bodyMd">
-                        {" "}
-                        / month
-                      </Text>
-                    )}
-                  </Text>
-                  <Box minHeight="72px">
-                    <List>
-                      <List.Item>
-                        {p.revenueCap === null
-                          ? "Unlimited popup revenue"
-                          : `Up to ${usd(p.revenueCap)} popup revenue / 30 days`}
-                      </List.Item>
-                      <List.Item>All features</List.Item>
-                      <List.Item>{p.key === "free" ? "“Powered by GameDiscount”" : "No branding"}</List.Item>
-                    </List>
-                  </Box>
-                  {isCurrent ? (
-                    p.key !== "free" && subscriptionId ? (
-                      <Form method="post">
-                        <input type="hidden" name="intent" value="cancel" />
-                        <input type="hidden" name="subscriptionId" value={subscriptionId} />
-                        <Button submit tone="critical" variant="plain" loading={busyPlan === "cancel"}>
-                          Switch to Free
-                        </Button>
-                      </Form>
-                    ) : (
-                      <Text as="p" tone="subdued">
-                        Your current plan
-                      </Text>
-                    )
-                  ) : p.key === "free" ? (
-                    <Text as="p" tone="subdued">
-                      Cancel your plan to return to Free
-                    </Text>
-                  ) : (
+              <div
+                key={p.key}
+                className={`gd-plan${isCurrent ? " gd-plan-current" : ""}${featured ? " gd-plan-featured" : ""}`}
+              >
+                {isCurrent && <span className="gd-plan-tag">Current plan</span>}
+                {!isCurrent && recommended && <span className="gd-plan-tag">Recommended</span>}
+                {!isCurrent && !recommended && featured && <span className="gd-plan-tag">Most popular</span>}
+                <p className="gd-plan-name">{PLAN_LABELS[p.key]}</p>
+                <div className="gd-plan-price">
+                  {p.price === 0 ? "$0" : `$${p.price}`}
+                  {p.price > 0 && <small>/ month</small>}
+                </div>
+                <div className="gd-plan-cap">
+                  {p.revenueCap === null ? "Unlimited popup revenue" : `Up to ${usd(p.revenueCap)} popup revenue / 30 days`}
+                </div>
+                <ul>
+                  <li>All games &amp; features</li>
+                  <li>Unique codes &amp; analytics</li>
+                  <li>{p.key === "free" ? "“Powered by GameDiscount”" : "No branding"}</li>
+                </ul>
+                {isCurrent ? (
+                  p.key !== "free" && subscriptionId ? (
                     <Form method="post">
-                      <input type="hidden" name="intent" value="subscribe" />
-                      <input type="hidden" name="plan" value={p.key} />
-                      <Button
-                        submit
-                        fullWidth
-                        variant={recommended ? "primary" : "secondary"}
-                        loading={busyPlan === p.key}
-                      >
-                        {rank(p.key) > rank(plan) ? `Upgrade to ${PLAN_LABELS[p.key]}` : `Switch to ${PLAN_LABELS[p.key]}`}
-                      </Button>
+                      <input type="hidden" name="intent" value="cancel" />
+                      <input type="hidden" name="subscriptionId" value={subscriptionId} />
+                      <button type="submit" className="gd-plan-btn gd-plan-btn-ghost" disabled={busyPlan === "cancel"}>
+                        Switch to Free
+                      </button>
                     </Form>
-                  )}
-                </BlockStack>
-              </Card>
+                  ) : (
+                    <span className="gd-plan-note">Your current plan</span>
+                  )
+                ) : p.key === "free" ? (
+                  <span className="gd-plan-note">Cancel your plan to return to Free</span>
+                ) : (
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="subscribe" />
+                    <input type="hidden" name="plan" value={p.key} />
+                    <button type="submit" className="gd-plan-btn" disabled={busyPlan === p.key}>
+                      {busyPlan === p.key
+                        ? "Opening Shopify…"
+                        : rank(p.key) > rank(plan)
+                          ? `Upgrade to ${PLAN_LABELS[p.key]}`
+                          : `Switch to ${PLAN_LABELS[p.key]}`}
+                    </button>
+                  </Form>
+                )}
+              </div>
             );
           })}
-        </InlineGrid>
+        </div>
         <Text as="p" tone="subdued" variant="bodySm">
           If your popup revenue goes above your plan, the popup keeps running for 14 days so you
           have time to upgrade. Revenue in other currencies is converted to USD at approximate
-          rates.
+          rates. Billed by Shopify every 30 days.
         </Text>
       </BlockStack>
     </Page>

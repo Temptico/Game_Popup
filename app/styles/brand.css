@@ -1,0 +1,110 @@
+/* GameDiscount brand layer on top of Polaris.
+ * Palette: Toxic Violet #3D007A, Soft Chrome #E8ECF1.
+ * Only Polaris *tokens* are overridden (no component internals), so the app
+ * stays consistent with the Shopify admin. */
+:root {
+  --gd-violet: #3d007a;
+  --gd-violet-600: #52119a;
+  --gd-violet-400: #8a3fd1;
+  --gd-violet-100: #efe6fa;
+  --gd-chrome: #e8ecf1;
+  --gd-chrome-soft: rgba(232, 236, 241, 0.14);
+
+  --p-color-bg: var(--gd-chrome);
+  --p-color-bg-fill-brand: var(--gd-violet);
+  --p-color-bg-fill-brand-hover: var(--gd-violet-600);
+  --p-color-bg-fill-brand-active: #2c0059;
+  --p-color-bg-fill-brand-selected: #2c0059;
+  --p-color-text-link: var(--gd-violet-600);
+  --p-color-text-link-hover: var(--gd-violet);
+  --p-color-text-link-active: #2c0059;
+  --p-color-border-focus: var(--gd-violet-400);
+  --p-color-text-brand: var(--gd-violet);
+  --p-color-icon-brand: var(--gd-violet);
+}
+
+/* ---------- hero ---------- */
+.gd-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 24px 28px;
+  color: var(--gd-chrome);
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(138, 63, 209, 0.55) 0%, rgba(138, 63, 209, 0) 55%),
+    radial-gradient(90% 120% at 0% 100%, rgba(232, 236, 241, 0.10) 0%, rgba(232, 236, 241, 0) 60%),
+    linear-gradient(135deg, #3d007a 0%, #2a0055 100%);
+  box-shadow: 0 10px 30px rgba(61, 0, 122, 0.25);
+}
+.gd-hero::after {
+  /* soft "chrome" orb, echoing the reference visual */
+  content: "";
+  position: absolute;
+  right: -60px;
+  top: -60px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(232, 236, 241, 0.35), rgba(232, 236, 241, 0) 65%);
+  pointer-events: none;
+}
+.gd-hero-top { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; position: relative; z-index: 1; }
+.gd-hero-eyebrow { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.75; margin: 0 0 6px; font-weight: 600; }
+.gd-hero-title { font-size: 26px; line-height: 1.2; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.gd-hero-sub { margin: 8px 0 0; opacity: 0.85; max-width: 640px; font-size: 14px; line-height: 1.5; }
+.gd-hero-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--gd-chrome); color: var(--gd-violet);
+  font-weight: 700; font-size: 14px; text-decoration: none;
+  padding: 10px 16px; border-radius: 10px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  white-space: nowrap;
+}
+.gd-hero-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25); }
+.gd-hero-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 20px; position: relative; z-index: 1; }
+.gd-hero-stat { background: var(--gd-chrome-soft); border: 1px solid rgba(232, 236, 241, 0.18); border-radius: 12px; padding: 12px 14px; backdrop-filter: blur(4px); }
+.gd-hero-stat-value { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.gd-hero-stat-label { font-size: 12px; opacity: 0.75; margin-top: 4px; }
+.gd-hero-foot { margin-top: 16px; font-size: 13px; opacity: 0.85; position: relative; z-index: 1; }
+.gd-hero-foot a { color: var(--gd-chrome); font-weight: 600; }
+
+/* ---------- stat tiles (analytics) ---------- */
+.gd-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.gd-tile { background: #fff; border-radius: 12px; padding: 16px; border-top: 4px solid var(--gd-violet); box-shadow: 0 1px 0 rgba(26, 26, 26, 0.07), 0 1px 3px rgba(26, 26, 26, 0.06); }
+.gd-tile.gd-tile-hero { background: linear-gradient(135deg, #3d007a, #52119a); color: var(--gd-chrome); border-top-color: var(--gd-violet-400); }
+.gd-tile-label { font-size: 12px; color: #616161; }
+.gd-tile-hero .gd-tile-label, .gd-tile-hero .gd-tile-sub { color: rgba(232, 236, 241, 0.8); }
+.gd-tile-value { font-size: 26px; font-weight: 700; color: var(--gd-violet); margin-top: 4px; line-height: 1.15; }
+.gd-tile-hero .gd-tile-value { color: #fff; }
+.gd-tile-sub { font-size: 12px; color: #8a8a8a; margin-top: 4px; min-height: 16px; }
+
+/* ---------- plan cards ---------- */
+.gd-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+.gd-plan { position: relative; background: #fff; border-radius: 16px; padding: 20px; border: 2px solid transparent; box-shadow: 0 1px 0 rgba(26, 26, 26, 0.07), 0 2px 8px rgba(26, 26, 26, 0.05); display: flex; flex-direction: column; gap: 12px; }
+.gd-plan-current { border-color: var(--gd-violet); }
+.gd-plan-featured { background: linear-gradient(160deg, #3d007a 0%, #2a0055 100%); color: var(--gd-chrome); box-shadow: 0 12px 30px rgba(61, 0, 122, 0.3); }
+.gd-plan-name { font-size: 18px; font-weight: 700; margin: 0; }
+.gd-plan-price { font-size: 34px; font-weight: 800; color: var(--gd-violet); letter-spacing: -0.02em; line-height: 1; }
+.gd-plan-featured .gd-plan-price { color: #fff; }
+.gd-plan-price small { font-size: 14px; font-weight: 500; color: #8a8a8a; margin-left: 4px; }
+.gd-plan-featured .gd-plan-price small { color: rgba(232, 236, 241, 0.75); }
+.gd-plan-cap { font-weight: 600; font-size: 14px; }
+.gd-plan ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; flex: 1; }
+.gd-plan-tag { position: absolute; top: -11px; left: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; background: var(--gd-violet); color: var(--gd-chrome); }
+.gd-plan-featured .gd-plan-tag { background: var(--gd-chrome); color: var(--gd-violet); }
+.gd-plan-note { font-size: 13px; opacity: 0.7; }
+.gd-plan-featured .gd-plan-btn { background: var(--gd-chrome); color: var(--gd-violet); }
+.gd-plan-btn {
+  width: 100%; border: 0; cursor: pointer; font-weight: 700; font-size: 14px;
+  padding: 10px 14px; border-radius: 10px; background: var(--gd-violet); color: var(--gd-chrome);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.gd-plan-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(61, 0, 122, 0.3); }
+.gd-plan-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
+.gd-plan-btn-ghost { background: transparent; color: #8e1f0b; padding: 0; text-align: left; font-weight: 600; }
+.gd-plan-btn-ghost:hover { box-shadow: none; transform: none; text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gd-hero-btn, .gd-plan-btn { transition: none; }
+}

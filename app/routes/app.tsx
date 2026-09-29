@@ -5,11 +5,16 @@ import { boundary } from "@shopify/shopify-app-remix/server";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
+import brandStyles from "../styles/brand.css?url";
 
 import { authenticate } from "../shopify.server";
 import { rememberEmbeddedContext } from "../lib/embedded-context";
 
-export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
+export const links = () => [
+  { rel: "stylesheet", href: polarisStyles },
+  // After Polaris so the brand tokens win.
+  { rel: "stylesheet", href: brandStyles },
+];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);

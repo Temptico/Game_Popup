@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { redirect } from "@remix-run/node";
 import { useActionData, useLoaderData, useNavigate, useNavigation, useSubmit } from "@remix-run/react";
 import {
   Banner,
@@ -49,7 +50,7 @@ import { getDiscountUsage } from "../lib/analytics.server";
 import { PLAN_LIMITS } from "../lib/plans";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { admin, session, redirect } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const { plan } = await getInstallation(admin);
 
   if (params.id === "new") {
@@ -63,9 +64,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  // Shopify's redirect keeps the embedded-app context (shop/host); a plain
-  // Remix redirect can land on the login page inside the admin.
-  const { admin, session, redirect } = await authenticate.admin(request);
+  // Plain Remix redirect on purpose: for these fetch requests Shopify's
+  // `redirect` helper answers 401 + reauthorize header, which makes the admin
+  // reload the iframe without shop/host and shows the login page.
+  const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
   const { settings, errors } = parseSettings(await request.json());
   if (Object.keys(errors).length) return { errors };

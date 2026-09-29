@@ -58,6 +58,7 @@ model Popup {
   codeExpiryDays Int      @default(7) // 0 = never expires
   gameType       String   @default("paddle") // paddle | flipper
   trigger        String   @default("both") // both | delay | exit
+  frequency      String   @default("session") // session | day | week | always
   teaser         Boolean  @default(true)
   tiered         Boolean  @default(false)
   tierValues     String   @default("15,10,5") // best → worst attempt

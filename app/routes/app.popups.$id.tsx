@@ -32,6 +32,7 @@ import {
   GAMES,
   TARGETS,
   TRIGGERS,
+  FREQUENCIES,
   parseSettings,
   type Language,
   type PopupSettings,
@@ -353,6 +354,13 @@ export default function PopupEditor() {
                       options={[...TRIGGERS]}
                       value={s.trigger}
                       onChange={(v) => set("trigger")(v as PopupSettings["trigger"])}
+                    />
+                    <Select
+                      label="How often to show it automatically"
+                      options={[...FREQUENCIES]}
+                      value={s.frequency}
+                      onChange={(v) => set("frequency")(v as PopupSettings["frequency"])}
+                      helpText="Counted per visitor. After a win the popup never opens by itself again; the floating button stays available."
                     />
                     <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                       <TextField label="Popup delay (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />

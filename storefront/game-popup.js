@@ -133,7 +133,7 @@
   var statusEl = el('p', { class: 'gd-status', 'aria-live': 'polite' });
   var retryBtn = el('button', { class: 'gd-btn-ghost', type: 'button', hidden: '' });
   var game = el('div', { class: 'gd-screen', hidden: '' }, [
-    el('div', { class: 'gd-game-wrap' }, [timerEl, canvas]),
+    el('div', { class: 'gd-game-wrap gd-g-' + gameType }, [timerEl, canvas]),
     statusEl, retryBtn
   ]);
 
@@ -283,14 +283,11 @@
   copyBtn.addEventListener('click', function () {
     var code = codeEl.textContent;
     var ok = function () { copyBtn.textContent = t.copied; setTimeout(function () { copyBtn.textContent = t.copyBtn; }, 2000); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(code).then(ok, function () { selectCode(); });
-    } else { selectCode(); }
+    // Without clipboard access, select the code so it can be copied by hand (gd-fx.js).
+    var sel = function () { if (window.GameDiscountFx) window.GameDiscountFx.select(codeEl); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(ok, sel);
+    else sel();
   });
-  function selectCode() {
-    var r = document.createRange(); r.selectNodeContents(codeEl);
-    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
-  }
 
   function win() {
     local.set(KEY_ATTEMPTS, String(maxAttempts)); // no replays after a win
@@ -330,7 +327,7 @@
     if (!window.GameDiscountFx && assets.fx) script(assets.fx).catch(function () {}); // confetti is optional
     gameReady = ((window.GameDiscountGames || {})[gameType] ? Promise.resolve() : script(assets[gameType])).then(function () {
       engine = window.GameDiscountGames[gameType](canvas, {
-        primary: popup.primaryColor || '#830522', vx: popup.vx, vy: popup.vy, surviveMs: surviveMs
+        primary: popup.primaryColor || '#830522', accent: popup.accentColor || '#d9caa0', vx: popup.vx, vy: popup.vy, surviveMs: surviveMs
       });
     });
     return gameReady;
@@ -382,8 +379,22 @@
   }
   if (dismissed) return showTeaser();
 
+  // Frequency cap for automatic opening (the floating button still works).
+  var KEY_SHOWN = 'gd_shown_' + popup.id;
+  var freq = popup.frequency || 'session';
+  var capped = !testMode && (freq === 'session'
+    ? session.get(KEY_SHOWN)
+    : freq !== 'always' && Date.now() - (Number(local.get(KEY_SHOWN)) || 0) < (freq === 'day' ? 864e5 : 6048e5));
+  if (capped) return showTeaser();
+
   var fired = false;
-  function fire() { if (!fired) { fired = true; open(); } }
+  function fire() {
+    if (fired) return;
+    fired = true;
+    session.set(KEY_SHOWN, '1');
+    local.set(KEY_SHOWN, String(Date.now()));
+    open();
+  }
   var mode = testMode ? 'delay' : popup.trigger || 'both';
   // Exit intent needs a mouse; touch devices always use the delay.
   var hasMouse = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;

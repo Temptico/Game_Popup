@@ -64,6 +64,7 @@ The storefront code lives in `storefront/`:
 
 ### Conversion features
 - **Trigger:** exit intent (mouse leaving through the top of the window, desktop only), the delay, or whichever comes first. Touch devices always use the delay.
+- **Frequency:** the popup opens by itself at most once per session (default), once per day, once per week, or on every page until it is closed. When the cap applies, only the floating button is shown.
 - **Floating button:** after the popup is closed, a pill in the bottom-left reopens the game. After a win, it shows the code and the countdown on every page until the code expires.
 - **Reward by attempt** (unique codes): the discount depends on which attempt the visitor won on (default 15/10/5%). The tier is reported by the client. The spread is small and each code is single-use, so the value of cheating it is low.
 - **Countdown:** it is only ever shown when it is real. With "Urgency countdown" set, the generated code's `endsAt` is exactly that many minutes out. A fake timer would be misleading under EU consumer law (UCPD).

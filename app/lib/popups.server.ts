@@ -48,6 +48,7 @@ export function rowToSettings(row: Popup): PopupSettings {
     codeExpiryDays: row.codeExpiryDays,
     gameType: row.gameType === "flipper" ? "flipper" : "paddle",
     trigger: row.trigger === "delay" || row.trigger === "exit" ? row.trigger : "both",
+    frequency: (["session", "day", "week", "always"] as const).find((f) => f === row.frequency) ?? "session",
     teaser: row.teaser,
     tiered: row.tiered,
     tierValues: parseTierValues(row.tierValues),
@@ -130,6 +131,7 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         // Flipper is Pro; a lapsed plan falls back to the paddle game.
         gameType: limits.flipper ? s.gameType : "paddle",
         trigger: s.trigger,
+        frequency: s.frequency,
         teaser: s.teaser,
         // Resolved per language so the storefront script carries no translations.
         strings: Object.fromEntries(

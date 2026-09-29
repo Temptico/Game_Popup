@@ -120,6 +120,9 @@
   touch-action: none;
 }
 .gd-canvas { display: block; width: 100%; height: auto; cursor: none; touch-action: none; }
+/* Flipper: dark board so the cursor and the left/right halves are easy to see */
+.gd-g-flipper { background: #1b2230; }
+.gd-g-flipper .gd-canvas { cursor: pointer; }
 .gd-timer {
   position: absolute;
   top: 8px;

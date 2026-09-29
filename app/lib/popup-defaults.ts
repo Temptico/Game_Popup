@@ -202,6 +202,13 @@ export const TRIGGERS = [
   { label: "On exit intent only (desktop; mobile falls back to delay)", value: "exit" },
 ] as const;
 
+export const FREQUENCIES = [
+  { label: "Once per visit (session) – recommended", value: "session" },
+  { label: "Once per day", value: "day" },
+  { label: "Once per week", value: "week" },
+  { label: "On every page until closed", value: "always" },
+] as const;
+
 export const DEFAULT_PRIMARY = "#830522";
 export const DEFAULT_ACCENT = "#d9caa0";
 
@@ -226,6 +233,8 @@ export interface PopupSettings {
   codeExpiryDays: number;
   gameType: "paddle" | "flipper";
   trigger: "both" | "delay" | "exit";
+  // How often the popup may open by itself; the floating button always works.
+  frequency: "session" | "day" | "week" | "always";
   teaser: boolean;
   tiered: boolean;
   // Best → worst: won on 1st, 2nd, 3rd+ attempt
@@ -256,6 +265,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   codeExpiryDays: 7,
   gameType: "paddle",
   trigger: "both",
+  frequency: "session",
   teaser: true,
   tiered: false,
   tierValues: [15, 10, 5],
@@ -371,6 +381,9 @@ export function parseSettings(input: Record<string, unknown>): {
       codeExpiryDays: Math.round(num(input.codeExpiryDays, d.codeExpiryDays, 0, 365)),
       gameType: input.gameType === "flipper" ? "flipper" : "paddle",
       trigger: input.trigger === "delay" || input.trigger === "exit" ? input.trigger : "both",
+      frequency: FREQUENCIES.some((f) => f.value === input.frequency)
+        ? (input.frequency as PopupSettings["frequency"])
+        : "session",
       teaser: input.teaser !== false && input.teaser !== "false",
       tiered,
       tierValues,

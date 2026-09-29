@@ -1,2 +1,2 @@
 // Shown at the bottom of the popups page so it's easy to confirm which build is running.
-export const APP_VERSION = "0.5.0";
+export const APP_VERSION = "0.5.1";

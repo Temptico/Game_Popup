@@ -1,7 +1,11 @@
-/* GameDiscount – optional extras (win confetti, /contact fallback), loaded on demand by game-popup.js. */
+/* GameDiscount – optional extras (win confetti, /contact fallback, manual code selection), loaded on demand by game-popup.js. */
 (function () {
   'use strict';
   window.GameDiscountFx = {
+    select: function (node) {
+      var r = document.createRange(); r.selectNodeContents(node);
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    },
     // Store the email through the theme's own customer form when the app
     // proxy is unreachable, without reloading the page.
     contact: function (name, email, consent) {

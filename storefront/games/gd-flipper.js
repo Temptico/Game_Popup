@@ -35,6 +35,7 @@
     var running = false, raf = 0, last = 0, elapsed = 0, score = 0, cb = null;
     var flash = [0, 0, 0];
     var pointers = {};
+    var hover = -1; // which half the mouse is over (-1 = none)
 
     function press(i, on) {
       var f = flippers[i];
@@ -57,6 +58,8 @@
       var still = Object.keys(pointers).some(function (k) { return pointers[k] === side; });
       if (!still) press(side, false);
     }
+    canvas.addEventListener('pointermove', function (e) { if (e.pointerType === 'mouse') hover = sideOf(e); });
+    canvas.addEventListener('pointerleave', function () { hover = -1; });
     canvas.addEventListener('pointerup', release);
     canvas.addEventListener('pointercancel', release);
     canvas.addEventListener('pointerleave', release);
@@ -139,27 +142,41 @@
     }
 
     function draw() {
+      var ink = '#f5eeea', accent = o.accent || '#d9caa0';
       c.clearRect(0, 0, W, H);
+      // Left/right control halves: highlight the hovered or pressed side.
+      for (var side = 0; side < 2; side++) {
+        var on = flippers[side].held ? 0.16 : hover === side ? 0.07 : 0;
+        if (on) { c.fillStyle = 'rgba(255,255,255,' + on + ')'; c.fillRect(side * W / 2, 0, W / 2, H); }
+      }
+      c.strokeStyle = 'rgba(255,255,255,0.12)'; c.lineWidth = 1;
+      c.setLineDash([4, 6]);
+      c.beginPath(); c.moveTo(W / 2, 250); c.lineTo(W / 2, H); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = 'rgba(255,255,255,0.45)'; c.font = 'bold 18px sans-serif';
+      c.textAlign = 'left'; c.fillText('◀', 10, H - 12);
+      c.textAlign = 'right'; c.fillText('▶', W - 10, H - 12);
+
       c.lineCap = 'round';
-      c.strokeStyle = 'rgba(17,21,28,0.35)'; c.lineWidth = 3;
+      c.strokeStyle = 'rgba(255,255,255,0.4)'; c.lineWidth = 3;
       for (var i = 0; i < WALLS.length; i++) {
         var w = WALLS[i];
         c.beginPath(); c.moveTo(w[0], w[1]); c.lineTo(w[2], w[3]); c.stroke();
       }
       for (var b = 0; b < BUMPERS.length; b++) {
         var p = BUMPERS[b];
-        c.fillStyle = flash[b] > 0 ? '#11151c' : o.primary;
+        c.fillStyle = flash[b] > 0 ? accent : o.primary;
         c.beginPath(); c.arc(p.x, p.y, p.r, 0, Math.PI * 2); c.fill();
-        c.fillStyle = 'rgba(255,255,255,0.35)';
-        c.beginPath(); c.arc(p.x, p.y, p.r * 0.45, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = accent; c.lineWidth = 2;
+        c.beginPath(); c.arc(p.x, p.y, p.r, 0, Math.PI * 2); c.stroke();
         if (flash[b] > 0) flash[b]--;
       }
-      c.strokeStyle = '#11151c'; c.lineWidth = FT * 2;
+      c.strokeStyle = accent; c.lineWidth = FT * 2;
       for (var k = 0; k < 2; k++) {
         var f = flippers[k], t = tip(f);
         c.beginPath(); c.moveTo(f.px, f.py); c.lineTo(t.x, t.y); c.stroke();
       }
-      c.fillStyle = '#11151c';
+      c.fillStyle = ink;
       c.beginPath(); c.arc(ball.x, ball.y, R, 0, Math.PI * 2); c.fill();
       c.font = 'bold 14px monospace'; c.textAlign = 'right';
       c.fillText(String(score), W - 12, 24);

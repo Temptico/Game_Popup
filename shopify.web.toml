@@ -3,5 +3,5 @@ roles = ["frontend", "backend"]
 webhooks_path = "/webhooks/app/uninstalled"
 
 [commands]
-predev = "npx prisma generate"
+predev = "node scripts/ensure-env.cjs && npx prisma generate"
 dev = "npx prisma migrate deploy && npx remix vite:dev"

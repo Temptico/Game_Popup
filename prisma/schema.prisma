@@ -10,7 +10,9 @@ generator client {
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
   provider = "sqlite"
-  url      = "file:dev.sqlite"
+  // Local dev: file:dev.sqlite (scripts/ensure-env.cjs writes it to .env).
+  // Fly.io: file:/data/prod.sqlite on a persistent volume (fly.toml).
+  url      = env("DATABASE_URL")
 }
 
 model Session {

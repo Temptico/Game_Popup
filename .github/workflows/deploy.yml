@@ -1,0 +1,166 @@
+name: Deploy
+
+# Manual only: Actions → Deploy → Run workflow (pick the branch to deploy).
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_app:
+        description: "Deploy the app server to Fly.io"
+        type: boolean
+        default: true
+      deploy_shopify:
+        description: "Release app config + theme extension (shopify app deploy)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+  SHOPIFY_CLI_NO_ANALYTICS: "1"
+
+jobs:
+  checks:
+    name: Install, typecheck, lint, build
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "file:ci.sqlite"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Prisma client + migrations apply cleanly on a fresh database
+        run: |
+          npx prisma generate
+          npx prisma migrate deploy
+
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+
+      - name: Committed storefront bundle matches its sources
+        run: |
+          npm run build:storefront
+          git diff --exit-code extensions/ || {
+            echo "::error::extensions/*/assets are out of date. Run 'npm run build:storefront' and commit the result."
+            exit 1
+          }
+
+      - name: Theme Check (app block JS must stay under 10 KB)
+        run: npx shopify theme check --path extensions/gamediscount-popup --fail-level error
+
+  deploy-fly:
+    name: Deploy app server to Fly.io
+    needs: checks
+    if: inputs.deploy_app
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: ${{ secrets.FLY_APP_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Check required secrets
+        env:
+          SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
+          SHOPIFY_API_SECRET: ${{ secrets.SHOPIFY_API_SECRET }}
+        run: |
+          missing=0
+          for v in FLY_API_TOKEN APP SHOPIFY_API_KEY SHOPIFY_API_SECRET; do
+            if [ -z "${!v}" ]; then echo "::error::Missing GitHub secret for $v"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Create Fly app and volume (first run only)
+        run: |
+          if ! flyctl status --app "$APP" >/dev/null 2>&1; then
+            flyctl apps create "$APP" --org personal
+          fi
+          if [ "$(flyctl volumes list --app "$APP" --json | jq 'length')" = "0" ]; then
+            flyctl volumes create gamediscount_data --app "$APP" --region fra --size 1 --yes
+          fi
+
+      - name: Set runtime secrets (applied with the deploy)
+        env:
+          SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
+          SHOPIFY_API_SECRET: ${{ secrets.SHOPIFY_API_SECRET }}
+          BILLING_TEST: ${{ secrets.BILLING_TEST }}
+        run: |
+          SCOPES=$(sed -n 's/^scopes = "\(.*\)"/\1/p' shopify.app.toml)
+          flyctl secrets set --stage --app "$APP" \
+            SHOPIFY_API_KEY="$SHOPIFY_API_KEY" \
+            SHOPIFY_API_SECRET="$SHOPIFY_API_SECRET" \
+            SCOPES="$SCOPES" \
+            SHOPIFY_APP_URL="https://$APP.fly.dev" \
+            BILLING_TEST="${BILLING_TEST:-true}"
+
+      # Builds the Docker image on Fly's builders; on start the container runs
+      # `prisma migrate deploy` against the database on the volume.
+      - name: Deploy
+        run: flyctl deploy --remote-only --app "$APP" --ha=false --wait-timeout 300
+
+      - name: Smoke test
+        run: |
+          for _ in 1 2 3 4 5 6; do
+            if curl -fsS -o /dev/null "https://$APP.fly.dev/"; then echo "App is up"; exit 0; fi
+            sleep 10
+          done
+          echo "::error::https://$APP.fly.dev/ did not respond"; exit 1
+
+  shopify-deploy:
+    name: Release to Shopify (shopify app deploy)
+    needs: [checks, deploy-fly]
+    # Runs after a successful server deploy, or on its own when that job was skipped.
+    if: >-
+      always() && inputs.deploy_shopify &&
+      needs.checks.result == 'success' &&
+      (needs.deploy-fly.result == 'success' || needs.deploy-fly.result == 'skipped')
+    runs-on: ubuntu-latest
+    env:
+      SHOPIFY_APP_AUTOMATION_TOKEN: ${{ secrets.SHOPIFY_APP_AUTOMATION_TOKEN }}
+      SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
+      APP: ${{ secrets.FLY_APP_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Check required secrets
+        run: |
+          missing=0
+          for v in SHOPIFY_APP_AUTOMATION_TOKEN SHOPIFY_API_KEY APP; do
+            if [ -z "${!v}" ]; then echo "::error::Missing GitHub secret for $v"; missing=1; fi
+          done
+          exit $missing
+
+      # The committed shopify.app.toml has placeholders; point it at production here.
+      - name: Point app config at the production URL
+        run: |
+          sed -i "s#https://example.com#https://$APP.fly.dev#g" shopify.app.toml
+          sed -i "s/^client_id = \".*\"/client_id = \"$SHOPIFY_API_KEY\"/" shopify.app.toml
+          grep -E '^(client_id|application_url)|^url|redirect_urls' shopify.app.toml
+
+      # --allow-updates: add/update config and extensions, never delete anything.
+      - name: shopify app deploy
+        run: >-
+          npx shopify app deploy
+          --client-id "$SHOPIFY_API_KEY"
+          --allow-updates
+          --message "GitHub Actions ${GITHUB_REF_NAME}@${GITHUB_SHA::7}"

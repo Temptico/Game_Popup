@@ -69,8 +69,16 @@ The storefront code lives in `storefront/`:
 - **Countdown:** it is only ever shown when it is real. With "Urgency countdown" set, the generated code's `endsAt` is exactly that many minutes out. A fake timer would be misleading under EU consumer law (UCPD).
 - **Flipper difficulty:** gravity 0.12 and a speed cap of 10 were tuned with a headless simulation. With the default 15 s, an idle player loses in about 5 s, a typical player (120 ms reactions, 20% misses) wins about 39% per attempt (about 77% over 3 attempts), and a slow player wins about 45% over 3 attempts.
 
+### Deploying (GitHub Actions → Fly.io + Shopify)
+`.github/workflows/deploy.yml` runs manually: **Actions → Deploy → Run workflow** (choose the branch).
+1. **checks:** `npm ci`, Prisma migrations on a fresh DB, typecheck, lint, build, verifies the committed storefront bundle, and Theme Check. If anything fails, it stops.
+2. **deploy-fly:** creates the Fly app and a 1 GB volume on the first run, sets runtime secrets, runs `flyctl deploy`, then a smoke test. The container applies Prisma migrations to `/data/prod.sqlite` on start.
+3. **shopify-deploy:** points `shopify.app.toml` at `https://<FLY_APP_NAME>.fly.dev` and runs `shopify app deploy --allow-updates` (config + theme extension, never deletes).
+
+Required repository secrets: `FLY_API_TOKEN`, `FLY_APP_NAME`, `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_AUTOMATION_TOKEN`. Optional: `BILLING_TEST` (defaults to `true`, set it to `false` for real charges).
+
 ### Production notes
-- SQLite is fine for dev. Before launch, switch the Prisma `datasource` to Postgres or MySQL, because the Event table grows with traffic.
+- The database is SQLite on a Fly volume (`DATABASE_URL`, see `fly.toml`), so the app runs as a single machine. Once traffic grows, move to Postgres (for example Neon) and scale out. Locally, `scripts/ensure-env.cjs` writes `DATABASE_URL="file:dev.sqlite"` to `.env` automatically.
 - The GDPR compliance webhooks are handled in `webhooks.compliance.tsx`. Customers live in Shopify, events are anonymous, and claims store only an email hash, which `customers/redact` deletes.
 - Every generated code is its own discount in Shopify → Discounts, titled `GameDiscount – <popup> – <code>`. With an expiry set, they expire on their own.
 

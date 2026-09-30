@@ -6,14 +6,13 @@ import { BrandHero } from "../components/BrandHero";
 import { authenticate } from "../shopify.server";
 import { getInstallation, publishConfig } from "../lib/popups.server";
 import { getBillingStatus } from "../lib/revenue.server";
+import { shouldUseTestCharges } from "../lib/billing.server";
 import { PLANS, PLAN_LABELS, planFromSubscriptionName, type PlanName } from "../lib/plans";
 
-// Test charges unless explicitly running in production billing mode.
-const isTest = process.env.BILLING_TEST !== "false";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session, billing } = await authenticate.admin(request);
-  const { plan } = await getInstallation(admin);
+  const [{ plan }, isTest] = await Promise.all([getInstallation(admin), shouldUseTestCharges(admin)]);
   const status = await getBillingStatus(session.shop, plan);
   const { appSubscriptions } = await billing.check({
     plans: PLANS.flatMap((p) => (p.billingName ? [p.billingName] : [])),
@@ -34,6 +33,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { billing, session, admin } = await authenticate.admin(request);
   const form = await request.formData();
   const intent = form.get("intent");
+  const isTest = await shouldUseTestCharges(admin);
 
   if (intent === "subscribe") {
     const target = PLANS.find((p) => p.key === form.get("plan"));

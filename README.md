@@ -51,7 +51,7 @@ Then:
 ### Required Partner Dashboard settings
 - **Protected customer data access** (API access → Protected customer data). Fill in the reasons for protected customer data (needed for the `orders/create` webhook) and request the *name* and *email* fields, because the app writes customers. Without it, `customerCreate` and the orders webhook fail on production stores.
 - The **app proxy** is declared in `shopify.app.toml` (`/apps/gamediscount` → `/proxy`). The CLI keeps its URL in sync while `npm run dev` is running.
-- `BILLING_TEST=false` in production. Anything else creates test charges.
+- Billing: development stores (including Shopify's reviewers') always get test charges, and live stores get real ones. `BILLING_TEST=true` forces test charges everywhere.
 
 ### Editing the storefront script
 The storefront code lives in `storefront/`:
@@ -75,7 +75,7 @@ The storefront code lives in `storefront/`:
 2. **deploy-fly:** creates the Fly app and a 1 GB volume on the first run, sets runtime secrets, runs `flyctl deploy`, then a smoke test. The container applies Prisma migrations to `/data/prod.sqlite` on start.
 3. **shopify-deploy:** points `shopify.app.toml` at `https://<FLY_APP_NAME>.fly.dev` and runs `shopify app deploy --allow-updates` (config + theme extension, never deletes).
 
-Required repository secrets: `FLY_API_TOKEN`, `FLY_APP_NAME`, `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_AUTOMATION_TOKEN`. Optional: `BILLING_TEST` (defaults to `true`, set it to `false` for real charges).
+Required repository secrets: `FLY_API_TOKEN`, `FLY_APP_NAME`, `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_AUTOMATION_TOKEN`. Optional: `BILLING_TEST=true` to force test charges on every store (by default only development stores get test charges).
 
 ### Production notes
 - The database is SQLite on a Fly volume (`DATABASE_URL`, see `fly.toml`), so the app runs as a single machine. Once traffic grows, move to Postgres (for example Neon) and scale out. Locally, `scripts/ensure-env.cjs` writes `DATABASE_URL="file:dev.sqlite"` to `.env` automatically.

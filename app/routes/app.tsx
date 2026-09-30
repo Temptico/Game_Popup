@@ -9,6 +9,7 @@ import brandStyles from "../styles/brand.css?url";
 
 import { authenticate } from "../shopify.server";
 import { rememberEmbeddedContext } from "../lib/embedded-context";
+import { billingEnabled } from "../lib/billing.server";
 
 export const links = () => [
   { rel: "stylesheet", href: polarisStyles },
@@ -19,11 +20,11 @@ export const links = () => [
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
 
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return { apiKey: process.env.SHOPIFY_API_KEY || "", billing: billingEnabled() };
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData<typeof loader>();
+  const { apiKey, billing } = useLoaderData<typeof loader>();
   const location = useLocation();
   useEffect(() => {
     rememberEmbeddedContext(location.search, location.pathname);
@@ -36,7 +37,7 @@ export default function App() {
           Popups
         </Link>
         <Link to="/app/analytics">Analytics</Link>
-        <Link to="/app/plans">Plans</Link>
+        {billing && <Link to="/app/plans">Plans</Link>}
       </NavMenu>
       <Outlet />
     </AppProvider>

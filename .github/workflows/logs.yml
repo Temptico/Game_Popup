@@ -4,6 +4,11 @@ name: Server errors
 # are masked because Actions logs may be publicly visible.
 on:
   workflow_dispatch:
+    inputs:
+      instance:
+        description: "Store copy name (e.g. temptico). Leave empty for the public app."
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -13,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      APP: ${{ secrets.FLY_APP_NAME }}
+      APP: ${{ inputs.instance && format('enigmaplay-{0}', inputs.instance) || secrets.FLY_APP_NAME }}
     steps:
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Recent errors (masked)

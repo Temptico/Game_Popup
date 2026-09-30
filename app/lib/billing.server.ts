@@ -1,3 +1,9 @@
+/**
+ * Private store copies (custom distribution) can't use the Billing API, so they
+ * run with BILLING_ENABLED=false: no plans page, every feature, no branding.
+ */
+export const billingEnabled = () => process.env.BILLING_ENABLED !== "false";
+
 interface AdminApi {
   graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>;
 }

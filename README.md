@@ -84,3 +84,26 @@ Required repository secrets: `FLY_API_TOKEN`, `FLY_APP_NAME`, `SHOPIFY_API_KEY`,
 
 ## Scopes
 `write_customers` (email capture), `write_discounts` (unique codes per winner and code usage on the analytics page), `read_orders` (revenue attribution for plans and analytics). Merchants who installed with the old `read_discounts` scope are asked to approve the new scope the next time they open the app.
+
+## Private store copies (custom distribution)
+
+While the public app is in App Store review (or for stores that need their own copy), the same code runs as a separate custom-distribution app per store. The public app (`shopify.app.toml`, `deploy.yml`) is never touched by this.
+
+| | Public app | Store copy `<name>` |
+|---|---|---|
+| Shopify config | `shopify.app.toml` | `shopify.app.<name>.toml` (from `scripts/new-instance.sh`) |
+| Fly app | `FLY_APP_NAME` secret | `enigmaplay-<name>` (own SQLite volume) |
+| Billing | Billing API plans | off (`BILLING_ENABLED=false`): all features, no branding, no Plans page |
+| Webhooks | incl. GDPR compliance + subscriptions | without them (custom apps can't have compliance topics) |
+| Workflow | Actions → Deploy | Actions → Deploy instance → `<name>` |
+
+New copy:
+1. In the Dev Dashboard create an app with **custom distribution** for the store; note its Client ID.
+2. `scripts/new-instance.sh <name> <client_id> "<app title>"`, then commit and push (adds `shopify.app.<name>.toml` and the name to `instances.txt`).
+3. Add GitHub secrets `SHOPIFY_API_SECRET_<NAME>` (the app's client secret) and `SHOPIFY_APP_AUTOMATION_TOKEN_<NAME>` (Dev Dashboard → app → App automation tokens). `FLY_API_TOKEN` is shared.
+4. Actions → **Deploy instance** → `<name>`. It checks the code, deploys `enigmaplay-<name>` to Fly.io and runs `shopify app deploy --config <name>`.
+5. Install with the custom distribution link (the store owner, or a collaborator with all requested permissions), then turn on the app embed in the theme editor.
+
+Logs: Actions → **Server errors** → instance = `<name>`.
+
+Don't install a store copy and the public app on the same store at the same time: both use the `/apps/gamediscount` proxy path.

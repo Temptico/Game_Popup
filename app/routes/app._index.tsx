@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { billingEnabled } from "../lib/billing.server";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Link as RemixLink, useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
 import {
@@ -40,6 +41,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return {
     plan,
     billing,
+    showPlans: billingEnabled(),
     apiKey: process.env.SHOPIFY_API_KEY || "",
     popups: popups.map((p) => ({
       id: p.id,
@@ -85,7 +87,7 @@ const targetLabel = (v: string) => TARGETS.find((t) => t.value === v)?.label ?? 
 const EMBED_HINT_KEY = "gd_embed_hint_dismissed";
 
 export default function Index() {
-  const { popups, plan, billing, apiKey } = useLoaderData<typeof loader>();
+  const { popups, plan, billing, apiKey, showPlans } = useLoaderData<typeof loader>();
   const totals = popups.reduce(
     (t, p) => ({ view: t.view + p.counts.view, submit: t.submit + p.counts.submit, win: t.win + p.counts.win }),
     { view: 0, submit: 0, win: 0 },
@@ -157,7 +159,7 @@ export default function Index() {
             { label: "Revenue from popup", value: usd(billing.revenueUsd) },
           ]}
           footer={
-            <>
+            showPlans && <>
               Plan: <b>{PLAN_LABELS[plan]}</b> ·{" "}
               {Number.isFinite(billing.cap)
                 ? `${usd(billing.revenueUsd)} of ${usd(billing.cap)} included`

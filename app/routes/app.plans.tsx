@@ -6,12 +6,16 @@ import { BrandHero } from "../components/BrandHero";
 import { authenticate } from "../shopify.server";
 import { getInstallation, publishConfig } from "../lib/popups.server";
 import { getBillingStatus } from "../lib/revenue.server";
-import { shouldUseTestCharges } from "../lib/billing.server";
+import { billingEnabled, shouldUseTestCharges } from "../lib/billing.server";
 import { PLANS, PLAN_LABELS, planFromSubscriptionName, type PlanName } from "../lib/plans";
 
 
+// Private store copies have no billing (see billingEnabled); the nav hides this page there.
+const noBilling = () => new Response("Plans are not available for this installation.", { status: 404 });
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session, billing } = await authenticate.admin(request);
+  if (!billingEnabled()) throw noBilling();
   const [{ plan }, isTest] = await Promise.all([getInstallation(admin), shouldUseTestCharges(admin)]);
   const status = await getBillingStatus(session.shop, plan);
   const { appSubscriptions } = await billing.check({
@@ -31,6 +35,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { billing, session, admin } = await authenticate.admin(request);
+  if (!billingEnabled()) throw noBilling();
   const form = await request.formData();
   const intent = form.get("intent");
   const isTest = await shouldUseTestCharges(admin);

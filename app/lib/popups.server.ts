@@ -1,4 +1,5 @@
 import type { Popup } from "@prisma/client";
+import { billingEnabled } from "./billing.server";
 import db from "../db.server";
 import {
   DEFAULT_STRINGS,
@@ -71,6 +72,12 @@ export function settingsToRow(s: PopupSettings) {
  * unlike `billing.check` which is only available on admin requests.
  */
 export async function getInstallation(admin: AdminApi) {
+  if (!billingEnabled()) {
+    const res = await admin.graphql(`#graphql
+      query GameDiscountInstallationId { currentAppInstallation { id } }`);
+    const json = await res.json();
+    return { id: json.data.currentAppInstallation.id as string, plan: "scale" as PlanName };
+  }
   const res = await admin.graphql(
     `#graphql
     query GameDiscountInstallation {

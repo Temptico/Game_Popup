@@ -23,11 +23,21 @@
       var x = ((clientX - rect.left) / rect.width) * W;
       paddleX = Math.max(0, Math.min(W - PADDLE_W, x - PADDLE_W / 2));
     }
-    canvas.addEventListener('pointermove', function (e) { setPaddle(e.clientX); });
-    canvas.addEventListener('pointerdown', function (e) {
-      setPaddle(e.clientX);
-      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-    });
+    // While playing, moving anywhere on the screen steers the paddle: phones
+    // need the finger off the small canvas to see the ball. The popup must not
+    // scroll or zoom instead, so touch gestures are locked for the duration.
+    var lockEls = [canvas.closest('.gd-card'), canvas.closest('.gd-overlay')].filter(Boolean);
+    function lock(on) { lockEls.forEach(function (el) { el.style.touchAction = on ? 'none' : ''; }); }
+    function onPointer(e) { if (running) setPaddle(e.clientX); }
+    function onTouch(e) {
+      if (!running || !e.touches[0] || (e.target.closest && e.target.closest('button'))) return;
+      e.preventDefault();
+      setPaddle(e.touches[0].clientX);
+    }
+    document.addEventListener('pointermove', onPointer);
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('touchstart', onTouch, { passive: false });
+    document.addEventListener('touchmove', onTouch, { passive: false });
     document.addEventListener('keydown', function (e) {
       if (running && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { keys[e.key] = true; e.preventDefault(); }
     });
@@ -80,8 +90,8 @@
       while (acc >= STEP) {
         step();
         acc -= STEP;
-        if (ball.y - R > H) { running = false; draw(1); return cb.end(false); }
-        if (elapsed >= o.surviveMs) { running = false; draw(1); cb.tick(0); return cb.end(true); }
+        if (ball.y - R > H) { running = false; lock(false); draw(1); return cb.end(false); }
+        if (elapsed >= o.surviveMs) { running = false; lock(false); draw(1); cb.tick(0); return cb.end(true); }
       }
       // Touch the DOM only when the displayed tenth of a second changes.
       var label = (Math.max(0, o.surviveMs - elapsed) / 1000).toFixed(1);
@@ -98,11 +108,11 @@
         ball.vy = startDir * baseVy;
         paddleX = (W - PADDLE_W) / 2;
         elapsed = 0; acc = 0; shown = ''; prevX = ball.x; prevY = ball.y;
-        running = true; last = performance.now();
+        running = true; lock(true); last = performance.now();
         draw(1);
         raf = requestAnimationFrame(tick);
       },
-      stop: function () { running = false; cancelAnimationFrame(raf); }
+      stop: function () { running = false; lock(false); cancelAnimationFrame(raf); }
     };
   };
 })();

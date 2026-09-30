@@ -91,6 +91,8 @@ export default function Privacy() {
         <p>
           {c.legalName}, {c.address}
           <br />
+          {c.registration}
+          <br />
           Email: <a href={`mailto:${c.supportEmail}`} style={{ color: "#3d007a" }}>{c.supportEmail}</a>
         </p>
         <p style={{ fontSize: 13, color: "#616161" }}>We may update this policy; the date at the top shows the latest version.</p>

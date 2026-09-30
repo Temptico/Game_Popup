@@ -62,7 +62,7 @@ Record with Loom or OBS (1080p). Use English, or add English subtitles. Upload t
 - [x] Billing via Shopify Billing API; test charges on development stores automatically
 - [x] Storefront performance: Lighthouse 100 → 100 on a test page (0-point drop; limit is 10)
 - [x] Privacy policy page `/privacy`
-- [ ] `app/lib/company.ts`: legal name, address, support email filled in
+- [x] `app/lib/company.ts`: legal name, address, support email filled in
 - [ ] Protected customer data form completed
 - [ ] Emergency developer contact set
 - [ ] Listing, icon, screenshots, screencast uploaded

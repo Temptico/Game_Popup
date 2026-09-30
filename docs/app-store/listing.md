@@ -45,7 +45,7 @@ Additional pricing note: `Popup-generated revenue = orders that used a Game Disc
 | Field | Value |
 |---|---|
 | Privacy policy URL | `https://<FLY_APP_NAME>.fly.dev/privacy` |
-| Support email | `<support email>` |
+| Support email | `info@enigma101.com` |
 | Demo store URL | `https://<your-dev-store>.myshopify.com` + storefront password |
 
 ## Screenshots (1600×900, in this order)

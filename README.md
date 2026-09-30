@@ -110,5 +110,5 @@ Don't install a store copy and the public app on the same store at the same time
 
 ### Release flow while the public app is in review
 - Improvements are developed and tried on the store copies first (Actions → Deploy instance). The public app is not deployed during review.
-- The public app version under review is commit `fdb4fa6` (v0.8.2). If Shopify asks for review fixes, branch from that commit, fix, and deploy the public app from there, so untested copy changes don't go into review.
+- The public app version under review is commit `4b9dde0` (v0.10.1). If Shopify asks for review fixes, branch from that commit, fix, and deploy the public app from there, so untested copy changes don't go into review.
 - After approval, deploy the current branch with Actions → Deploy to ship the tested improvements to the public app.

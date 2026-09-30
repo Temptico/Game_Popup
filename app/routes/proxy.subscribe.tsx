@@ -19,7 +19,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ ok: false, error: "invalid_input" }, { status: 422 });
   }
 
-  const known = await recordEvent(shop, popupId, "submit");
+  const known = await recordEvent(shop, popupId, "submit", body.v);
   if (!known) {
     return json({ ok: false, error: "unknown_popup" }, { status: 404 });
   }
@@ -29,7 +29,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const emailHash = hashEmail(shop, email);
   const claim = await db.claim.upsert({
     where: { popupId_emailHash: { popupId, emailHash } },
-    create: { token: newToken(), shop, popupId, emailHash },
+    // The variant is fixed at the first sign-up (it decides B's discount in /claim).
+    create: { token: newToken(), shop, popupId, emailHash, variant: known.variant },
     // Restart the play clock for claims that haven't won yet (see /claim).
     update: { issuedAt: new Date() },
   });

@@ -11,6 +11,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (!CLIENT_EVENTS.includes(type)) {
     return json({ ok: false, error: "invalid_type" }, { status: 422 });
   }
-  const ok = await recordEvent(shop, String(body.popupId ?? ""), type);
+  const ok = !!(await recordEvent(shop, String(body.popupId ?? ""), type, body.v));
   return json({ ok }, { status: ok ? 200 : 404 });
 };

@@ -9,6 +9,7 @@ import {
   Box,
   Card,
   Checkbox,
+  DataTable,
   FormLayout,
   InlineGrid,
   InlineStack,
@@ -28,6 +29,9 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_STRINGS,
   SIZE_LIMITS,
+  abFromSettings,
+  applyVariantB,
+  type AbVariant,
   LANGUAGE_LABELS,
   LANGUAGES,
   STRING_KEYS,
@@ -48,20 +52,23 @@ import {
   rowToSettings,
   settingsToRow,
 } from "../lib/popups.server";
-import { getDiscountUsage } from "../lib/analytics.server";
+import { getAbResults, getDiscountUsage } from "../lib/analytics.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const { plan } = await getInstallation(admin);
 
   if (params.id === "new") {
-    return { id: null, settings: DEFAULT_SETTINGS, plan, codeExists: true };
+    return { id: null, settings: DEFAULT_SETTINGS, plan, codeExists: true, abResults: null };
   }
   const row = await db.popup.findFirst({ where: { id: params.id, shop: session.shop } });
   if (!row) throw redirect("/app");
 
-  const usage = row.discountCode ? await getDiscountUsage(admin, row.discountCode) : 0;
-  return { id: row.id, settings: rowToSettings(row), plan, codeExists: usage !== null };
+  const [usage, abResults] = await Promise.all([
+    row.discountCode ? getDiscountUsage(admin, row.discountCode) : 0,
+    row.abStartedAt ? getAbResults(row.id, row.abStartedAt) : null,
+  ]);
+  return { id: row.id, settings: rowToSettings(row), plan, codeExists: usage !== null, abResults };
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
@@ -74,12 +81,12 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   if (Object.keys(errors).length) return { errors };
 
   const isNew = params.id === "new";
-  if (!isNew) {
-    const existing = await db.popup.findFirst({ where: { id: params.id, shop } });
-    if (!existing) throw redirect("/app");
-  }
+  const existing = isNew ? null : await db.popup.findFirst({ where: { id: params.id, shop } });
+  if (!isNew && !existing) throw redirect("/app");
 
-  const data = settingsToRow(settings);
+  // Switching an A/B test on (re)starts its results.
+  const abStart = settings.abEnabled && !existing?.abEnabled ? { abStartedAt: new Date() } : {};
+  const data = { ...settingsToRow(settings), ...abStart };
   const row = isNew
     ? await db.popup.create({ data: { ...data, shop } })
     : await db.popup.update({ where: { id: params.id }, data });
@@ -93,10 +100,11 @@ const TABS = [
   { id: "game", content: "Game" },
   { id: "design", content: "Design" },
   { id: "texts", content: "Texts (advanced)" },
+  { id: "ab", content: "A/B test" },
 ];
 
 export default function PopupEditor() {
-  const { id, settings: initial, plan, codeExists } = useLoaderData<typeof loader>();
+  const { id, settings: initial, plan, codeExists, abResults } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const errors: ValidationErrors = actionData?.errors ?? {};
   const submit = useSubmit();
@@ -409,6 +417,20 @@ export default function PopupEditor() {
                     </FormLayout>
                   </BlockStack>
                 )}
+
+                {tab === 4 && (
+                  <AbTab
+                    s={s}
+                    setS={setS}
+                    results={abResults}
+                    lang={lang}
+                    setLang={setLang}
+                    saving={saving}
+                    onSaveNow={(next) =>
+                      submit(next as unknown as Record<string, string>, { method: "POST", encType: "application/json" })
+                    }
+                  />
+                )}
               </Box>
             </Tabs>
           </Card>
@@ -512,5 +534,159 @@ function Preview({ settings: s, branding, device }: { settings: PopupSettings; b
         </div>
       </div>
     </BlockStack>
+  );
+}
+
+type AbResults = NonNullable<ReturnType<typeof useLoaderData<typeof loader>>["abResults"]>;
+
+function AbTab({
+  s,
+  setS,
+  results,
+  lang,
+  setLang,
+  saving,
+  onSaveNow,
+}: {
+  s: PopupSettings;
+  setS: React.Dispatch<React.SetStateAction<PopupSettings>>;
+  results: AbResults | null;
+  lang: Language;
+  setLang: (l: Language) => void;
+  saving: boolean;
+  onSaveNow: (next: PopupSettings) => void;
+}) {
+  const b = s.ab;
+  const setB = <K extends keyof AbVariant>(key: K, value: AbVariant[K]) =>
+    setS((prev) => ({ ...prev, ab: { ...prev.ab, [key]: value } }));
+  const setBString = (key: "introTitle" | "introDesc", value: string) =>
+    setS((prev) => ({
+      ...prev,
+      ab: { ...prev.ab, strings: { ...prev.ab.strings, [lang]: { ...prev.ab.strings[lang], [key]: value } } },
+    }));
+  const aText = { ...DEFAULT_STRINGS[lang], ...s.strings[lang] };
+  const unit = s.discountType === "percentage" ? "%" : "";
+
+  return (
+    <BlockStack gap="400">
+      <Checkbox
+        label="Run an A/B test: half of the visitors see variant B"
+        helpText="Each visitor always sees the same variant. Variant A is the popup as set up in the other tabs."
+        checked={s.abEnabled}
+        onChange={(on) =>
+          setS((prev) => ({ ...prev, abEnabled: on, ab: on && !prev.abEnabled ? { ...abFromSettings(prev), strings: prev.ab.strings } : prev.ab }))
+        }
+      />
+
+      {s.abEnabled && (
+        <Card background="bg-surface-secondary">
+          <BlockStack gap="400">
+            <Text as="h3" variant="headingSm">Variant B: change what you want to test</Text>
+            <Text as="p" tone="subdued">
+              Change one thing at a time to learn what works (for example only the discount). Saving restarts nothing;
+              switching the test off and on again starts new results.
+            </Text>
+            <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
+              <Select label="Game" options={GAMES.map((g) => ({ ...g }))} value={b.gameType}
+                onChange={(v) => setB("gameType", v as AbVariant["gameType"])} />
+              <Select label="When it opens" options={TRIGGERS.map((t) => ({ ...t }))} value={b.trigger}
+                onChange={(v) => setB("trigger", v as AbVariant["trigger"])} />
+              <TextField label="Delay (seconds)" type="number" autoComplete="off" value={String(b.delaySec)}
+                onChange={(v) => setB("delaySec", Number(v))} />
+            </InlineGrid>
+
+            {s.codeMode === "unique" && !s.tiered && (
+              <TextField label={`Discount for B (A: ${s.discountValue}${unit})`} type="number" autoComplete="off"
+                suffix={unit} value={String(b.discountValue)} onChange={(v) => setB("discountValue", Number(v))} />
+            )}
+            {s.codeMode === "unique" && s.tiered && (
+              <InlineGrid columns={3} gap="400">
+                {(["1st", "2nd", "3rd+"] as const).map((label, i) => (
+                  <TextField key={label} label={`B: won on ${label} attempt (A: ${s.tierValues[i]}${unit})`} type="number"
+                    autoComplete="off" suffix={unit} value={String(b.tierValues[i])}
+                    onChange={(v) => {
+                      const next = [...b.tierValues] as AbVariant["tierValues"];
+                      next[i] = Number(v);
+                      setB("tierValues", next);
+                    }} />
+                ))}
+              </InlineGrid>
+            )}
+            {s.codeMode === "static" && (
+              <TextField label="Discount code for B (optional)" autoComplete="off" value={b.discountCode}
+                onChange={(v) => setB("discountCode", v.toUpperCase())}
+                helpText={`Create a second code in Discounts to test a different discount (A uses ${s.discountCode || "its code"}). Empty = same code as A; orders then can't be split by variant.`} />
+            )}
+
+            <Select label="Texts for language"
+              options={LANGUAGES.map((l) => ({ label: LANGUAGE_LABELS[l], value: l }))}
+              value={lang} onChange={(v) => setLang(v as Language)}
+              helpText="Set B's texts for every language your store uses. Empty = same text as A." />
+            <TextField label="Headline for B" autoComplete="off" value={b.strings[lang]?.introTitle ?? ""}
+              placeholder={aText.introTitle} onChange={(v) => setBString("introTitle", v)} />
+            <TextField label="Description for B" autoComplete="off" value={b.strings[lang]?.introDesc ?? ""}
+              placeholder={aText.introDesc} onChange={(v) => setBString("introDesc", v)} />
+          </BlockStack>
+        </Card>
+      )}
+
+      {results && <AbReport results={results} running={s.abEnabled} saving={saving}
+        onKeepA={() => onSaveNow({ ...s, abEnabled: false })}
+        onUseB={() => onSaveNow(applyVariantB(s))} />}
+    </BlockStack>
+  );
+}
+
+function AbReport({ results: r, running, saving, onKeepA, onUseB }: {
+  results: AbResults; running: boolean; saving: boolean; onKeepA: () => void; onUseB: () => void;
+}) {
+  const pct = (x: number, n: number) => (n ? `${((x / n) * 100).toFixed(1)}%` : "–");
+  const money = (n: number) =>
+    r.currency
+      ? new Intl.NumberFormat(undefined, { style: "currency", currency: r.currency, maximumFractionDigits: 0 }).format(n)
+      : Math.round(n).toLocaleString();
+  const row = (label: string, a: typeof r.a) => [
+    label,
+    a.views.toLocaleString(),
+    `${a.submits.toLocaleString()} (${pct(a.submits, a.views)})`,
+    `${a.wins.toLocaleString()} (${pct(a.wins, a.submits)})`,
+    a.orders.toLocaleString(),
+    money(a.revenue),
+    a.views ? money((a.revenue / a.views) * 1000) : "–",
+  ];
+  const conf = Math.round(r.confidence * 100);
+  const winner = r.leader === "b" ? "B" : "A";
+  const verdict = !r.enoughData
+    ? { tone: "info" as const, title: "Not enough data yet",
+        text: "Each variant needs at least 100 views and together 20 sign-ups before the result means anything. Keep the test running." }
+    : r.confidence >= 0.95 && r.leader
+      ? { tone: "success" as const, title: `Variant ${winner} wins (${conf}% confidence)`,
+          text: `${winner} collects more emails per view, and the difference is very unlikely to be chance.` }
+      : { tone: "warning" as const, title: `No clear winner yet (${conf}% confidence)`,
+          text: "The difference could still be chance. Keep the test running until confidence reaches 95%." };
+
+  return (
+    <Card>
+      <BlockStack gap="300">
+        <Text as="h3" variant="headingSm">
+          Results since {new Date(r.startedAt).toLocaleDateString()}{running ? "" : " (test stopped)"}
+        </Text>
+        <Banner tone={verdict.tone} title={verdict.title}><p>{verdict.text}</p></Banner>
+        <DataTable
+          columnContentTypes={["text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"]}
+          headings={["Variant", "Views", "Emails", "Wins", "Orders", "Revenue", "Revenue / 1,000 views"]}
+          rows={[row("A", r.a), row("B", r.b)]}
+        />
+        <Text as="p" tone="subdued" variant="bodySm">
+          The winner is decided by emails per view. Orders and revenue are shown for context: they need far more traffic to compare reliably.
+        </Text>
+        {running && (
+          <InlineStack gap="200">
+            <Button onClick={onKeepA} loading={saving}>Stop test and keep A</Button>
+            <Button variant="primary" onClick={onUseB} loading={saving}>Stop test and use B</Button>
+          </InlineStack>
+        )}
+      </BlockStack>
+    </Card>
   );
 }

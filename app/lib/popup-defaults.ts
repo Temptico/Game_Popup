@@ -380,6 +380,20 @@ export const FREQUENCIES = [
 export const DEFAULT_PRIMARY = "#830522";
 export const DEFAULT_ACCENT = "#d9caa0";
 
+/** What variant B of an A/B test changes; everything else is the same as A. */
+export interface AbVariant {
+  gameType: "paddle" | "flipper";
+  trigger: "both" | "delay" | "exit";
+  delaySec: number;
+  // Unique codes: B's discount (single value, or per attempt when tiered)
+  discountValue: number;
+  tierValues: [number, number, number];
+  // Shared-code mode: B's code (empty = same code as A)
+  discountCode: string;
+  // Headline/description per language (empty = same as A)
+  strings: Partial<Record<Language, { introTitle?: string; introDesc?: string }>>;
+}
+
 export interface PopupSettings {
   name: string;
   active: boolean;
@@ -413,6 +427,42 @@ export interface PopupSettings {
   // >0: unique codes expire this many minutes after winning (shown as a countdown)
   urgencyMinutes: number;
   strings: CustomStrings;
+  abEnabled: boolean;
+  ab: AbVariant;
+}
+
+/** Starting point for variant B: a copy of A with the other game. */
+export function abFromSettings(s: PopupSettings): AbVariant {
+  return {
+    gameType: s.gameType === "paddle" ? "flipper" : "paddle",
+    trigger: s.trigger,
+    delaySec: s.delaySec,
+    discountValue: s.discountValue,
+    tierValues: [...s.tierValues],
+    discountCode: s.discountCode,
+    strings: {},
+  };
+}
+
+/** Settings after adopting variant B as the popup (ends the test). */
+export function applyVariantB(s: PopupSettings): PopupSettings {
+  const b = s.ab;
+  const strings: CustomStrings = { ...s.strings };
+  for (const [lang, over] of Object.entries(b.strings) as [Language, AbVariant["strings"][Language]][]) {
+    const clean = Object.fromEntries(Object.entries(over ?? {}).filter(([, v]) => v));
+    if (Object.keys(clean).length) strings[lang] = { ...strings[lang], ...clean };
+  }
+  return {
+    ...s,
+    gameType: b.gameType,
+    trigger: b.trigger,
+    delaySec: b.delaySec,
+    discountValue: b.discountValue,
+    tierValues: [...b.tierValues],
+    discountCode: b.discountCode || s.discountCode,
+    strings,
+    abEnabled: false,
+  };
 }
 
 export const DEFAULT_SETTINGS: PopupSettings = {
@@ -444,7 +494,51 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   tierValues: [15, 10, 5],
   urgencyMinutes: 0,
   strings: {},
+  abEnabled: false,
+  ab: {
+    gameType: "flipper",
+    trigger: "both",
+    delaySec: 15,
+    discountValue: 10,
+    tierValues: [15, 10, 5],
+    discountCode: "",
+    strings: {},
+  },
 };
+
+export function parseAbJson(raw: string) {
+  try {
+    return parseAbVariant(JSON.parse(raw || "{}"));
+  } catch {
+    return parseAbVariant({});
+  }
+}
+
+/** Parses a stored/submitted variant B, falling back to the defaults field by field. */
+export function parseAbVariant(input: unknown, fallback: AbVariant = DEFAULT_SETTINGS.ab): AbVariant {
+  const o = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const tiers = Array.isArray(o.tierValues) ? o.tierValues : fallback.tierValues;
+  const strings: AbVariant["strings"] = {};
+  const rawStrings = (o.strings && typeof o.strings === "object" ? o.strings : {}) as Record<string, unknown>;
+  for (const lang of LANGUAGES) {
+    const src = (rawStrings[lang] ?? {}) as Record<string, unknown>;
+    const out: { introTitle?: string; introDesc?: string } = {};
+    for (const key of ["introTitle", "introDesc"] as const) {
+      const val = typeof src[key] === "string" ? (src[key] as string).trim().slice(0, 300) : "";
+      if (val) out[key] = val;
+    }
+    if (Object.keys(out).length) strings[lang] = out;
+  }
+  return {
+    gameType: o.gameType === "paddle" || o.gameType === "flipper" ? o.gameType : fallback.gameType,
+    trigger: o.trigger === "delay" || o.trigger === "exit" || o.trigger === "both" ? o.trigger : fallback.trigger,
+    delaySec: Math.round(num(o.delaySec, fallback.delaySec, 0, 600)),
+    discountValue: num(o.discountValue, fallback.discountValue, 0.01, 100000),
+    tierValues: [0, 1, 2].map((i) => num(tiers[i], fallback.tierValues[i], 0.01, 100000)) as [number, number, number],
+    discountCode: String(o.discountCode ?? "").trim().slice(0, 255),
+    strings,
+  };
+}
 
 // Min/max popup size in % of the default. Phones get less headroom: the
 // popup already spans the screen width there.
@@ -511,6 +605,17 @@ export function parseSettings(input: Record<string, unknown>): {
     errors.tierValues = "Each tier needs a value greater than 0 (percentages up to 100).";
   }
 
+  const abEnabled = input.abEnabled === true || input.abEnabled === "true";
+  const ab = parseAbVariant(input.ab);
+  if (abEnabled) {
+    const pct = (v: number) => discountType === "percentage" && v > 100;
+    if (codeMode === "unique" && (pct(ab.discountValue) || ab.tierValues.some(pct))) {
+      errors.ab = "Variant B: percentages must be between 1 and 100.";
+    } else if (ab.discountCode && !CODE.test(ab.discountCode)) {
+      errors.ab = "Variant B: enter the discount code exactly as created in Shopify (letters, numbers, - and _).";
+    }
+  }
+
   const primaryColor = String(input.primaryColor ?? d.primaryColor);
   const accentColor = String(input.accentColor ?? d.accentColor);
   if (!HEX.test(primaryColor)) errors.primaryColor = "Use a hex color like #830522.";
@@ -571,6 +676,8 @@ export function parseSettings(input: Record<string, unknown>): {
       tierValues,
       urgencyMinutes: Math.round(num(input.urgencyMinutes, 0, 0, 1440)),
       strings,
+      abEnabled,
+      ab,
     },
   };
 }

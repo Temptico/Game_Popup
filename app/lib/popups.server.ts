@@ -4,7 +4,9 @@ import db from "../db.server";
 import {
   DEFAULT_STRINGS,
   LANGUAGES,
+  parseAbJson,
   type CustomStrings,
+  type Language,
   type PopupSettings,
 } from "./popup-defaults";
 import { PLAN_LIMITS, planFromSubscriptionName, type PlanName } from "./plans";
@@ -56,8 +58,12 @@ export function rowToSettings(row: Popup): PopupSettings {
     tierValues: parseTierValues(row.tierValues),
     urgencyMinutes: row.urgencyMinutes,
     strings,
+    abEnabled: row.abEnabled,
+    ab: parseAbJson(row.abVariant),
   };
 }
+
+export { parseAbJson };
 
 export function parseTierValues(raw: string): [number, number, number] {
   const v = raw.split(",").map(Number);
@@ -65,7 +71,13 @@ export function parseTierValues(raw: string): [number, number, number] {
 }
 
 export function settingsToRow(s: PopupSettings) {
-  return { ...s, strings: JSON.stringify(s.strings), tierValues: s.tierValues.join(",") };
+  const { ab, ...rest } = s;
+  return {
+    ...rest,
+    strings: JSON.stringify(s.strings),
+    tierValues: s.tierValues.join(","),
+    abVariant: JSON.stringify(ab),
+  };
 }
 
 /**
@@ -129,8 +141,25 @@ export async function publishConfig(admin: AdminApi, shop: string) {
     branding: limits.branding,
     popups: (billing.paused ? [] : livePopups(popups)).map((p) => {
       const s = rowToSettings(p);
+      const strings = Object.fromEntries(
+        LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }]),
+      );
+      // A/B test: the storefront picks a variant per visitor and overlays `ab`
+      // (B's strings only for languages where B changes the texts).
+      const ab = s.abEnabled
+        ? {
+            v: "b",
+            gameType: s.ab.gameType,
+            trigger: s.ab.trigger,
+            delaySec: s.ab.delaySec,
+            strings: Object.fromEntries(
+              Object.entries(s.ab.strings).map(([l, over]) => [l, { ...strings[l as Language], ...over }]),
+            ),
+          }
+        : undefined;
       return {
         id: p.id,
+        ...(ab ? { v: "a", ab } : {}),
         delaySec: s.delaySec,
         surviveSec: s.surviveSec,
         vx: s.vx,
@@ -148,9 +177,7 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         frequency: s.frequency,
         teaser: s.teaser,
         // Resolved per language so the storefront script carries no translations.
-        strings: Object.fromEntries(
-          LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }]),
-        ),
+        strings,
       };
     }),
   };

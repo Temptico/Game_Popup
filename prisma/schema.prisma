@@ -51,6 +51,10 @@ model Popup {
   // Popup size in % of the default, separately for desktop and phones (see SIZE_LIMITS)
   sizeDesktop    Int      @default(100)
   sizeMobile     Int      @default(100)
+  // A/B test: 50 % of visitors get variant B (JSON AbVariant), results count from abStartedAt
+  abEnabled      Boolean   @default(false)
+  abStartedAt    DateTime?
+  abVariant      String    @default("{}")
   target         String   @default("all")
   requireConsent Boolean  @default(true)
   autoApply      Boolean  @default(true)
@@ -86,10 +90,13 @@ model Event {
   popup     Popup    @relation(fields: [popupId], references: [id], onDelete: Cascade)
   // view | submit | play | win
   type      String
+  // A/B variant the visitor saw: "a", "b", or "" when no test was running
+  variant   String   @default("")
   createdAt DateTime @default(now())
 
   @@index([shop, type, createdAt])
   @@index([popupId, type])
+  @@index([popupId, variant, type])
 }
 
 // One per (popup, email): issued by /proxy/subscribe, redeemed by /proxy/claim.
@@ -109,6 +116,8 @@ model Claim {
   valueLabel String?
   expiresAt  DateTime?
   claimedAt  DateTime?
+  // A/B variant the visitor played ("a", "b" or "")
+  variant    String    @default("")
 
   @@unique([popupId, emailHash])
   @@index([shop, claimedAt])
@@ -126,6 +135,8 @@ model AttributedOrder {
   amount    Float
   currency  String
   amountUsd Float
+  // A/B variant of the code used ("a", "b" or "")
+  variant   String   @default("")
   createdAt DateTime @default(now())
 
   @@unique([shop, orderId])

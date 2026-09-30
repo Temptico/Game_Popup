@@ -46,6 +46,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     popups: popups.map((p) => ({
       id: p.id,
       name: p.name,
+      ab: p.abEnabled,
       active: p.active,
       live: live.has(p.id),
       discountCode: p.codeMode === "unique" ? "Unique per winner" : p.discountCode,
@@ -241,13 +242,16 @@ export default function Index() {
                     </BlockStack>
                   </IndexTable.Cell>
                   <IndexTable.Cell>
-                    {p.live ? (
-                      <Badge tone="success">Live</Badge>
-                    ) : p.active ? (
-                      <Badge tone="warning">Over plan limit</Badge>
-                    ) : (
-                      <Badge>Paused</Badge>
-                    )}
+                    <InlineStack gap="100" wrap={false}>
+                      {p.live ? (
+                        <Badge tone="success">Live</Badge>
+                      ) : p.active ? (
+                        <Badge tone="warning">Over plan limit</Badge>
+                      ) : (
+                        <Badge>Paused</Badge>
+                      )}
+                      {p.ab && p.active && <Badge tone="info">A/B test</Badge>}
+                    </InlineStack>
                   </IndexTable.Cell>
                   <IndexTable.Cell>{p.discountCode}</IndexTable.Cell>
                   <IndexTable.Cell>

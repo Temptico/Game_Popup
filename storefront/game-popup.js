@@ -1,8 +1,8 @@
 /* Enigma Play – gamification popup (storefront). Settings: app.metafields.gamediscount.config
+ * Strict mode comes from the build ("use strict" is emitted by esbuild), which keeps this file small.
  * Source file. `npm run build:storefront` minifies it (and storefront/games/*)
  * into extensions/gamediscount-popup/assets/ — edit here, not there. */
 (function () {
-  'use strict';
   if (window.__gameDiscountLoaded) return;
   window.__gameDiscountLoaded = true;
 
@@ -34,6 +34,14 @@
   }
   var local = store('localStorage');
   var session = store('sessionStorage');
+
+  // A/B test: each visitor keeps one variant; B overlays its own settings.
+  var ab = popup.ab;
+  if (ab) {
+    var KEY_V = 'gd_v_' + popup.id, variant = local.get(KEY_V) || (Math.random() < 0.5 ? 'a' : 'b');
+    local.set(KEY_V, variant);
+    if (variant == 'b') popup = Object.assign({}, popup, ab, { strings: Object.assign({}, popup.strings, ab.strings) });
+  }
   var KEY_CLAIMED = 'gd_claimed_' + popup.id;
   var KEY_ATTEMPTS = 'gd_attempts_' + popup.id;
   var KEY_DISMISSED = 'gd_dismissed_' + popup.id;
@@ -72,10 +80,10 @@
   function post(path, body) {
     return fetch(ctx.proxy + path, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
       keepalive: true,
-      body: JSON.stringify(Object.assign({ popupId: popup.id }, body))
+      body: JSON.stringify(Object.assign({ popupId: popup.id, v: popup.v }, body))
     }).then(function (r) { return r.json().catch(function () { return { ok: false }; }); });
   }
   function track(type) {
@@ -142,7 +150,7 @@
   // Screen 4: reward
   var rewardIntro = el('p', { class: 'gd-muted' });
   var valueEl = el('p', { class: 'gd-value', hidden: '' });
-  var codeEl = el('span', { class: 'gd-code', text: '······' });
+  var codeEl = el('span', { class: 'gd-code', text: '…' });
   var expiryEl = el('p', { class: 'gd-expiry', hidden: '' });
   var copyBtn = el('button', { class: 'gd-btn', type: 'button', text: t.copyBtn });
   var closeReward = el('button', { class: 'gd-btn-ghost', type: 'button', text: t.closeBtn });
@@ -328,7 +336,7 @@
     if (!window.GameDiscountFx && assets.fx) script(assets.fx).catch(function () {}); // confetti is optional
     gameReady = ((window.GameDiscountGames || {})[gameType] ? Promise.resolve() : script(assets[gameType])).then(function () {
       engine = window.GameDiscountGames[gameType](canvas, {
-        primary: popup.primaryColor || '#830522', accent: popup.accentColor || '#d9caa0', vx: popup.vx, vy: popup.vy, surviveMs: surviveMs
+        primary: popup.primaryColor, accent: popup.accentColor, vx: popup.vx, vy: popup.vy, surviveMs: surviveMs
       });
     });
     return gameReady;

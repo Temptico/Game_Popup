@@ -1,4 +1,5 @@
 import db from "../db.server";
+import { parseAbJson } from "./popup-defaults";
 import { GRACE_DAYS, getPlan, requiredPlan, type PlanName } from "./plans";
 
 // Approximate USD rates for plan thresholds only (not for accounting).
@@ -36,15 +37,23 @@ export async function recordOrder(shop: string, order: OrderPayload) {
   const upper = codes.map((c) => c.toUpperCase());
 
   const [claim, popups] = await Promise.all([
-    db.claim.findFirst({ where: { shop, code: { in: codes } }, select: { popupId: true, code: true } }),
-    db.popup.findMany({ where: { shop }, select: { id: true, discountCode: true } }),
+    db.claim.findFirst({ where: { shop, code: { in: codes } }, select: { popupId: true, code: true, variant: true } }),
+    db.popup.findMany({ where: { shop }, select: { id: true, discountCode: true, abEnabled: true, abVariant: true } }),
   ]);
-  const shared = popups.find((p) => p.discountCode && upper.includes(p.discountCode.toUpperCase()));
-  const match = claim?.code
-    ? { popupId: claim.popupId, code: claim.code }
-    : shared
-      ? { popupId: shared.id, code: shared.discountCode }
-      : null;
+  const has = (code: string | null | undefined) => !!code && upper.includes(code.toUpperCase());
+  let match: { popupId: string; code: string; variant: string } | null = claim?.code
+    ? { popupId: claim.popupId, code: claim.code, variant: claim.variant }
+    : null;
+  // Shared codes: during an A/B test variant B may have its own code.
+  for (const p of match ? [] : popups) {
+    const bCode = p.abEnabled ? parseAbJson(p.abVariant).discountCode : "";
+    if (has(bCode) && bCode.toUpperCase() !== p.discountCode.toUpperCase()) {
+      match = { popupId: p.id, code: bCode, variant: "b" };
+    } else if (has(p.discountCode)) {
+      match = { popupId: p.id, code: p.discountCode, variant: p.abEnabled && bCode && bCode !== p.discountCode ? "a" : "" };
+    }
+    if (match) break;
+  }
   if (!match) return false;
 
   const amount = parseFloat(order.total_price ?? "0") || 0;
@@ -53,7 +62,7 @@ export async function recordOrder(shop: string, order: OrderPayload) {
   await db.attributedOrder.upsert({
     where: { shop_orderId: { shop, orderId } },
     create: {
-      shop, orderId, popupId: match.popupId, code: match.code,
+      shop, orderId, popupId: match.popupId, code: match.code, variant: match.variant,
       amount, currency, amountUsd: toUsd(amount, currency),
     },
     update: {},

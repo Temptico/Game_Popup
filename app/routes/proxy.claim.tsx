@@ -1,7 +1,7 @@
 import { json, type ActionFunctionArgs } from "@remix-run/node";
 import db from "../db.server";
 import { readProxyRequest } from "../lib/proxy.server";
-import { parseTierValues } from "../lib/popups.server";
+import { parseAbJson, parseTierValues } from "../lib/popups.server";
 import { createUniqueDiscount, getShopCurrency } from "../lib/discounts.server";
 
 // Game time can only run slower than wall time, so a real win always takes at
@@ -24,11 +24,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // 1 = won on the first attempt (best reward). Client-reported: the spread
   // between tiers is small and each code is single-use anyway.
   const tier = Math.min(3, Math.max(1, Math.round(Number(body.tier) || 3)));
-  const amount = popup.tiered ? parseTierValues(popup.tierValues)[tier - 1] : popup.discountValue;
+  // Variant B of an A/B test has its own discount. The variant comes from the
+  // claim (fixed at sign-up), or from the request in theme-editor test mode.
+  const reward = (variant: string) => {
+    const b = popup.abEnabled && variant === "b" ? parseAbJson(popup.abVariant) : null;
+    return {
+      amount: popup.tiered
+        ? (b ? b.tierValues : parseTierValues(popup.tierValues))[tier - 1]
+        : b ? b.discountValue : popup.discountValue,
+      sharedCode: (b && b.discountCode) || popup.discountCode,
+    };
+  };
 
   // Theme-editor test mode: show a placeholder, never a real code, and don't
   // touch analytics. (A real code here would let anyone skip the game.)
   if (body.test === true) {
+    const { amount } = reward(String(body.v ?? ""));
     const unique = popup.codeMode === "unique";
     return reply(
       `${popup.codePrefix || "TEST"}-PREVIEW`,
@@ -47,6 +58,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return fail("too_fast", 403);
   }
 
+  const { amount, sharedCode } = reward(claim.variant);
   let code: string | null = null;
   let discountId: string | null = null;
   let valueLabel: string | null = null;
@@ -72,7 +84,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
   }
   // Static mode, or the discount API failed → shared fallback code.
-  code ??= popup.discountCode || null;
+  code ??= sharedCode || null;
   if (!code) return fail("code_unavailable", 502);
 
   // Guard against a double-submit racing us: only the first write wins.
@@ -85,6 +97,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return reply(existing?.code ?? code, existing?.valueLabel ?? null, existing?.expiresAt ?? null);
   }
 
-  await db.event.create({ data: { shop, popupId: popup.id, type: "win" } });
+  await db.event.create({ data: { shop, popupId: popup.id, type: "win", variant: popup.abEnabled ? claim.variant : "" } });
   return reply(code, valueLabel, expiresAt);
 };

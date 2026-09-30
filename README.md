@@ -107,3 +107,8 @@ New copy:
 Logs: Actions → **Server errors** → instance = `<name>`.
 
 Don't install a store copy and the public app on the same store at the same time: both use the `/apps/gamediscount` proxy path.
+
+### Release flow while the public app is in review
+- Improvements are developed and tried on the store copies first (Actions → Deploy instance). The public app is not deployed during review.
+- The public app version under review is commit `1006002` (v0.8.1). If Shopify asks for review fixes, branch from that commit, fix, and deploy the public app from there, so untested copy changes don't go into review.
+- After approval, deploy the current branch with Actions → Deploy to ship the tested improvements to the public app.

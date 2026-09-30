@@ -1,4 +1,4 @@
-import type { ActionFunctionArgs } from "@remix-run/node";
+import { json, type ActionFunctionArgs } from "@remix-run/node";
 import { readProxyRequest } from "../lib/proxy.server";
 import { upsertCustomer } from "../lib/customers.server";
 import { recordEvent } from "../lib/analytics.server";
@@ -16,12 +16,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const consent = body.consent === true;
 
   if (!EMAIL.test(email) || !firstName) {
-    return Response.json({ ok: false, error: "invalid_input" }, { status: 422 });
+    return json({ ok: false, error: "invalid_input" }, { status: 422 });
   }
 
   const known = await recordEvent(shop, popupId, "submit");
   if (!known) {
-    return Response.json({ ok: false, error: "unknown_popup" }, { status: 404 });
+    return json({ ok: false, error: "unknown_popup" }, { status: 404 });
   }
 
   // One claim per (popup, email). Re-submitting the same email returns the
@@ -43,5 +43,5 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.error(`[subscribe] ${shop}`, err);
   }
   // The visitor can play either way; a failed customer write shouldn't block the game.
-  return Response.json({ ok: customerOk, token: claim.token });
+  return json({ ok: customerOk, token: claim.token });
 };

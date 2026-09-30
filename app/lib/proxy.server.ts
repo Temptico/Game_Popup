@@ -1,3 +1,4 @@
+import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 
 /**
@@ -7,17 +8,17 @@ import { authenticate } from "../shopify.server";
  */
 export async function readProxyRequest(request: Request) {
   if (request.method !== "POST") {
-    throw Response.json({ ok: false, error: "method_not_allowed" }, { status: 405 });
+    throw json({ ok: false, error: "method_not_allowed" }, { status: 405 });
   }
   const { session, admin } = await authenticate.public.appProxy(request);
   if (!session || !admin) {
-    throw Response.json({ ok: false, error: "not_installed" }, { status: 401 });
+    throw json({ ok: false, error: "not_installed" }, { status: 401 });
   }
   let body: Record<string, unknown> = {};
   try {
     body = await request.json();
   } catch {
-    throw Response.json({ ok: false, error: "bad_json" }, { status: 400 });
+    throw json({ ok: false, error: "bad_json" }, { status: 400 });
   }
   return { shop: session.shop, admin, body };
 }

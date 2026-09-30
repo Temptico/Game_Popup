@@ -1,4 +1,4 @@
-import type { ActionFunctionArgs } from "@remix-run/node";
+import { json, type ActionFunctionArgs } from "@remix-run/node";
 import db from "../db.server";
 import { readProxyRequest } from "../lib/proxy.server";
 import { parseTierValues } from "../lib/popups.server";
@@ -8,10 +8,10 @@ import { createUniqueDiscount, getShopCurrency } from "../lib/discounts.server";
 // least surviveSec since the token was issued. Allow a little clock slack.
 const SLACK_MS = 1000;
 
-const fail = (error: string, status: number) => Response.json({ ok: false, error }, { status });
+const fail = (error: string, status: number) => json({ ok: false, error }, { status });
 
 const reply = (code: string, valueLabel: string | null, expiresAt: Date | null) =>
-  Response.json({ ok: true, code, value: valueLabel, expiresAt: expiresAt?.toISOString() ?? null });
+  json({ ok: true, code, value: valueLabel, expiresAt: expiresAt?.toISOString() ?? null });
 
 // The discount code never ships in the page source — it's released here after a win.
 export const action = async ({ request }: ActionFunctionArgs) => {

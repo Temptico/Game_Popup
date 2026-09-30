@@ -24,19 +24,29 @@ OTHER FEATURES
 To see the popup again after playing, open a new private window (the app remembers claimed codes and closed popups in the browser).
 ```
 
-## 2. Screencast script (2–4 min, English, required)
-Record with Loom or OBS (1080p). Use English, or add English subtitles. Upload to YouTube as "Unlisted" or share a Loom link.
+## 2. Screencast script (silent recording + English subtitles)
+Record the screen without voice (OBS or Loom, 1080p) on the **Demo** store. Add the subtitles afterwards in your editor (CapCut, DaVinci Resolve, Canva, etc.). Each subtitle stays on screen for the whole step. Target length: 3–4 min. Upload to YouTube as **Unlisted**.
 
-| Time | Screen | What to show / say |
+Before recording: open the storefront in a **new incognito window** (the popup remembers players in the browser), and sign in to the store password there first.
+
+| # | Screen / what you do | Subtitle (paste as is) |
 |---|---|---|
-| 0:00 | Shopify admin → Apps | "This is Game Discount. I'll install it and set up a popup." Install the app. |
-| 0:20 | App home | Point to the hero and the "turn on in theme" banner → Open theme editor → App embeds → switch on → Save. |
-| 0:50 | Discounts | Create TEST10 (10% off). |
-| 1:10 | App → Create popup | Enter TEST10, show Game tab (paddle/flipper, trigger, frequency), Design tab (colors), Save. |
-| 1:50 | Storefront, incognito | Wait for the popup → Start → name + email + consent → play → win → code shown and auto-applied in cart. |
-| 2:40 | Admin → Customers | The new customer with the "gamediscount" tag and marketing consent. |
-| 3:00 | App → Analytics & Plans | Numbers updated; explain revenue-based plans (test charge on dev store). |
-| 3:30 | End | "Uninstalling removes all data; GDPR webhooks are implemented." |
+| 1 | Shopify admin → Apps → install Game Discount → approve | Installing Game Discount from the Shopify admin. |
+| 2 | App home: point at the banner → Open theme editor → App embeds → switch on "GameDiscount popup" → Save | Step 1: turn on the popup in the theme editor (app embed, no code changes). |
+| 3 | Back in the app → "+ Create popup" → General tab: Discount code type = Unique single-use code, 10 % | Step 2: create a popup. Each winner gets a unique single-use discount code. |
+| 4 | Scroll: tick "Reward by attempt" (15 / 10 / 5 %), Urgency countdown 15 min | Optional: better reward for winning on the first try, and a real expiry countdown. |
+| 5 | Game tab: show Paddle / Flipper, Trigger, Frequency; Design tab: change colors → Save | Choose the game, when the popup opens, and match your brand colors. |
+| 6 | Incognito window → storefront → wait for the popup → Start | On the storefront the popup invites visitors to play. |
+| 7 | Enter name + email, tick consent → Play | The visitor enters name and email (marketing consent is optional). |
+| 8 | Play and survive until the timer reaches 0 | The visitor plays a 15-second mini-game. |
+| 9 | Win screen: code, "You won 15 % off", countdown → Copy code | The visitor wins a unique code with a live expiry countdown. |
+| 10 | Add a product to cart → checkout: the discount is already applied | The code is applied at checkout automatically. |
+| 11 | Close checkout → back on the store: floating button shows the code | The floating button reminds the visitor of their code. |
+| 12 | Shopify admin → **Customers** → open the new customer (tag "gamediscount", email subscribed) | The visitor is saved as a Shopify customer with the "gamediscount" tag and their consent. |
+| 13 | Shopify admin → **Discounts** → the new code "WIN-…" (one use) | The unique code was created by the app in Shopify Discounts. |
+| 14 | App → Analytics | Analytics: views, emails, games, wins, code uses and revenue per popup. |
+| 15 | App → Plans → click Upgrade on a plan → approve (test charge) | Revenue-based plans through Shopify Billing (test charge on this development store). |
+| 16 | Apps → Game Discount → Uninstall | Uninstalling removes the popup; all app data is deleted (GDPR webhooks). |
 
 ## 3. Protected customer data: answers (Dev Dashboard → API access → Protected customer data)
 **Data used:** Name, Email (level 2). Orders webhook (level 1).

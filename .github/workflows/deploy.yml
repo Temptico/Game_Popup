@@ -49,6 +49,15 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
+      - name: Storefront endpoints work on the production server
+        run: |
+          # remix-serve installs Remix's fetch polyfill, which has no static
+          # Response.json() (it works under Vite dev, then fails on Fly).
+          if grep -rn "Response\.json(" app; then
+            echo "::error::Use json() from @remix-run/node instead of Response.json()"; exit 1
+          fi
+          bash scripts/smoke-proxy.sh
+
       - name: Committed storefront bundle matches its sources
         run: |
           npm run build:storefront

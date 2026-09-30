@@ -33,34 +33,35 @@
     });
     document.addEventListener('keyup', function (e) { keys[e.key] = false; });
 
-    function draw() {
+    function draw(a) {
       c.clearRect(0, 0, W, H);
       c.fillStyle = o.primary;
       c.beginPath();
       if (c.roundRect) c.roundRect(paddleX, PADDLE_Y, PADDLE_W, PADDLE_H, 5); else c.rect(paddleX, PADDLE_Y, PADDLE_W, PADDLE_H);
       c.fill();
       c.fillStyle = '#11151c';
-      c.beginPath(); c.arc(ball.x, ball.y, R, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(prevX + (ball.x - prevX) * a, prevY + (ball.y - prevY) * a, R, 0, Math.PI * 2); c.fill();
     }
 
-    function tick(now) {
-      if (!running) return;
-      // Normalize to 60 fps; cap dt so a background tab can't teleport the ball.
-      var dt = Math.min((now - last) / (1000 / 60), 3);
-      last = now;
-      elapsed += dt * (1000 / 60);
+    // Physics runs in fixed 1/120 s steps; drawing interpolates between the last
+    // two states, so motion stays even whatever the monitor's refresh rate or
+    // frame-time jitter (a variable per-frame step looks like stutter).
+    var STEP = 1000 / 120, acc = 0, prevX = 0, prevY = 0, shown = '';
 
-      if (keys.ArrowLeft) paddleX = Math.max(0, paddleX - 7 * dt);
-      if (keys.ArrowRight) paddleX = Math.min(W - PADDLE_W, paddleX + 7 * dt);
+    function step() {
+      var k = STEP / (1000 / 60); // speeds are in px per 60 fps frame
+      prevX = ball.x; prevY = ball.y;
+      if (keys.ArrowLeft) paddleX = Math.max(0, paddleX - 7 * k);
+      if (keys.ArrowRight) paddleX = Math.min(W - PADDLE_W, paddleX + 7 * k);
 
-      ball.x += ball.vx * dt;
-      ball.y += ball.vy * dt;
+      ball.x += ball.vx * k;
+      ball.y += ball.vy * k;
       if (ball.x - R < 0) { ball.x = R; ball.vx = Math.abs(ball.vx); }
       if (ball.x + R > W) { ball.x = W - R; ball.vx = -Math.abs(ball.vx); }
       if (ball.y - R < 0) { ball.y = R; ball.vy = Math.abs(ball.vy); }
 
       // Paddle hit: bounce up, angle depends on where the ball hits the paddle.
-      if (ball.vy > 0 && ball.y + R >= PADDLE_Y && ball.y + R <= PADDLE_Y + PADDLE_H + Math.abs(ball.vy) * dt + 1 &&
+      if (ball.vy > 0 && ball.y + R >= PADDLE_Y && ball.y + R <= PADDLE_Y + PADDLE_H + Math.abs(ball.vy) * k + 1 &&
           ball.x + R >= paddleX && ball.x - R <= paddleX + PADDLE_W) {
         ball.y = PADDLE_Y - R;
         ball.vy = -baseVy;
@@ -68,12 +69,24 @@
         var dir = Math.abs(off) < 0.05 ? (ball.vx < 0 ? -1 : 1) : (off < 0 ? -1 : 1);
         ball.vx = dir * baseVx * (0.6 + 0.8 * Math.min(1, Math.abs(off)));
       }
+      elapsed += STEP;
+    }
 
-      var left = Math.max(0, o.surviveMs - elapsed);
-      cb.tick(left);
-      draw();
-      if (ball.y - R > H) { running = false; return cb.end(false); }
-      if (left <= 0) { running = false; return cb.end(true); }
+    function tick(now) {
+      if (!running) return;
+      // rAF time can precede the start time; cap so a background tab can't teleport the ball.
+      acc += Math.max(0, Math.min(now - last, 50));
+      last = now;
+      while (acc >= STEP) {
+        step();
+        acc -= STEP;
+        if (ball.y - R > H) { running = false; draw(1); return cb.end(false); }
+        if (elapsed >= o.surviveMs) { running = false; draw(1); cb.tick(0); return cb.end(true); }
+      }
+      // Touch the DOM only when the displayed tenth of a second changes.
+      var label = (Math.max(0, o.surviveMs - elapsed) / 1000).toFixed(1);
+      if (label !== shown) { shown = label; cb.tick(o.surviveMs - elapsed); }
+      draw(acc / STEP);
       raf = requestAnimationFrame(tick);
     }
 
@@ -84,8 +97,9 @@
         ball.vx = (Math.random() < 0.5 ? -1 : 1) * baseVx;
         ball.vy = startDir * baseVy;
         paddleX = (W - PADDLE_W) / 2;
-        elapsed = 0; running = true; last = performance.now();
-        draw();
+        elapsed = 0; acc = 0; shown = ''; prevX = ball.x; prevY = ball.y;
+        running = true; last = performance.now();
+        draw(1);
         raf = requestAnimationFrame(tick);
       },
       stop: function () { running = false; cancelAnimationFrame(raf); }

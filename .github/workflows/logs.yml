@@ -1,0 +1,24 @@
+name: Server errors
+
+# Prints recent app errors from Fly.io for debugging. Emails and shop domains
+# are masked because Actions logs may be publicly visible.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  errors:
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: ${{ secrets.FLY_APP_NAME }}
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Recent errors (masked)
+        run: |
+          flyctl logs -a "$APP" --no-tail 2>&1 \
+            | grep -E '\[(claim|subscribe|billing|webhook)[^]]*\]|Error|error|userErrors|ACCESS_DENIED' \
+            | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<email>/g; s/[a-z0-9-]+\.myshopify\.com/<shop>/g; s/'"$APP"'/<app>/g' \
+            | tail -n 80 || true

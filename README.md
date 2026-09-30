@@ -27,7 +27,7 @@ assets/game-popup.js  (minified)                 /app/analytics    funnel + code
 
   | Plan | Price | Popup revenue / 30 days |
   |---|---|---|
-  | Free | $0 | up to $500 (with "Powered by Enigma Play") |
+  | Free | $0 | up to $500 (with a small Enigma Play icon in the popup) |
   | Standard | $9.99 | up to $3,000 |
   | Growth | $19.99 | up to $12,000 |
   | Scale | $29.99 | unlimited |

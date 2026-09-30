@@ -130,7 +130,7 @@ export default function Plans() {
                 <ul>
                   <li>All games &amp; features</li>
                   <li>Unique codes &amp; analytics</li>
-                  <li>{p.key === "free" ? "“Powered by Enigma Play”" : "No branding"}</li>
+                  <li>{p.key === "free" ? "Small Enigma Play icon in the popup" : "No branding"}</li>
                 </ul>
                 {isCurrent ? (
                   p.key !== "free" && subscriptionId ? (

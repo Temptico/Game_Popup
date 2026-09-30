@@ -29,7 +29,7 @@ Replace boring email popups with a game shoppers actually want to play. A visito
 ## Pricing (must match the app exactly)
 | Plan | Price | Description to enter |
 |---|---|---|
-| Free | Free | Up to $500 popup revenue / 30 days · All games & features · "Powered by Enigma Play" badge |
+| Free | Free | Up to $500 popup revenue / 30 days · All games & features · Small Enigma Play icon in the popup |
 | Standard | $9.99 / month | Up to $3,000 popup revenue / 30 days · All games & features · No branding |
 | Growth | $19.99 / month | Up to $12,000 popup revenue / 30 days · All games & features · No branding |
 | Scale | $29.99 / month | Unlimited popup revenue · All games & features · No branding |

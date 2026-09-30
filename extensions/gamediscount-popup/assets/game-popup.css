@@ -159,8 +159,9 @@
 }
 .gd-reward-actions { display: grid; gap: 8px; }
 
-.gd-branding { margin: 16px 0 0; font-size: 11px; opacity: 0.65; }
-.gd-branding a { color: inherit; }
+/* Standard app attribution (free plan): at most 24×24 px */
+.gd-branding { display: block; width: 20px; height: 20px; margin: 14px auto 0; opacity: 0.55; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 6.5 100 100'%3E%3Cpath fill='%23f5eeea' d='M28 30h44c10 0 17 8 19 20l4 20c1.5 8-3 13-9 13-5 0-8-3-11-8l-4-6H29l-4 6c-3 5-6 8-11 8-6 0-10.5-5-9-13l4-20c2-12 9-20 19-20z'/%3E%3C/svg%3E") center / contain no-repeat; }
+.gd-branding:hover, .gd-branding:focus-visible { opacity: 0.9; }
 
 @media (prefers-reduced-motion: reduce) {
   .gd-overlay, .gd-card { transition: none; }

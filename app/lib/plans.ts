@@ -1,6 +1,6 @@
 // Revenue-based pricing: every plan has every feature; plans differ only in
 // how much popup-generated revenue (last 30 days, USD) they cover, and the
-// Free plan shows "Powered by Enigma Play".
+// Free plan shows a small Enigma Play icon in the popup (standard app attribution).
 
 export type PlanName = "free" | "standard" | "growth" | "scale";
 

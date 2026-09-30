@@ -15,6 +15,7 @@ import {
   Layout,
   Link,
   Page,
+  RangeSlider,
   Select,
   Tabs,
   Text,
@@ -26,6 +27,7 @@ import db from "../db.server";
 import {
   DEFAULT_SETTINGS,
   DEFAULT_STRINGS,
+  SIZE_LIMITS,
   LANGUAGE_LABELS,
   LANGUAGES,
   STRING_KEYS,
@@ -106,6 +108,7 @@ export default function PopupEditor() {
   const [lang, setLang] = useState<Language>("en");
   useEffect(() => setS(initial), [initial]);
 
+  const [device, setDevice] = useState<"desktop" | "phone">("desktop");
   const set = <K extends keyof PopupSettings>(key: K) => (value: PopupSettings[K]) =>
     setS((prev) => ({ ...prev, [key]: value }));
   const setNum = (key: "delaySec" | "surviveSec" | "vx" | "vy" | "maxAttempts") =>
@@ -348,7 +351,35 @@ export default function PopupEditor() {
                       <ColorField label="Primary color (background)" value={s.primaryColor} onChange={set("primaryColor")} error={errors.primaryColor} />
                       <ColorField label="Accent color (buttons, code)" value={s.accentColor} onChange={set("accentColor")} error={errors.accentColor} />
                     </InlineGrid>
-                    <Preview settings={s} branding={branded} />
+                    <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
+                      <RangeSlider
+                        label="Popup size on desktop"
+                        min={SIZE_LIMITS.desktop.min}
+                        max={SIZE_LIMITS.desktop.max}
+                        step={5}
+                        value={s.sizeDesktop}
+                        onChange={(v) => { set("sizeDesktop")(Number(v)); setDevice("desktop"); }}
+                        output
+                        suffix={<Text as="span" variant="bodyMd">{s.sizeDesktop}%</Text>}
+                        helpText={`${SIZE_LIMITS.desktop.min}–${SIZE_LIMITS.desktop.max}% of the standard size`}
+                      />
+                      <RangeSlider
+                        label="Popup size on phones"
+                        min={SIZE_LIMITS.mobile.min}
+                        max={SIZE_LIMITS.mobile.max}
+                        step={5}
+                        value={s.sizeMobile}
+                        onChange={(v) => { set("sizeMobile")(Number(v)); setDevice("phone"); }}
+                        output
+                        suffix={<Text as="span" variant="bodyMd">{s.sizeMobile}%</Text>}
+                        helpText={`${SIZE_LIMITS.mobile.min}–${SIZE_LIMITS.mobile.max}% of the standard size`}
+                      />
+                    </InlineGrid>
+                    <InlineStack gap="200">
+                      <Button pressed={device === "desktop"} onClick={() => setDevice("desktop")}>Desktop preview</Button>
+                      <Button pressed={device === "phone"} onClick={() => setDevice("phone")}>Phone preview</Button>
+                    </InlineStack>
+                    <Preview settings={s} branding={branded} device={device} />
                   </BlockStack>
                 )}
 
@@ -422,21 +453,39 @@ function ColorField({
   );
 }
 
-function Preview({ settings: s, branding }: { settings: PopupSettings; branding: boolean }) {
+function Preview({ settings: s, branding, device }: { settings: PopupSettings; branding: boolean; device: "desktop" | "phone" }) {
   const t = { ...DEFAULT_STRINGS.en, ...s.strings.en };
+  const phone = device === "phone";
+  const scale = (phone ? s.sizeMobile : s.sizeDesktop) / 100;
   return (
     <BlockStack gap="200">
       <Text as="h3" variant="headingSm">
         Preview
       </Text>
-      <div style={{ background: "rgba(17,21,28,0.85)", padding: 24, borderRadius: 12 }}>
+      {/* Same geometry as the storefront: standard card 420px (desktop) or the screen width (phone), scaled. */}
+      <div
+        style={{
+          background: "rgba(17,21,28,0.85)",
+          padding: phone ? "40px 16px" : "40px 24px",
+          borderRadius: phone ? 28 : 12,
+          width: phone ? 360 : "100%",
+          maxWidth: "100%",
+          margin: "0 auto",
+          boxSizing: "border-box",
+          overflow: "hidden",
+        }}
+      >
         <div
           style={{
+            transform: `scale(${scale})`,
+            transformOrigin: "center",
+            width: "100%",
+            maxWidth: `min(${phone ? "100%" : "420px"}, ${100 / Math.max(scale, 1)}%)`,
             background: `linear-gradient(180deg, ${s.primaryColor}, color-mix(in srgb, ${s.primaryColor} 75%, #000))`,
             color: "#f5eeea",
             borderRadius: 16,
             padding: 28,
-            maxWidth: 360,
+            boxSizing: "border-box",
             margin: "0 auto",
             textAlign: "center",
             fontFamily: "Georgia, serif",

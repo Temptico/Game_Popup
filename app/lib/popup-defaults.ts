@@ -391,6 +391,9 @@ export interface PopupSettings {
   maxAttempts: number;
   primaryColor: string;
   accentColor: string;
+  // Popup size in % of the default (limits in SIZE_LIMITS)
+  sizeDesktop: number;
+  sizeMobile: number;
   target: string;
   requireConsent: boolean;
   autoApply: boolean;
@@ -423,6 +426,8 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   maxAttempts: 3,
   primaryColor: DEFAULT_PRIMARY,
   accentColor: DEFAULT_ACCENT,
+  sizeDesktop: 100,
+  sizeMobile: 100,
   target: "all",
   requireConsent: true,
   autoApply: true,
@@ -440,6 +445,13 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   urgencyMinutes: 0,
   strings: {},
 };
+
+// Min/max popup size in % of the default. Phones get less headroom: the
+// popup already spans the screen width there.
+export const SIZE_LIMITS = {
+  desktop: { min: 70, max: 140 },
+  mobile: { min: 70, max: 120 },
+} as const;
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const CODE = /^[A-Za-z0-9_-]{1,255}$/;
@@ -539,6 +551,8 @@ export function parseSettings(input: Record<string, unknown>): {
       maxAttempts: Math.round(num(input.maxAttempts, d.maxAttempts, 1, 20)),
       primaryColor,
       accentColor,
+      sizeDesktop: Math.round(num(input.sizeDesktop, d.sizeDesktop, SIZE_LIMITS.desktop.min, SIZE_LIMITS.desktop.max)),
+      sizeMobile: Math.round(num(input.sizeMobile, d.sizeMobile, SIZE_LIMITS.mobile.min, SIZE_LIMITS.mobile.max)),
       target,
       requireConsent: input.requireConsent !== false && input.requireConsent !== "false",
       autoApply: input.autoApply !== false && input.autoApply !== "false",

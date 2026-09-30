@@ -101,8 +101,10 @@
   }
 
   var overlay = el('div', { class: 'gd-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'gd-intro-title', hidden: '' });
-  overlay.style.setProperty('--gd-primary', popup.primaryColor || '#830522');
-  overlay.style.setProperty('--gd-accent', popup.accentColor || '#d9caa0');
+  // Colors and size (--gd-sd desktop, --gd-sm phone) arrive as ready-made inline CSS;
+  // configs published before that only have the two colors.
+  var css = popup.css || '--gd-primary:' + popup.primaryColor + ';--gd-accent:' + popup.accentColor;
+  overlay.style.cssText = css;
 
   var closeBtn = el('button', { class: 'gd-close', type: 'button', 'aria-label': t.closeBtn, text: '✕' });
 
@@ -200,8 +202,7 @@
   var teaserLabel = el('span');
   var teaserX = el('span', { class: 'gd-teaser-x', role: 'button', 'aria-label': t.closeBtn, text: '✕' });
   var teaser = el('button', { class: 'gd-teaser', type: 'button', hidden: '' }, [teaserLabel, teaserX]);
-  teaser.style.setProperty('--gd-primary', popup.primaryColor || '#830522');
-  teaser.style.setProperty('--gd-accent', popup.accentColor || '#d9caa0');
+  teaser.style.cssText = css;
   teaser.addEventListener('click', function (e) {
     if (e.target === teaserX) { teaser.hidden = true; session.set(KEY_TEASER_OFF, '1'); return; }
     open();

@@ -3,6 +3,10 @@
   --gd-accent: #d9caa0;
   --gd-ink: #11151c;
   --gd-text: #f5eeea;
+  /* Popup size set by the merchant: --gd-sd on desktop, --gd-sm on phones */
+  --gd-sd: 1;
+  --gd-sm: 1;
+  --gd-scale: var(--gd-sd);
   position: fixed;
   inset: 0;
   background: rgba(17, 21, 28, 0.85);
@@ -25,20 +29,22 @@
   background: linear-gradient(180deg, var(--gd-primary), color-mix(in srgb, var(--gd-primary) 75%, #000));
   border-radius: 16px;
   padding: 28px;
-  max-width: 420px;
+  /* Scaled with transform, so the unscaled box is sized to still fit the screen once scaled. */
   width: 100%;
-  max-height: calc(100vh - 32px);
-  max-height: calc(100dvh - 32px);
+  max-width: min(420px, calc((100vw - 32px) / var(--gd-scale)));
+  max-height: calc((100vh - 32px) / var(--gd-scale));
+  max-height: calc((100dvh - 32px) / var(--gd-scale));
   overflow-y: auto;
   overscroll-behavior: contain;
   color: var(--gd-text);
   font-family: Georgia, serif;
   text-align: center;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  transform: translateY(12px) scale(0.98);
+  transform: translateY(12px) scale(calc(var(--gd-scale) * 0.98));
   transition: transform 0.25s ease;
 }
-.gd-open .gd-card { transform: none; }
+.gd-open .gd-card { transform: scale(var(--gd-scale)); }
+@media (max-width: 640px) { .gd-overlay { --gd-scale: var(--gd-sm); } }
 
 .gd-close {
   position: absolute;

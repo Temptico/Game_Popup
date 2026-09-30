@@ -38,6 +38,8 @@ export function rowToSettings(row: Popup): PopupSettings {
     maxAttempts: row.maxAttempts,
     primaryColor: row.primaryColor,
     accentColor: row.accentColor,
+    sizeDesktop: row.sizeDesktop,
+    sizeMobile: row.sizeMobile,
     target: row.target,
     requireConsent: row.requireConsent,
     autoApply: row.autoApply,
@@ -136,6 +138,8 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         maxAttempts: s.maxAttempts,
         primaryColor: s.primaryColor,
         accentColor: s.accentColor,
+        // Inline style for the popup and the floating button: colors and size.
+        css: `--gd-primary:${s.primaryColor};--gd-accent:${s.accentColor};--gd-sd:${s.sizeDesktop / 100};--gd-sm:${s.sizeMobile / 100}`,
         target: s.target,
         requireConsent: s.requireConsent,
         autoApply: s.autoApply,

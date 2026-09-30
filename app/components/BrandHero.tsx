@@ -8,7 +8,7 @@ export interface HeroStat {
 
 /** Violet gradient header used at the top of every app page. */
 export function BrandHero({
-  eyebrow = "GameDiscount",
+  eyebrow = "Enigma Play",
   title,
   subtitle,
   action,

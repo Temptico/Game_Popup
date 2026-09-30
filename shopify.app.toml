@@ -3,7 +3,7 @@
 # the CLI fills in client_id and the URLs.
 
 client_id = ""
-name = "Game Discount"
+name = "Enigma Play: Game Popup"
 application_url = "https://example.com"
 embedded = true
 
@@ -14,7 +14,7 @@ include_config_on_deploy = true
 [access_scopes]
 # write_customers: create/update customers from the popup form (protected customer data – see README)
 # write_discounts: create single-use codes per winner + read code usage for analytics
-# read_orders: attribute orders that used a GameDiscount code (revenue-based plans)
+# read_orders: attribute orders that used an Enigma Play code (revenue-based plans)
 scopes = "write_customers,write_discounts,read_orders"
 
 [auth]

@@ -2,26 +2,28 @@
 
 ## 1. Testing instructions (paste into "Testing instructions")
 ```
-Game Discount shows a gamified popup on the storefront (theme app extension / app embed). No theme code edits are needed.
+Enigma Play shows a gamified popup on the storefront (theme app extension / app embed). No theme code edits are needed.
 
 SETUP (2 minutes)
-1. Install the app and open it. The home page shows a banner "Step 1: turn on the popup in your theme". Click "Open theme editor", make sure "GameDiscount popup" is switched on under App embeds, and click Save.
-2. In Shopify admin go to Discounts and create a code, e.g. TEST10 (10% off order). (Optional: the app can create unique single-use codes itself, see step 4.)
-3. In the app click "+ Create popup". On the General tab enter TEST10 as the discount code and click Save.
+1. Install the app and open it. The home page shows a banner "Step 1: turn on the popup in your theme". Click "Open theme editor", make sure "Enigma Play popup" is switched on under App embeds, and click Save.
+2. In the app click "+ Create popup". On the General tab choose "Unique single-use code per winner" (the app creates the discount itself) and click Save.
 
 TEST ON THE STOREFRONT
-4. Open the storefront in a private/incognito window. After the popup delay (default 15 s, or move the mouse out of the top of the window for exit intent) the popup appears.
-5. Click Start, enter any name and email, tick the consent box and click Play.
-6. Keep the ball in play until the timer reaches 0 (move the mouse / finger or use the arrow keys). You have 3 attempts.
-7. The winning screen shows the code; it is also applied to the cart automatically. The new customer appears in Customers with the tag "gamediscount".
+3. Open the storefront in a new private/incognito window. After the popup delay (default 15 s; on desktop you can also move the mouse out of the top of the window for exit intent) the popup appears.
+4. Click Start, enter any name and email, tick the consent box and click Play.
+5. Keep the ball in play until the timer reaches 0 (mouse / finger or arrow keys). You have 3 attempts.
+6. The winning screen shows a unique code with a countdown; it is applied at checkout automatically. The new customer appears in Customers with the tag "gamediscount", and the code appears in Discounts.
 
 OTHER FEATURES
-- Game tab: switch Game to "Flipper" (tap left/right half or use arrow keys), change frequency and trigger.
-- General tab: "Unique single-use code per winner" creates a one-time discount for each winner; "Reward by attempt" and "Urgency countdown" are available there too.
+- Game tab: switch Game to "Flipper", change trigger and frequency.
+- General tab: "Reward by attempt" and "Urgency countdown".
 - Analytics page: views, submissions, games, wins, code uses and revenue per popup.
-- Plans page: revenue-based plans. On development stores all charges are test charges.
+- Plans page: revenue-based plans via Shopify Billing. On development stores all charges are test charges.
 
-To see the popup again after playing, open a new private window (the app remembers claimed codes and closed popups in the browser).
+To see the popup again after playing, close ALL private windows and open a new one (the app remembers players in the browser).
+
+Demo store (already set up): https://<demo-store>.myshopify.com
+Storefront password: <password>
 ```
 
 ## 2. Screencast script (silent recording + English subtitles)
@@ -31,8 +33,8 @@ Before recording: open the storefront in a **new incognito window** (the popup r
 
 | # | Screen / what you do | Subtitle (paste as is) |
 |---|---|---|
-| 1 | Shopify admin → Apps → install Game Discount → approve | Installing Game Discount from the Shopify admin. |
-| 2 | App home: point at the banner → Open theme editor → App embeds → switch on "GameDiscount popup" → Save | Step 1: turn on the popup in the theme editor (app embed, no code changes). |
+| 1 | Shopify admin → Apps → install Enigma Play → approve | Installing Enigma Play from the Shopify admin. |
+| 2 | App home: point at the banner → Open theme editor → App embeds → switch on "Enigma Play popup" → Save | Step 1: turn on the popup in the theme editor (app embed, no code changes). |
 | 3 | Back in the app → "+ Create popup" → General tab: Discount code type = Unique single-use code, 10 % | Step 2: create a popup. Each winner gets a unique single-use discount code. |
 | 4 | Scroll: tick "Reward by attempt" (15 / 10 / 5 %), Urgency countdown 15 min | Optional: better reward for winning on the first try, and a real expiry countdown. |
 | 5 | Game tab: show Paddle / Flipper, Trigger, Frequency; Design tab: change colors → Save | Choose the game, when the popup opens, and match your brand colors. |
@@ -46,7 +48,7 @@ Before recording: open the storefront in a **new incognito window** (the popup r
 | 13 | Shopify admin → **Discounts** → the new code "WIN-…" (one use) | The unique code was created by the app in Shopify Discounts. |
 | 14 | App → Analytics | Analytics: views, emails, games, wins, code uses and revenue per popup. |
 | 15 | App → Plans → click Upgrade on a plan → approve (test charge) | Revenue-based plans through Shopify Billing (test charge on this development store). |
-| 16 | Apps → Game Discount → Uninstall | Uninstalling removes the popup; all app data is deleted (GDPR webhooks). |
+| 16 | Apps → Enigma Play → Uninstall | Uninstalling removes the popup; all app data is deleted (GDPR webhooks). |
 
 ## 3. Protected customer data: answers (Dev Dashboard → API access → Protected customer data)
 **Data used:** Name, Email (level 2). Orders webhook (level 1).

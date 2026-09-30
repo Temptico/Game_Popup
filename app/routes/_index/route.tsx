@@ -22,7 +22,7 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>GameDiscount – Gamification Popup</h1>
+        <h1 className={styles.heading}>Enigma Play: Game Popup</h1>
         <p className={styles.text}>
           Turn visitors into subscribers with a 15-second mini-game that unlocks your discount code.
         </p>

@@ -1,4 +1,4 @@
-/* GameDiscount – paddle & ball game. Loaded on demand by game-popup.js.
+/* Enigma Play – paddle & ball game. Loaded on demand by game-popup.js.
  * Contract: factory(canvas, opts) -> { start({ tick(msLeft), end(won) }), stop() } */
 (function () {
   'use strict';

@@ -1,6 +1,6 @@
 {% comment %}
-  GameDiscount – app embed block.
-  All settings are managed in the GameDiscount app and published to the
+  Enigma Play – app embed block.
+  All settings are managed in the Enigma Play app and published to the
   app-data metafield app.metafields.gamediscount.config — nothing to edit here.
 {% endcomment %}
 {%- assign gd_config = app.metafields.gamediscount.config -%}
@@ -23,14 +23,14 @@
 
 {% schema %}
 {
-  "name": "GameDiscount popup",
+  "name": "Enigma Play popup",
   "target": "body",
   "javascript": "game-popup.js",
   "stylesheet": "game-popup.css",
   "settings": [
     {
       "type": "paragraph",
-      "content": "Configure the discount, game and texts in the GameDiscount app (Apps → GameDiscount)."
+      "content": "Configure the discount, game and texts in the Enigma Play app (Apps → Enigma Play)."
     },
     {
       "type": "checkbox",

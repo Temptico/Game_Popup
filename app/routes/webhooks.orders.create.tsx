@@ -3,7 +3,7 @@ import { authenticate } from "../shopify.server";
 import { recordOrder } from "../lib/revenue.server";
 import { publishConfig } from "../lib/popups.server";
 
-// Attributes orders that used a GameDiscount code; this revenue drives the
+// Attributes orders that used an Enigma Play code; this revenue drives the
 // plans. Republishing re-evaluates the plan cap / grace period.
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, payload, admin } = await authenticate.webhook(request);

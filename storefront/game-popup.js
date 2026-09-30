@@ -1,4 +1,4 @@
-/* GameDiscount – gamification popup (storefront). Settings: app.metafields.gamediscount.config
+/* Enigma Play – gamification popup (storefront). Settings: app.metafields.gamediscount.config
  * Source file. `npm run build:storefront` minifies it (and storefront/games/*)
  * into extensions/gamediscount-popup/assets/ — edit here, not there. */
 (function () {
@@ -154,7 +154,7 @@
   if (cfg.branding) {
     var brand = el('p', { class: 'gd-branding' }, [
       document.createTextNode('Powered by '),
-      el('a', { href: 'https://apps.shopify.com/', target: '_blank', rel: 'noopener', text: 'GameDiscount' })
+      el('a', { href: 'https://apps.shopify.com/', target: '_blank', rel: 'noopener', text: 'Enigma Play' })
     ]);
     cardChildren.push(brand);
   }

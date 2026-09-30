@@ -1,12 +1,16 @@
 # App Store listing: paste-ready
 
-Where to paste: **Dev Dashboard → Game Discount → Distribution → Manage listing** (English, primary).
+Where to paste: **Dev Dashboard → Enigma Play → Distribution → App Store listing** (English, primary).
 Character limits were checked with a script; the counts are in brackets.
 
 ## Basics
 | Field | Text |
 |---|---|
-| **App name** (13/30) | `Game Discount` |
+| **App name** (23/30) | `Enigma Play: Game Popup` (brand first, as Shopify requires; matches `shopify.app.toml`) |
+| **App icon** | `docs/app-store/icon-1200.png` |
+| **Primary category** | Marketing and conversion → Popups |
+| **Secondary category** | Marketing and conversion → Discounts (or Email capture) |
+| **Languages** | English |
 | **App card subtitle** (55/62) | `Mini-games that turn visitors into subscribers & buyers` |
 | **App introduction** (94/100) | `Visitors play a 15-second game for a discount code. You grow your list and sales on autopilot.` |
 
@@ -25,28 +29,28 @@ Replace boring email popups with a game shoppers actually want to play. A visito
 ## Pricing (must match the app exactly)
 | Plan | Price | Description to enter |
 |---|---|---|
-| Free | Free | Up to $500 popup-generated revenue per 30 days · All features · "Powered by GameDiscount" badge |
-| Standard | $9.99 / month | Up to $3,000 popup-generated revenue per 30 days · All features · No branding |
-| Growth | $19.99 / month | Up to $12,000 popup-generated revenue per 30 days · All features · No branding |
-| Scale | $29.99 / month | Unlimited popup-generated revenue · All features · No branding |
+| Free | Free | Up to $500 popup revenue / 30 days · All games & features · "Powered by Enigma Play" badge |
+| Standard | $9.99 / month | Up to $3,000 popup revenue / 30 days · All games & features · No branding |
+| Growth | $19.99 / month | Up to $12,000 popup revenue / 30 days · All games & features · No branding |
+| Scale | $29.99 / month | Unlimited popup revenue · All games & features · No branding |
 
-Additional pricing note: `Popup-generated revenue = orders that used a Game Discount code in the last 30 days. If you outgrow your plan, the popup keeps running for 14 days so you have time to upgrade.`
-
-## Categorisation
-- **Primary category:** Marketing and conversion → Popups
-- **Secondary category:** Marketing and conversion → Discounts (or Email capture, if offered)
-- **Languages:** English
-- **Works with:** Online Store 2.0 themes (theme app extension / app embed)
+Additional pricing note: `Popup revenue = orders that used an Enigma Play code in the last 30 days. If you outgrow your plan, the popup keeps running for 14 days so you have time to upgrade.`
 
 ## Search terms (max 5)
 `spin to win` · `gamification` · `email popup` · `discount popup` · `exit intent`
+
+## SEO
+| Field | Text |
+|---|---|
+| Title tag (54) | `Enigma Play: Gamified Popup, Email Capture & Discounts` |
+| Meta description (145) | `Grow your email list and sales with a mini-game popup. Visitors play for a unique discount code, auto-applied at checkout. Free up to $500/month.` |
 
 ## Links
 | Field | Value |
 |---|---|
 | Privacy policy URL | `https://<FLY_APP_NAME>.fly.dev/privacy` |
 | Support email | `info@enigma101.com` |
-| Demo store URL | `https://<your-dev-store>.myshopify.com` + storefront password |
+| Demo store URL | `https://<demo-store>.myshopify.com` (storefront password goes in the testing instructions) |
 
 ## Screenshots (1600×900, in this order)
 Shopify does not allow prices in screenshots, so there is no Plans screenshot. Pricing goes only in the Pricing section.
@@ -54,7 +58,7 @@ Files: `docs/app-store/screenshots/`
 
 | # | File | Alt text |
 |---|---|---|
-| 1 | `01-popup-intro.png` | Game Discount popup inviting a visitor to play for a mystery discount |
+| 1 | `01-popup-intro.png` | Enigma Play popup inviting a visitor to play for a mystery discount |
 | 2 | `02-flipper.png` | Flipper mini-game running inside the popup |
 | 3 | `03-reward.png` | Winner receives a unique discount code with an expiry countdown |
 | 4 | `04-dashboard.png` | Popups dashboard with views, emails, wins and revenue |

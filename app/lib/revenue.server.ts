@@ -24,7 +24,7 @@ interface OrderPayload {
 }
 
 /**
- * Records an order if it used one of this shop's GameDiscount codes:
+ * Records an order if it used one of this shop's Enigma Play codes:
  * a popup's shared code or a unique code handed out by /proxy/claim.
  * Idempotent per order (webhooks can be delivered more than once).
  */

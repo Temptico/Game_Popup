@@ -458,7 +458,7 @@ function Preview({ settings: s, branding }: { settings: PopupSettings; branding:
             {t.startBtn}
           </div>
           {branding && (
-            <div style={{ fontSize: 11, opacity: 0.6, marginTop: 14 }}>Powered by GameDiscount</div>
+            <div style={{ fontSize: 11, opacity: 0.6, marginTop: 14 }}>Powered by Enigma Play</div>
           )}
         </div>
       </div>

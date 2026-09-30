@@ -1,4 +1,4 @@
-/* GameDiscount – optional extras (win confetti, /contact fallback, manual code selection), loaded on demand by game-popup.js. */
+/* Enigma Play – optional extras (win confetti, /contact fallback, manual code selection), loaded on demand by game-popup.js. */
 (function () {
   'use strict';
   window.GameDiscountFx = {

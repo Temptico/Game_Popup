@@ -94,7 +94,7 @@ export default function Analytics() {
       ? new Intl.NumberFormat(undefined, { style: "currency", currency: revenue.currency, maximumFractionDigits: 0 }).format(n)
       : `$${Math.round(n).toLocaleString("en-US")}`;
   const stats = [
-    { label: "Revenue from popup", value: money(revenue.currency ? revenue.amount : revenue.usd), sub: `${revenue.orders} orders with a GameDiscount code` },
+    { label: "Revenue from popup", value: money(revenue.currency ? revenue.amount : revenue.usd), sub: `${revenue.orders} orders with an Enigma Play code` },
     { label: "Popup views", value: total.view, sub: "" },
     { label: "Form submissions", value: total.submit, sub: `${pct(total.submit, total.view)} of views` },
     { label: "Games played", value: total.play, sub: "incl. retries" },

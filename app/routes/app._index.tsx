@@ -172,7 +172,7 @@ export default function Index() {
             title={
               billing.paused
                 ? "Your popup is paused"
-                : `GameDiscount made you ${usd(billing.revenueUsd)} in the last 30 days 🎉`
+                : `Enigma Play made you ${usd(billing.revenueUsd)} in the last 30 days 🎉`
             }
             action={{ content: `Upgrade to ${PLAN_LABELS[billing.required]} — $${getPlan(billing.required).price}/month`, url: "/app/plans" }}
           >
@@ -191,7 +191,7 @@ export default function Index() {
             secondaryAction={{ content: "Done, hide this", onAction: dismissEmbedHint }}
             onDismiss={dismissEmbedHint}
           >
-            <p>Switch on “GameDiscount popup” under App embeds and click Save.</p>
+            <p>Switch on “Enigma Play popup” under App embeds and click Save.</p>
           </Banner>
         )}
 
@@ -287,7 +287,7 @@ export default function Index() {
           </Text>
         )}
         <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-          GameDiscount v{APP_VERSION}
+          Enigma Play v{APP_VERSION}
         </Text>
       </BlockStack>
       <Modal

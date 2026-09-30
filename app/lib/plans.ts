@@ -1,6 +1,6 @@
 // Revenue-based pricing: every plan has every feature; plans differ only in
 // how much popup-generated revenue (last 30 days, USD) they cover, and the
-// Free plan shows "Powered by GameDiscount".
+// Free plan shows "Powered by Enigma Play".
 
 export type PlanName = "free" | "standard" | "growth" | "scale";
 
@@ -15,9 +15,9 @@ export interface Plan {
 
 export const PLANS: Plan[] = [
   { key: "free", billingName: null, price: 0, revenueCap: 500 },
-  { key: "standard", billingName: "GameDiscount Standard", price: 9.99, revenueCap: 3000 },
-  { key: "growth", billingName: "GameDiscount Growth", price: 19.99, revenueCap: 12000 },
-  { key: "scale", billingName: "GameDiscount Scale", price: 29.99, revenueCap: Infinity },
+  { key: "standard", billingName: "Enigma Play Standard", price: 9.99, revenueCap: 3000 },
+  { key: "growth", billingName: "Enigma Play Growth", price: 19.99, revenueCap: 12000 },
+  { key: "scale", billingName: "Enigma Play Scale", price: 29.99, revenueCap: Infinity },
 ];
 
 export const PLAN_LABELS: Record<PlanName, string> = {
@@ -28,7 +28,13 @@ export const PLAN_LABELS: Record<PlanName, string> = {
 };
 
 // Subscriptions from the earlier single-plan pricing keep working as Growth.
-export const LEGACY_PLANS: Record<string, PlanName> = { "GameDiscount Pro": "growth" };
+// Subscriptions created under the app's earlier names.
+export const LEGACY_PLANS: Record<string, PlanName> = {
+  "GameDiscount Pro": "growth",
+  "GameDiscount Standard": "standard",
+  "GameDiscount Growth": "growth",
+  "GameDiscount Scale": "scale",
+};
 
 /** Days a store may exceed its plan's revenue cap before the popup pauses. */
 export const GRACE_DAYS = 14;

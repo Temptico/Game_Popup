@@ -14,6 +14,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const firstName = String(body.name ?? "").trim().slice(0, 100);
   const popupId = String(body.popupId ?? "");
   const consent = body.consent === true;
+  // Storefront language, saved on new customers so Shopify emails them in it.
+  const locale = /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(String(body.locale ?? "")) ? String(body.locale) : undefined;
 
   if (!EMAIL.test(email) || !firstName) {
     return json({ ok: false, error: "invalid_input" }, { status: 422 });
@@ -37,7 +39,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   let customerOk = false;
   try {
-    const result = await upsertCustomer(admin, { email, firstName, consent });
+    const result = await upsertCustomer(admin, { email, firstName, consent, locale });
     customerOk = result.ok;
     if (!result.ok) console.error(`[subscribe] ${shop}: ${result.error}`);
   } catch (err) {

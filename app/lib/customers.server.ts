@@ -22,9 +22,9 @@ function consentInput() {
  */
 export async function upsertCustomer(
   admin: AdminApi,
-  { email, firstName, consent }: { email: string; firstName: string; consent: boolean },
+  { email, firstName, consent, locale }: { email: string; firstName: string; consent: boolean; locale?: string },
 ): Promise<{ ok: boolean; created: boolean; error?: string }> {
-  const createRes = await admin.graphql(
+  const create = (withLocale: boolean) => admin.graphql(
     `#graphql
     mutation GameDiscountCustomerCreate($input: CustomerInput!) {
       customerCreate(input: $input) {
@@ -38,12 +38,18 @@ export async function upsertCustomer(
           email,
           firstName,
           tags: TAGS,
+          ...(withLocale && locale ? { locale } : {}),
           ...(consent ? { emailMarketingConsent: consentInput() } : {}),
         },
       },
     },
   );
-  const createJson = await createRes.json();
+  let createJson = await (await create(true)).json();
+  // A locale the shop doesn't publish is rejected; keep the sign-up anyway.
+  const localeRejected = (createJson.data?.customerCreate?.userErrors ?? []).some(
+    (e: { field?: string[] | null }) => e.field?.includes("locale"),
+  );
+  if (locale && localeRejected) createJson = await (await create(false)).json();
   const created = createJson.data?.customerCreate;
   if (created?.customer?.id) return { ok: true, created: true };
 

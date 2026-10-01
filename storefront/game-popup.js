@@ -67,7 +67,9 @@
   // ---------- language ----------
   // The app publishes fully resolved strings per language (defaults + merchant overrides).
   var all = popup.strings || {};
-  var htmlLang = (document.documentElement.lang || (window.Shopify && window.Shopify.locale) || 'en').toLowerCase();
+  // The storefront language Shopify serves (from the app embed), else the theme's <html lang>.
+  var locale = ctx.locale || document.documentElement.lang || (window.Shopify && window.Shopify.locale) || 'en';
+  var htmlLang = locale.toLowerCase();
   var lang = Object.keys(all).filter(function (k) { return htmlLang.indexOf(k) === 0; })[0] || 'en';
   var t = all[lang] || all.en;
   if (!t) return;
@@ -246,7 +248,7 @@
       var left = remaining(claimed.expiresAt);
       expiryEl.textContent = left
         ? fmt(t.expiresIn, { time: left })
-        : fmt(t.validUntil, { date: new Date(claimed.expiresAt).toLocaleDateString(document.documentElement.lang || undefined) });
+        : fmt(t.validUntil, { date: new Date(claimed.expiresAt).toLocaleDateString(locale) });
     }
   }
 
@@ -275,7 +277,7 @@
     // Don't make the visitor wait on the network for more than ~2.5s.
     var done = false;
     var timeout = setTimeout(function () { if (!done) { done = true; proceed(); } }, 2500);
-    tokenPromise = post('/subscribe', { name: name, email: email, consent: consent })
+    tokenPromise = post('/subscribe', { name: name, email: email, consent: consent, locale: locale })
       .then(function (res) {
         var token = (res && res.token) || null;
         if (!res || !res.ok) return contactFallback(name, email, consent).then(function () { return token; });

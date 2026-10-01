@@ -93,13 +93,13 @@ export default function Analytics() {
     revenue.currency
       ? new Intl.NumberFormat(undefined, { style: "currency", currency: revenue.currency, maximumFractionDigits: 0 }).format(n)
       : `$${Math.round(n).toLocaleString("en-US")}`;
-  const stats = [
-    { label: "Revenue from popup", value: money(revenue.currency ? revenue.amount : revenue.usd), sub: `${revenue.orders} orders with an Enigma Play code` },
-    { label: "Popup views", value: total.view, sub: "" },
-    { label: "Form submissions", value: total.submit, sub: `${pct(total.submit, total.view)} of views` },
+  // Funnel: each step shows how many of the previous step made it through.
+  const funnel = [
+    { label: "Popup views", value: total.view, sub: "saw the popup" },
+    { label: "Emails", value: total.submit, sub: `${pct(total.submit, total.view)} of views` },
     { label: "Games played", value: total.play, sub: "incl. retries" },
-    { label: "Wins", value: total.win, sub: `${pct(total.win, total.submit)} of submissions` },
-    { label: "Code uses", value: totalUses, sub: "lifetime, from Shopify" },
+    { label: "Wins", value: total.win, sub: `${pct(total.win, total.submit)} of emails` },
+    { label: "Code uses", value: totalUses, sub: `${pct(totalUses, total.win)} of wins · lifetime` },
   ];
 
   return (
@@ -118,21 +118,33 @@ export default function Analytics() {
           </div>
         </Layout.Section>
         <Layout.Section>
-          <div className="gd-tiles">
-            {stats.map((s, i) => (
-              <div key={s.label} className={`gd-tile${i === 0 ? " gd-tile-hero" : ""}`}>
+          <div className="gd-revenue">
+            <div>
+              <div className="gd-revenue-label">Revenue from popup</div>
+              <div className="gd-revenue-value">{money(revenue.currency ? revenue.amount : revenue.usd)}</div>
+            </div>
+            <div className="gd-revenue-meta">
+              <span><b>{revenue.orders.toLocaleString()}</b> orders with an Enigma Play code</span>
+              <span><b>{totalUses.toLocaleString()}</b> code uses (lifetime)</span>
+            </div>
+          </div>
+        </Layout.Section>
+        <Layout.Section>
+          <ol className="gd-funnel" aria-label="Popup funnel">
+            {funnel.map((s) => (
+              <li key={s.label} className="gd-tile">
                 <div className="gd-tile-label">{s.label}</div>
                 <div className="gd-tile-value">{s.value.toLocaleString()}</div>
                 <div className="gd-tile-sub">{s.sub}</div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ol>
         </Layout.Section>
         <Layout.Section>
           <Card padding="0">
             <DataTable
               columnContentTypes={["text", "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"]}
-              headings={["Popup", "Code", "Views", "Submissions", "Games", "Wins", "Code uses", "Revenue"]}
+              headings={["Popup", "Code", "Views", "Emails", "Games", "Wins", "Code uses", "Revenue"]}
               rows={rows.map((r) => [
                 r.name,
                 r.code,

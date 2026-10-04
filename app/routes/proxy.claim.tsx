@@ -7,6 +7,7 @@ import { createUniqueDiscount, getShopCurrency } from "../lib/discounts.server";
 // Game time can only run slower than wall time, so a real win always takes at
 // least surviveSec since the token was issued. Allow a little clock slack.
 const SLACK_MS = 1000;
+const PONG_MIN_MS = 5000;
 
 const fail = (error: string, status: number) => json({ ok: false, error }, { status });
 
@@ -54,7 +55,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (!claim) return fail("invalid_token", 403);
   if (claim.code) return reply(claim.code, claim.valueLabel, claim.expiresAt);
 
-  if (Date.now() - claim.issuedAt.getTime() < popup.surviveSec * 1000 - SLACK_MS) {
+  // Pong ends when someone reaches 3 goals, which takes at least a few seconds
+  // (serve pauses + ball travel); the other games last surviveSec.
+  const game = popup.abEnabled && claim.variant === "b" ? parseAbJson(popup.abVariant).gameType : popup.gameType;
+  const minMs = game === "pong" ? PONG_MIN_MS : popup.surviveSec * 1000;
+  if (Date.now() - claim.issuedAt.getTime() < minMs - SLACK_MS) {
     return fail("too_fast", 403);
   }
 

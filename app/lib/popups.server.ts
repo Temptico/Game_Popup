@@ -5,9 +5,11 @@ import {
   DEFAULT_STRINGS,
   LANGUAGES,
   parseAbJson,
+  isGameType,
   type CustomStrings,
   type Language,
   type PopupSettings,
+  type Strings,
 } from "./popup-defaults";
 import { PLAN_LIMITS, planFromSubscriptionName, type PlanName } from "./plans";
 import { getBillingStatus } from "./revenue.server";
@@ -50,7 +52,8 @@ export function rowToSettings(row: Popup): PopupSettings {
     discountValue: row.discountValue,
     codePrefix: row.codePrefix,
     codeExpiryDays: row.codeExpiryDays,
-    gameType: row.gameType === "flipper" ? "flipper" : "paddle",
+    gameType: isGameType(row.gameType) ? row.gameType : "paddle",
+    difficulty: row.difficulty === "easy" || row.difficulty === "hard" ? row.difficulty : "medium",
     trigger: row.trigger === "delay" || row.trigger === "exit" ? row.trigger : "both",
     frequency: (["session", "day", "week", "always"] as const).find((f) => f === row.frequency) ?? "session",
     teaser: row.teaser,
@@ -141,9 +144,18 @@ export async function publishConfig(admin: AdminApi, shop: string) {
     branding: limits.branding,
     popups: (billing.paused ? [] : livePopups(popups)).map((p) => {
       const s = rowToSettings(p);
-      const strings = Object.fromEntries(
-        LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }]),
-      );
+      // Pong has its own intro/status/lose texts unless the merchant wrote their own.
+      const forGame = (game: string, l: Language, base: Strings) =>
+        game === "pong"
+          ? {
+              ...base,
+              introDesc: s.strings[l]?.introDesc ?? base.pongDesc,
+              playing: s.strings[l]?.playing ?? base.pongHelp,
+              fail: s.strings[l]?.fail ?? base.pongFail,
+            }
+          : base;
+      const base = Object.fromEntries(LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }])) as Record<Language, Strings>;
+      const strings = Object.fromEntries(LANGUAGES.map((l) => [l, forGame(s.gameType, l, base[l])]));
       // A/B test: the storefront picks a variant per visitor and overlays `ab`
       // (B's strings only for languages where B changes the texts).
       const ab = s.abEnabled
@@ -152,8 +164,10 @@ export async function publishConfig(admin: AdminApi, shop: string) {
             gameType: s.ab.gameType,
             trigger: s.ab.trigger,
             delaySec: s.ab.delaySec,
+            // B's texts for every language when its game changes the wording, else only where B overrides.
             strings: Object.fromEntries(
-              Object.entries(s.ab.strings).map(([l, over]) => [l, { ...strings[l as Language], ...over }]),
+              LANGUAGES.filter((l) => s.ab.strings[l] || (s.ab.gameType !== s.gameType && (s.ab.gameType === "pong" || s.gameType === "pong")))
+                .map((l) => [l, { ...forGame(s.ab.gameType, l, base[l]), ...s.ab.strings[l] }]),
             ),
           }
         : undefined;
@@ -173,6 +187,7 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         requireConsent: s.requireConsent,
         autoApply: s.autoApply,
         gameType: s.gameType,
+        difficulty: s.difficulty,
         trigger: s.trigger,
         frequency: s.frequency,
         teaser: s.teaser,

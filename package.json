@@ -2,7 +2,7 @@
   "name": "gamediscount",
   "private": true,
   "scripts": {
-    "build:storefront": "esbuild storefront/game-popup.js storefront/games/gd-paddle.js storefront/games/gd-flipper.js storefront/games/gd-fx.js --minify --target=es2017 --outdir=extensions/gamediscount-popup/assets --entry-names=[name]",
+    "build:storefront": "esbuild storefront/game-popup.js storefront/games/gd-paddle.js storefront/games/gd-flipper.js storefront/games/gd-pong.js storefront/games/gd-fx.js --minify --target=es2017 --outdir=extensions/gamediscount-popup/assets --entry-names=[name]",
     "predev": "node scripts/ensure-env.cjs && npm run build:storefront",
     "predeploy": "npm run build:storefront",
     "build": "remix vite:build",

@@ -139,7 +139,7 @@
   ]);
 
   // Screen 3: game
-  var gameType = popup.gameType === 'flipper' ? 'flipper' : 'paddle';
+  var gameType = /^(flipper|pong)$/.test(popup.gameType) ? popup.gameType : 'paddle';
   var canvas = el('canvas', { class: 'gd-canvas', 'aria-label': t.playing });
   var timerEl = el('div', { class: 'gd-timer', text: Number(popup.surviveSec).toFixed(1) + 's' });
   var statusEl = el('p', { class: 'gd-status', 'aria-live': 'polite' });
@@ -334,9 +334,8 @@
     var assets = ctx.assets || {};
     if (!window.GameDiscountFx && assets.fx) script(assets.fx).catch(function () {}); // confetti is optional
     gameReady = ((window.GameDiscountGames || {})[gameType] ? Promise.resolve() : script(assets[gameType])).then(function () {
-      engine = window.GameDiscountGames[gameType](canvas, {
-        primary: popup.primaryColor, accent: popup.accentColor, vx: popup.vx, vy: popup.vy, surviveMs: surviveMs
-      });
+      // Games read what they need from the popup settings (colors, speeds, difficulty).
+      engine = window.GameDiscountGames[gameType](canvas, Object.assign({ surviveMs: surviveMs }, popup));
     });
     return gameReady;
   }
@@ -358,7 +357,8 @@
     loadGame().then(function () {
       running = true;
       engine.start({
-        tick: function (ms) { timerEl.textContent = (ms / 1000).toFixed(1) + 's'; },
+        // Time left in ms, or a ready label (pong shows the score).
+        tick: function (v) { timerEl.textContent = v.toFixed ? (v / 1000).toFixed(1) + 's' : v; },
         end: function (won) { running = false; if (won) win(); else lose(); }
       });
     }, function () { statusEl.textContent = '—'; });

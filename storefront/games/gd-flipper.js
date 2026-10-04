@@ -142,7 +142,7 @@
     }
 
     function draw() {
-      var ink = '#f5eeea', accent = o.accent || '#d9caa0';
+      var ink = '#f5eeea', accent = o.accentColor || '#d9caa0';
       c.clearRect(0, 0, W, H);
       // Left/right control halves: highlight the hovered or pressed side.
       for (var side = 0; side < 2; side++) {
@@ -165,7 +165,7 @@
       }
       for (var b = 0; b < BUMPERS.length; b++) {
         var p = BUMPERS[b];
-        c.fillStyle = flash[b] > 0 ? accent : o.primary;
+        c.fillStyle = flash[b] > 0 ? accent : o.primaryColor;
         c.beginPath(); c.arc(p.x, p.y, p.r, 0, Math.PI * 2); c.fill();
         c.strokeStyle = accent; c.lineWidth = 2;
         c.beginPath(); c.arc(p.x, p.y, p.r, 0, Math.PI * 2); c.stroke();

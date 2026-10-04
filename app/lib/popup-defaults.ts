@@ -43,6 +43,9 @@ export const STRING_KEYS = [
   "expiresIn",
   "validUntil",
   "flipperHelp",
+  "pongDesc",
+  "pongHelp",
+  "pongFail",
 ] as const;
 export type StringKey = (typeof STRING_KEYS)[number];
 export type Strings = Record<StringKey, string>;
@@ -74,6 +77,9 @@ export const STRING_LABELS: Record<StringKey, string> = {
   expiresIn: "Countdown ({time} = mm:ss)",
   validUntil: "Expiry date ({date})",
   flipperHelp: "Flipper instructions",
+  pongDesc: "Pong: intro description",
+  pongHelp: "Pong: status while playing",
+  pongFail: "Pong: computer won message",
 };
 
 export const DEFAULT_STRINGS: Record<Language, Strings> = {
@@ -103,6 +109,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     expiresIn: "Code läuft ab in {time}",
     validUntil: "Code gültig bis {date}",
     flipperHelp: "Tippe links oder rechts, um die Flipper zu bewegen",
+    pongDesc: "Erziele 3 Tore vor dem Computer und schalte einen geheimen Rabatt frei.",
+    pongHelp: "Wer zuerst 3 Tore schießt, gewinnt!",
+    pongFail: "Der Computer hat diese Runde gewonnen!",
   },
   fr: {
     introTitle: "Jouez pour une remise mystère",
@@ -130,6 +139,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     expiresIn: "Le code expire dans {time}",
     validUntil: "Code valable jusqu'au {date}",
     flipperHelp: "Touchez à gauche ou à droite pour actionner les flippers",
+    pongDesc: "Marquez 3 buts avant l'ordinateur et débloquez une remise mystère.",
+    pongHelp: "Le premier à 3 buts gagne !",
+    pongFail: "L'ordinateur a gagné cette manche !",
   },
   es: {
     introTitle: "Juega por un descuento sorpresa",
@@ -157,6 +169,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     expiresIn: "El código caduca en {time}",
     validUntil: "Código válido hasta el {date}",
     flipperHelp: "Toca a la izquierda o a la derecha para mover las palas",
+    pongDesc: "Marca 3 goles antes que el ordenador y desbloquea un descuento sorpresa.",
+    pongHelp: "¡Gana quien marque primero 3 goles!",
+    pongFail: "¡El ordenador ganó esta ronda!",
   },
   it: {
     introTitle: "Gioca per uno sconto misterioso",
@@ -184,6 +199,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     expiresIn: "Il codice scade tra {time}",
     validUntil: "Codice valido fino al {date}",
     flipperHelp: "Tocca a sinistra o a destra per azionare le palette",
+    pongDesc: "Segna 3 gol prima del computer e sblocca uno sconto misterioso.",
+    pongHelp: "Vince chi segna per primo 3 gol!",
+    pongFail: "Il computer ha vinto questo round!",
   },
   nl: {
     introTitle: "Speel voor een geheime korting",
@@ -211,6 +229,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     expiresIn: "Code verloopt over {time}",
     validUntil: "Code geldig tot {date}",
     flipperHelp: "Tik links of rechts om de flippers te bewegen",
+    pongDesc: "Scoor 3 goals vóór de computer en ontgrendel een geheime korting.",
+    pongHelp: "Wie het eerst 3 goals scoort, wint!",
+    pongFail: "De computer won deze ronde!",
   },
   pl: {
     introTitle: "Zagraj o tajemniczy rabat",
@@ -238,6 +259,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     expiresIn: "Kod wygasa za {time}",
     validUntil: "Kod ważny do {date}",
     flipperHelp: "Dotknij lewej lub prawej strony, aby poruszyć łapkami",
+    pongDesc: "Strzel 3 gole przed komputerem i odblokuj tajemniczy rabat.",
+    pongHelp: "Wygrywa ten, kto pierwszy strzeli 3 gole!",
+    pongFail: "Komputer wygrał tę rundę!",
   },
   sl: {
     introTitle: "Igraj za skrivnostni popust",
@@ -265,6 +289,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     expiresIn: "Koda poteče čez {time}",
     validUntil: "Koda velja do {date}",
     flipperHelp: "Tapni levo ali desno za udarec s flipperjem",
+    pongDesc: "Zabij 3 gole pred računalnikom in odkleni skrivnostni popust.",
+    pongHelp: "Zmaga, kdor prvi zabije 3 gole!",
+    pongFail: "Računalnik je dobil to rundo!",
   },
   hr: {
     introTitle: "Igraj za tajni popust",
@@ -292,6 +319,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     expiresIn: "Kod istječe za {time}",
     validUntil: "Kod vrijedi do {date}",
     flipperHelp: "Dodirni lijevo ili desno za udarac fliperom",
+    pongDesc: "Zabij 3 gola prije računala i otključaj tajni popust.",
+    pongHelp: "Pobjeđuje tko prvi zabije 3 gola!",
+    pongFail: "Računalo je osvojilo ovu rundu!",
   },
   ro: {
     introTitle: "Joacă pentru o reducere surpriză",
@@ -319,6 +349,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     expiresIn: "Codul expiră în {time}",
     validUntil: "Codul este valabil până la {date}",
     flipperHelp: "Atinge stânga sau dreapta pentru a acționa paletele",
+    pongDesc: "Marchează 3 goluri înaintea calculatorului și deblochează o reducere surpriză.",
+    pongHelp: "Câștigă cine marchează primul 3 goluri!",
+    pongFail: "Calculatorul a câștigat această rundă!",
   },
   en: {
     introTitle: "Play for a mystery discount",
@@ -346,6 +379,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     expiresIn: "Code expires in {time}",
     validUntil: "Code valid until {date}",
     flipperHelp: "Tap left or right to flip",
+    pongDesc: "Score 3 goals before the computer does and unlock a mystery discount.",
+    pongHelp: "First to 3 goals wins!",
+    pongFail: "The computer won this round!",
   },
 };
 
@@ -362,6 +398,16 @@ export const TARGETS = [
 export const GAMES = [
   { label: "Paddle & ball", value: "paddle" },
   { label: "Flipper", value: "flipper" },
+  { label: "Pong vs computer (first to 3 goals)", value: "pong" },
+] as const;
+export type GameType = (typeof GAMES)[number]["value"];
+export const isGameType = (v: unknown): v is GameType => GAMES.some((g) => g.value === v);
+
+// Pong: how good the computer is.
+export const DIFFICULTIES = [
+  { label: "Easy", value: "easy" },
+  { label: "Medium (recommended)", value: "medium" },
+  { label: "Hard", value: "hard" },
 ] as const;
 
 export const TRIGGERS = [
@@ -382,7 +428,7 @@ export const DEFAULT_ACCENT = "#d9caa0";
 
 /** What variant B of an A/B test changes; everything else is the same as A. */
 export interface AbVariant {
-  gameType: "paddle" | "flipper";
+  gameType: GameType;
   trigger: "both" | "delay" | "exit";
   delaySec: number;
   // Unique codes: B's discount (single value, or per attempt when tiered)
@@ -416,7 +462,8 @@ export interface PopupSettings {
   discountValue: number;
   codePrefix: string;
   codeExpiryDays: number;
-  gameType: "paddle" | "flipper";
+  gameType: GameType;
+  difficulty: "easy" | "medium" | "hard";
   trigger: "both" | "delay" | "exit";
   // How often the popup may open by itself; the floating button always works.
   frequency: "session" | "day" | "week" | "always";
@@ -487,6 +534,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   codePrefix: "WIN",
   codeExpiryDays: 7,
   gameType: "paddle",
+  difficulty: "medium",
   trigger: "both",
   frequency: "session",
   teaser: true,
@@ -530,7 +578,7 @@ export function parseAbVariant(input: unknown, fallback: AbVariant = DEFAULT_SET
     if (Object.keys(out).length) strings[lang] = out;
   }
   return {
-    gameType: o.gameType === "paddle" || o.gameType === "flipper" ? o.gameType : fallback.gameType,
+    gameType: isGameType(o.gameType) ? o.gameType : fallback.gameType,
     trigger: o.trigger === "delay" || o.trigger === "exit" || o.trigger === "both" ? o.trigger : fallback.trigger,
     delaySec: Math.round(num(o.delaySec, fallback.delaySec, 0, 600)),
     discountValue: num(o.discountValue, fallback.discountValue, 0.01, 100000),
@@ -666,7 +714,10 @@ export function parseSettings(input: Record<string, unknown>): {
       discountValue,
       codePrefix,
       codeExpiryDays: Math.round(num(input.codeExpiryDays, d.codeExpiryDays, 0, 365)),
-      gameType: input.gameType === "flipper" ? "flipper" : "paddle",
+      gameType: isGameType(input.gameType) ? input.gameType : "paddle",
+      difficulty: DIFFICULTIES.some((x) => x.value === input.difficulty)
+        ? (input.difficulty as PopupSettings["difficulty"])
+        : "medium",
       trigger: input.trigger === "delay" || input.trigger === "exit" ? input.trigger : "both",
       frequency: FREQUENCIES.some((f) => f.value === input.frequency)
         ? (input.frequency as PopupSettings["frequency"])

@@ -45,7 +45,7 @@
 
     function draw(a) {
       c.clearRect(0, 0, W, H);
-      c.fillStyle = o.primary;
+      c.fillStyle = o.primaryColor;
       c.beginPath();
       if (c.roundRect) c.roundRect(paddleX, PADDLE_Y, PADDLE_W, PADDLE_H, 5); else c.rect(paddleX, PADDLE_Y, PADDLE_W, PADDLE_H);
       c.fill();

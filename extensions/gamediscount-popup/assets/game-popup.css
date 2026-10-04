@@ -128,6 +128,9 @@
 .gd-canvas { display: block; width: 100%; height: auto; cursor: none; touch-action: none; transform: translateZ(0); }
 /* Flipper: dark board so the cursor and the left/right halves are easy to see */
 .gd-g-flipper { background: #1b2230; }
+.gd-g-pong { background: #11151c; }
+.gd-g-pong .gd-canvas { cursor: none; margin: 0 auto; max-width: min(100%, 300px); }
+@media (min-width: 641px) { .gd-g-pong .gd-canvas { max-width: 100%; } }
 .gd-g-flipper .gd-canvas { cursor: pointer; }
 .gd-timer {
   position: absolute;

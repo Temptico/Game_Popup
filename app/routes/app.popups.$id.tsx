@@ -29,6 +29,7 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_STRINGS,
   SIZE_LIMITS,
+  DIFFICULTIES,
   abFromSettings,
   applyVariantB,
   type AbVariant,
@@ -317,9 +318,20 @@ export default function PopupEditor() {
                       helpText={
                         s.gameType === "flipper"
                           ? "Keep the ball in play with two flippers (tap left/right side or arrow keys)."
-                          : "Keep the ball bouncing with a paddle (mouse, finger or arrow keys)."
+                          : s.gameType === "pong"
+                            ? "Play against the computer; first to 3 goals wins. Desktop: mouse or ↑↓. Phones: the field turns upright and a drag anywhere steers."
+                            : "Keep the ball bouncing with a paddle (mouse, finger or arrow keys)."
                       }
                     />
+                    {(s.gameType === "pong" || (s.abEnabled && s.ab.gameType === "pong")) && (
+                      <Select
+                        label="Computer level (Pong)"
+                        options={[...DIFFICULTIES]}
+                        value={s.difficulty}
+                        onChange={(v) => set("difficulty")(v as PopupSettings["difficulty"])}
+                        helpText="Medium: most visitors win within a few attempts. Hard makes the discount feel earned but costs sign-ups."
+                      />
+                    )}
                     <Select
                       label="When to show the popup"
                       options={[...TRIGGERS]}
@@ -335,7 +347,8 @@ export default function PopupEditor() {
                     />
                     <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                       <TextField label="Popup delay (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />
-                      <TextField label="Survive time to win (seconds)" type="number" min={3} value={String(s.surviveSec)} onChange={setNum("surviveSec")} autoComplete="off" />
+                      <TextField label="Survive time to win (seconds)" type="number" min={3} value={String(s.surviveSec)} onChange={setNum("surviveSec")} autoComplete="off"
+                        disabled={s.gameType === "pong"} helpText={s.gameType === "pong" ? "Not used by Pong (first to 3 goals)." : undefined} />
                     </InlineGrid>
                     {s.gameType === "paddle" && (
                       <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">

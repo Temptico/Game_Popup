@@ -52,6 +52,8 @@ model Popup {
   sizeDesktop    Int      @default(100)
   sizeMobile     Int      @default(100)
   // A/B test: 50 % of visitors get variant B (JSON AbVariant), results count from abStartedAt
+  // Pong: computer level (easy | medium | hard)
+  difficulty     String    @default("medium")
   abEnabled      Boolean   @default(false)
   abStartedAt    DateTime?
   abVariant      String    @default("{}")

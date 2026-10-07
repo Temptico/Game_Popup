@@ -54,6 +54,8 @@ model Popup {
   // A/B test: 50 % of visitors get variant B (JSON AbVariant), results count from abStartedAt
   // Pong: computer level (easy | medium | hard)
   difficulty     String    @default("medium")
+  // Cart condition for opening by itself: any | empty | items
+  cartRule       String    @default("any")
   abEnabled      Boolean   @default(false)
   abStartedAt    DateTime?
   abVariant      String    @default("{}")

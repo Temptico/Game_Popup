@@ -29,6 +29,7 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_STRINGS,
   SIZE_LIMITS,
+  CART_RULES,
   DIFFICULTIES,
   abFromSettings,
   applyVariantB,
@@ -337,6 +338,13 @@ export default function PopupEditor() {
                       options={[...TRIGGERS]}
                       value={s.trigger}
                       onChange={(v) => set("trigger")(v as PopupSettings["trigger"])}
+                    />
+                    <Select
+                      label="Cart condition"
+                      options={[...CART_RULES]}
+                      value={s.cartRule}
+                      onChange={(v) => set("cartRule")(v as PopupSettings["cartRule"])}
+                      helpText="Checked when the popup is about to open by itself. The floating button always works."
                     />
                     <Select
                       label="How often to show it automatically"

@@ -410,6 +410,12 @@ export const DIFFICULTIES = [
   { label: "Hard", value: "hard" },
 ] as const;
 
+export const CART_RULES = [
+  { label: "Always (cart does not matter)", value: "any" },
+  { label: "Only when the cart is empty", value: "empty" },
+  { label: "Only when the cart has products", value: "items" },
+] as const;
+
 export const TRIGGERS = [
   { label: "Exit intent or delay – whichever comes first (recommended)", value: "both" },
   { label: "After the delay", value: "delay" },
@@ -464,6 +470,7 @@ export interface PopupSettings {
   codeExpiryDays: number;
   gameType: GameType;
   difficulty: "easy" | "medium" | "hard";
+  cartRule: "any" | "empty" | "items";
   trigger: "both" | "delay" | "exit";
   // How often the popup may open by itself; the floating button always works.
   frequency: "session" | "day" | "week" | "always";
@@ -535,6 +542,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   codeExpiryDays: 7,
   gameType: "paddle",
   difficulty: "medium",
+  cartRule: "any",
   trigger: "both",
   frequency: "session",
   teaser: true,
@@ -718,6 +726,7 @@ export function parseSettings(input: Record<string, unknown>): {
       difficulty: DIFFICULTIES.some((x) => x.value === input.difficulty)
         ? (input.difficulty as PopupSettings["difficulty"])
         : "medium",
+      cartRule: input.cartRule === "empty" || input.cartRule === "items" ? input.cartRule : "any",
       trigger: input.trigger === "delay" || input.trigger === "exit" ? input.trigger : "both",
       frequency: FREQUENCIES.some((f) => f.value === input.frequency)
         ? (input.frequency as PopupSettings["frequency"])

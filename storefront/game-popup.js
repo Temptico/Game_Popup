@@ -51,13 +51,12 @@
   var maxAttempts = Math.max(1, popup.maxAttempts | 0);
   var attemptsUsed = testMode ? 0 : parseInt(local.get(KEY_ATTEMPTS) || '0', 10) || 0;
 
-  // Claimed reward: { code, value, expiresAt } (older builds stored the bare code).
+  // Claimed reward: { code, value, expiresAt } (very old builds stored the bare code).
   var claimed = null;
   if (!testMode) {
     var rawClaim = local.get(KEY_CLAIMED);
     if (rawClaim) {
       try { claimed = JSON.parse(rawClaim); } catch (e) { claimed = { code: rawClaim }; }
-      if (!claimed || typeof claimed !== 'object') claimed = { code: rawClaim };
       if (claimed.expiresAt && Date.parse(claimed.expiresAt) < Date.now()) return;
     }
     if (!claimed && attemptsUsed >= maxAttempts) return;
@@ -396,9 +395,15 @@
   if (capped) return showTeaser();
 
   var fired = false;
-  function fire() {
+  async function fire() {
     if (fired) return;
     fired = true;
+    // Cart rule: "empty" = only when the cart is empty, "items" = only when it has products.
+    // Checked when the popup is about to open, so items added via a cart drawer count too.
+    if (popup.cart) try {
+      var cart = await (await fetch('/cart.js')).json();
+      if (!cart.item_count != (popup.cart == 'empty')) return;
+    } catch (e) { /* cart unknown: show the popup */ }
     session.set(KEY_SHOWN, '1');
     local.set(KEY_SHOWN, String(Date.now()));
     open();

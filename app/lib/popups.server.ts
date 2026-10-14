@@ -1,5 +1,5 @@
 import type { Popup } from "@prisma/client";
-import { billingEnabled } from "./billing.server";
+import { billingEnabled, previewFeatures } from "./billing.server";
 import db from "../db.server";
 import {
   DEFAULT_STRINGS,
@@ -190,7 +190,7 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         gameType: s.gameType,
         difficulty: s.difficulty,
         // Checked against /cart.js just before the popup opens by itself.
-        ...(s.cartRule !== "any" ? { cart: s.cartRule } : {}),
+        ...(s.cartRule !== "any" && previewFeatures() ? { cart: s.cartRule } : {}),
         trigger: s.trigger,
         frequency: s.frequency,
         teaser: s.teaser,

@@ -14,13 +14,13 @@ Character limits were checked with a script; the counts are in brackets.
 | **App card subtitle** (55/62) | `Mini-games that turn visitors into subscribers & buyers` |
 | **App introduction** (94/100) | `Visitors play a 15-second game for a discount code. You grow your list and sales on autopilot.` |
 
-## App details (496/500)
+## App details (500/500)
 ```
-Replace boring email popups with a game shoppers actually want to play. A visitor enters name and email, plays a quick paddle or flipper game in their language and wins a discount code, unique and single-use if you like, auto-applied at checkout. Emails go straight to Shopify customers with marketing consent. Exit intent, a floating reopen button, reward tiers, a real countdown and revenue analytics turn curiosity into orders. Pay only when the popup makes you money: free up to $500 a month.
+Replace boring email popups with a game shoppers actually want to play. A visitor enters name and email, plays a quick paddle, flipper or pong game in their language and wins a discount code, unique and single-use if wanted, auto-applied at checkout. Emails go straight to Shopify customers with marketing consent. Exit intent, a floating reopen button, reward tiers, a real countdown and revenue analytics turn curiosity into orders. Pay only when the popup makes you money: free up to $500 a month.
 ```
 
 ## Feature list (max 80 each)
-1. `Paddle and flipper mini-games in 10 languages, styled in your brand colors` (74)
+1. `Paddle, flipper and pong games in 10 languages, styled in your brand colors` (75)
 2. `Unique single-use codes, auto-applied at checkout, so codes never leak` (70)
 3. `Emails saved as Shopify customers with GDPR-friendly marketing consent` (70)
 4. `Exit intent, floating reopen button, reward tiers and a real expiry countdown` (77)

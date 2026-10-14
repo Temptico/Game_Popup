@@ -55,13 +55,14 @@ import {
   settingsToRow,
 } from "../lib/popups.server";
 import { getAbResults, getDiscountUsage } from "../lib/analytics.server";
+import { previewFeatures } from "../lib/billing.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const { plan } = await getInstallation(admin);
 
   if (params.id === "new") {
-    return { id: null, settings: DEFAULT_SETTINGS, plan, codeExists: true, abResults: null };
+    return { id: null, settings: DEFAULT_SETTINGS, plan, codeExists: true, abResults: null, preview: previewFeatures() };
   }
   const row = await db.popup.findFirst({ where: { id: params.id, shop: session.shop } });
   if (!row) throw redirect("/app");
@@ -70,7 +71,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     row.discountCode ? getDiscountUsage(admin, row.discountCode) : 0,
     row.abStartedAt ? getAbResults(row.id, row.abStartedAt) : null,
   ]);
-  return { id: row.id, settings: rowToSettings(row), plan, codeExists: usage !== null, abResults };
+  return { id: row.id, settings: rowToSettings(row), plan, codeExists: usage !== null, abResults, preview: previewFeatures() };
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
@@ -106,7 +107,7 @@ const TABS = [
 ];
 
 export default function PopupEditor() {
-  const { id, settings: initial, plan, codeExists, abResults } = useLoaderData<typeof loader>();
+  const { id, settings: initial, plan, codeExists, abResults, preview } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const errors: ValidationErrors = actionData?.errors ?? {};
   const submit = useSubmit();
@@ -339,13 +340,15 @@ export default function PopupEditor() {
                       value={s.trigger}
                       onChange={(v) => set("trigger")(v as PopupSettings["trigger"])}
                     />
-                    <Select
-                      label="Cart condition"
-                      options={[...CART_RULES]}
-                      value={s.cartRule}
-                      onChange={(v) => set("cartRule")(v as PopupSettings["cartRule"])}
-                      helpText="Checked when the popup is about to open by itself. The floating button always works."
-                    />
+                    {preview && (
+                      <Select
+                        label="Cart condition"
+                        options={[...CART_RULES]}
+                        value={s.cartRule}
+                        onChange={(v) => set("cartRule")(v as PopupSettings["cartRule"])}
+                        helpText="Checked when the popup is about to open by itself. The floating button always works."
+                      />
+                    )}
                     <Select
                       label="How often to show it automatically"
                       options={[...FREQUENCIES]}

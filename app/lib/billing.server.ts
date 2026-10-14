@@ -4,6 +4,12 @@
  */
 export const billingEnabled = () => process.env.BILLING_ENABLED !== "false";
 
+/**
+ * Features still being tried on the private store copies before they go to
+ * the public app. Store copies are exactly the installs without billing.
+ */
+export const previewFeatures = () => !billingEnabled();
+
 interface AdminApi {
   graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>;
 }

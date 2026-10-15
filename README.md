@@ -111,5 +111,5 @@ Don't install a store copy and the public app on the same store at the same time
 ### Release flow while the public app is in review
 - Improvements are developed and tried on the store copies first (Actions → Deploy instance). The public app is not deployed during review.
 - The public app was approved on 14 Oct 2026 (listing: https://apps.shopify.com/game-discount). Updates go to the store copies first; the public app gets only what was verified there.
-- Features still on trial are shown only on store copies (`previewFeatures()` in `app/lib/billing.server.ts`). Currently: cart condition, ball speed presets.
+- Features still on trial are shown only on store copies (`previewFeatures()` in `app/lib/billing.server.ts`). Currently: cart condition.
 - After approval, deploy the current branch with Actions → Deploy to ship the tested improvements to the public app.

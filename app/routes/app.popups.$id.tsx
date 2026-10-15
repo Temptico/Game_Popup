@@ -363,7 +363,7 @@ export default function PopupEditor() {
                       <TextField label="Survive time to win (seconds)" type="number" min={3} value={String(s.surviveSec)} onChange={setNum("surviveSec")} autoComplete="off"
                         disabled={s.gameType === "pong"} helpText={s.gameType === "pong" ? "Not used by Pong (first to 3 goals)." : undefined} />
                     </InlineGrid>
-                    {s.gameType === "paddle" && preview && (
+                    {s.gameType === "paddle" && (
                       <Select
                         label="Ball speed"
                         options={[
@@ -379,12 +379,6 @@ export default function PopupEditor() {
                         }}
                         helpText="Slower ball = more winners = more orders. Faster ball = the discount feels earned."
                       />
-                    )}
-                    {s.gameType === "paddle" && !preview && (
-                      <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
-                        <TextField label="Ball speed X (vx)" type="number" step={0.1} value={String(s.vx)} onChange={setNum("vx")} error={errors.vx} autoComplete="off" helpText="Pixels per frame at 60 fps." />
-                        <TextField label="Ball speed Y (vy)" type="number" step={0.1} value={String(s.vy)} onChange={setNum("vy")} autoComplete="off" helpText="Negative = ball starts moving up." />
-                      </InlineGrid>
                     )}
                     <TextField label="Max attempts" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off" />
                     <Checkbox

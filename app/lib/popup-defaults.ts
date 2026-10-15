@@ -410,6 +410,20 @@ export const DIFFICULTIES = [
   { label: "Hard", value: "hard" },
 ] as const;
 
+// Paddle game ball speed presets (pixels per 60 fps frame; the ball starts upwards).
+export const BALL_SPEEDS = [
+  { label: "Slow (more winners)", value: "slow", vx: 3.5, vy: -4 },
+  { label: "Normal (recommended)", value: "normal", vx: 4.5, vy: -5 },
+  { label: "Fast", value: "fast", vx: 5.5, vy: -6 },
+  { label: "Very fast (fewer winners)", value: "veryfast", vx: 6.5, vy: -7 },
+] as const;
+
+/** The preset matching a popup's vx/vy, or "custom" for hand-set values. */
+export function ballSpeedOf(vx: number, vy: number): string {
+  const p = BALL_SPEEDS.find((b) => Math.abs(b.vx - Math.abs(vx)) < 0.05 && Math.abs(b.vy - -Math.abs(vy)) < 0.05);
+  return p ? p.value : "custom";
+}
+
 export const CART_RULES = [
   { label: "Always (cart does not matter)", value: "any" },
   { label: "Only when the cart is empty", value: "empty" },

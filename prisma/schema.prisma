@@ -152,4 +152,8 @@ model ShopState {
   shop           String    @id
   // When the store first exceeded its plan's revenue cap (null = within plan)
   overLimitSince DateTime?
+  // Review request: when Shopify's review modal was last answered, and whether
+  // the merchant hid the "leave a review" banner
+  reviewAskedAt  DateTime?
+  reviewHidden   Boolean   @default(false)
 }

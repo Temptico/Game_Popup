@@ -23,7 +23,7 @@ import { livePopups, publishConfig } from "../lib/popups.server";
 import { getCounts } from "../lib/analytics.server";
 import { PLAN_LABELS, getPlan } from "../lib/plans";
 import { TARGETS } from "../lib/popup-defaults";
-import { APP_VERSION } from "../lib/version";
+import { APP_VERSION, LISTING_URL } from "../lib/version";
 import { BrandHero } from "../components/BrandHero";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -37,12 +37,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const live = new Set(billing.paused ? [] : livePopups(popups).map((p) => p.id));
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
   const { byPopup } = await getCounts(shop, since);
+  // Ask for a review once the popup has brought the first order.
+  const [orders, state] = await Promise.all([
+    db.attributedOrder.count({ where: { shop } }),
+    db.shopState.findUnique({ where: { shop } }),
+  ]);
 
   return {
     plan,
     billing,
     showPlans: billingEnabled(),
     apiKey: process.env.SHOPIFY_API_KEY || "",
+    review: {
+      ask: orders > 0 && !state?.reviewAskedAt,
+      banner: orders > 0 && !state?.reviewHidden,
+    },
     popups: popups.map((p) => ({
       id: p.id,
       name: p.name,
@@ -62,6 +71,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const form = await request.formData();
   const intent = form.get("intent");
   const id = String(form.get("id"));
+
+  if (intent === "review") {
+    // done: Shopify's review modal was answered (or can't be shown to this merchant);
+    // hide: the merchant reviewed or hid the banner.
+    const data = {
+      ...(form.get("done") ? { reviewAskedAt: new Date() } : {}),
+      ...(form.get("hide") ? { reviewHidden: true } : {}),
+    };
+    await db.shopState.upsert({ where: { shop }, create: { shop, ...data }, update: data });
+    return { ok: true, message: "" };
+  }
 
   const popup = await db.popup.findFirst({ where: { id, shop } });
   if (!popup) return { ok: false, message: "Popup not found" };
@@ -88,7 +108,7 @@ const targetLabel = (v: string) => TARGETS.find((t) => t.value === v)?.label ?? 
 const EMBED_HINT_KEY = "gd_embed_hint_dismissed";
 
 export default function Index() {
-  const { popups, plan, billing, apiKey, showPlans } = useLoaderData<typeof loader>();
+  const { popups, plan, billing, apiKey, showPlans, review } = useLoaderData<typeof loader>();
   const totals = popups.reduce(
     (t, p) => ({ view: t.view + p.counts.view, submit: t.submit + p.counts.submit, win: t.win + p.counts.win }),
     { view: 0, submit: 0, win: 0 },
@@ -119,6 +139,34 @@ export default function Index() {
       }, { replace: true });
     }
   }, [saved, shopify, setParams]);
+
+  // Shopify's own review modal, shown a moment after the page opens. Shopify
+  // rate-limits it; codes that may pass later (app just installed, mobile app,
+  // another modal open) leave it to be tried on the next visit.
+  const reviewFetcher = useFetcher();
+  const [reviewBanner, setReviewBanner] = useState(review.banner);
+  const saveReview = (data: Record<string, string>) =>
+    reviewFetcher.submit({ intent: "review", ...data }, { method: "POST" });
+  useEffect(() => {
+    if (!review.ask) return;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await shopify.reviews.request();
+        if (["recently-installed", "mobile-app", "already-open", "open-in-progress"].includes(res.code)) return;
+        const reviewed = res.success || res.code === "already-reviewed";
+        if (reviewed) setReviewBanner(false);
+        saveReview(reviewed ? { done: "1", hide: "1" } : { done: "1" });
+      } catch {
+        /* older admin without the reviews API: the banner still works */
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [review.ask]);
+  const hideReviewBanner = () => {
+    setReviewBanner(false);
+    saveReview({ hide: "1" });
+  };
 
   useEffect(() => {
     if (fetcher.data?.message) {
@@ -184,6 +232,17 @@ export default function Index() {
                 ? `Sales from the popup exceeded your ${PLAN_LABELS[plan]} plan (${usd(billing.cap)}/30 days) and the grace period has ended. Upgrade to switch it back on.`
                 : `That's more than your ${PLAN_LABELS[plan]} plan includes (${usd(billing.cap)}/30 days). The popup keeps running until ${new Date(billing.graceEndsAt!).toLocaleDateString()} — upgrade before then to keep it live.`}
             </p>
+          </Banner>
+        )}
+        {reviewBanner && (
+          <Banner
+            title="Your popup brought its first order 🎉"
+            tone="success"
+            action={{ content: "Leave a review", url: `${LISTING_URL}/reviews`, target: "_blank" }}
+            secondaryAction={{ content: "Hide", onAction: hideReviewBanner }}
+            onDismiss={hideReviewBanner}
+          >
+            <p>Is Enigma Play working for you? A short review helps other stores find it and keeps the app improving.</p>
           </Banner>
         )}
         {showEmbedHint && (

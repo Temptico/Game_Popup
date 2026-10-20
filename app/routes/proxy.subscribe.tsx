@@ -8,7 +8,7 @@ import db from "../db.server";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, admin, body } = await readProxyRequest(request);
+  const { shop, admin, body } = await readProxyRequest(request, { name: "subscribe", perHour: 10 });
 
   const email = String(body.email ?? "").trim().toLowerCase().slice(0, 254);
   const firstName = String(body.name ?? "").trim().slice(0, 100);

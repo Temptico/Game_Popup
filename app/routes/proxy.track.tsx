@@ -6,7 +6,7 @@ import { recordEvent } from "../lib/analytics.server";
 const CLIENT_EVENTS = ["view", "play"] as const;
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, body } = await readProxyRequest(request);
+  const { shop, body } = await readProxyRequest(request, { name: "track", perHour: 600 });
   const type = String(body.type ?? "") as (typeof CLIENT_EVENTS)[number];
   if (!CLIENT_EVENTS.includes(type)) {
     return json({ ok: false, error: "invalid_type" }, { status: 422 });

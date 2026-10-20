@@ -16,7 +16,7 @@ const reply = (code: string, valueLabel: string | null, expiresAt: Date | null) 
 
 // The discount code never ships in the page source — it's released here after a win.
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, admin, body } = await readProxyRequest(request);
+  const { shop, admin, body } = await readProxyRequest(request, { name: "claim", perHour: 30 });
   const popupId = String(body.popupId ?? "");
 
   const popup = await db.popup.findFirst({ where: { id: popupId, shop, active: true } });

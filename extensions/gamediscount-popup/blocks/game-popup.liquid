@@ -20,6 +20,7 @@
       alwaysShow: {{ block.settings.always_show | json }},
       proxy: "/apps/gamediscount",
       assets: {
+        ui: {{ 'gd-ui.js' | asset_url | json }},
         paddle: {{ 'gd-paddle.js' | asset_url | json }},
         flipper: {{ 'gd-flipper.js' | asset_url | json }},
         pong: {{ 'gd-pong.js' | asset_url | json }},

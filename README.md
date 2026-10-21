@@ -55,7 +55,8 @@ Then:
 
 ### Editing the storefront script
 The storefront code lives in `storefront/`:
-- `game-popup.js` is the core: triggers, form, floating button, reward and countdown. It is loaded on every page, so it must stay **under 10 KB minified** (Theme Check's app-block limit).
+- `game-popup.js` is the small core loaded on every page: config, targeting, frequency and cart checks, A/B variant, tracking and the open triggers. It must stay **under 10 KB minified** (Theme Check's app-block limit); keep it lean, it costs every page view.
+- `gd-ui.js` is everything visible: screens, form, game flow, reward, countdown and the floating button. The core loads it only when the popup opens or the floating button shows, and passes it its state (`window.GameDiscountUI(state)`).
 - `games/gd-paddle.js` and `games/gd-flipper.js` are the games. Each one registers `window.GameDiscountGames[name] = (canvas, opts) => ({ start({ tick, end }), stop() })` and is loaded only when the popup opens.
 - `games/gd-fx.js` holds optional extras (confetti, and the `/contact` fallback for when the app proxy is unreachable).
 

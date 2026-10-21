@@ -14,7 +14,6 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { getBreakdown, getCounts, getDiscountUsage, type BreakdownRow } from "../lib/analytics.server";
 import { SOURCE_LABELS } from "../lib/traffic-sources";
-import { previewFeatures } from "../lib/billing.server";
 import { getUniqueCodeUsage } from "../lib/discounts.server";
 import { getRevenue } from "../lib/revenue.server";
 
@@ -86,8 +85,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     total,
     totalUses,
     rows,
-    // Breakdowns are recorded everywhere but shown on store copies first.
-    preview: previewFeatures(),
     byDevice,
     byCountry: byCountry.slice(0, 12),
     bySource: bySource.filter((r) => r.orders > 0).sort((a, b) => b.amount - a.amount),
@@ -103,7 +100,7 @@ export default function Analytics() {
   const data = useLoaderData<typeof loader>();
   const [params, setParams] = useSearchParams();
 
-  const { total, totalUses, rows, range, revenue, byDevice, byCountry, bySource, preview } = data;
+  const { total, totalUses, rows, range, revenue, byDevice, byCountry, bySource } = data;
   const countryName = (code: string) => {
     try {
       return new Intl.DisplayNames(["en"], { type: "region" }).of(code) ?? code;
@@ -190,64 +187,60 @@ export default function Analytics() {
             />
           </Card>
         </Layout.Section>
-        {preview && (
-          <>
-            <Layout.Section>
-              <Card padding="0">
-                <BlockStack gap="0">
-                  <div style={{ padding: "16px 16px 0" }}>
-                    <Text as="h2" variant="headingMd">Desktop vs phone</Text>
-                  </div>
-                  <DataTable
-                    columnContentTypes={["text", "numeric", "numeric", "numeric", "numeric", "numeric"]}
-                    headings={["Device", "Views", "Emails", "Wins", "Orders", "Revenue"]}
-                    rows={segmentRows(byDevice, (k) => DEVICE_LABELS[k] ?? k)}
-                  />
-                </BlockStack>
-              </Card>
-            </Layout.Section>
-            <Layout.Section>
-              <Card padding="0">
-                <BlockStack gap="0">
-                  <div style={{ padding: "16px 16px 0" }}>
-                    <Text as="h2" variant="headingMd">Orders by traffic source</Text>
-                    <Text as="p" variant="bodySm" tone="subdued">Where shoppers who used an Enigma Play code came from (utm tags, ad click ids, referrer).</Text>
-                  </div>
-                  <DataTable
-                    columnContentTypes={["text", "numeric", "numeric", "numeric"]}
-                    headings={["Source", "Orders", "Revenue", "Share of popup revenue"]}
-                    rows={bySource.map((r) => [
-                      r.key ? SOURCE_LABELS[r.key] ?? r.key : UNKNOWN,
-                      r.orders.toLocaleString(),
-                      money(revenue.currency ? r.amount : r.amountUsd),
-                      pct(revenue.currency ? r.amount : r.amountUsd, revenue.currency ? revenue.amount : revenue.usd),
-                    ])}
-                  />
-                </BlockStack>
-              </Card>
-            </Layout.Section>
-            <Layout.Section>
-              <Card padding="0">
-                <BlockStack gap="0">
-                  <div style={{ padding: "16px 16px 0" }}>
-                    <Text as="h2" variant="headingMd">By country</Text>
-                    <Text as="p" variant="bodySm" tone="subdued">The storefront country (Shopify market) the visitor shopped in.</Text>
-                  </div>
-                  <DataTable
-                    columnContentTypes={["text", "numeric", "numeric", "numeric", "numeric", "numeric"]}
-                    headings={["Country", "Views", "Emails", "Wins", "Orders", "Revenue"]}
-                    rows={segmentRows(byCountry, countryName)}
-                  />
-                </BlockStack>
-              </Card>
-            </Layout.Section>
-            <Layout.Section>
-              <Text as="p" variant="bodySm" tone="subdued">
-                Device, country and traffic source are recorded from version 0.16 on; earlier data shows as “{UNKNOWN}”.
-              </Text>
-            </Layout.Section>
-          </>
-        )}
+        <Layout.Section>
+          <Card padding="0">
+            <BlockStack gap="0">
+              <div style={{ padding: "16px 16px 0" }}>
+                <Text as="h2" variant="headingMd">Desktop vs phone</Text>
+              </div>
+              <DataTable
+                columnContentTypes={["text", "numeric", "numeric", "numeric", "numeric", "numeric"]}
+                headings={["Device", "Views", "Emails", "Wins", "Orders", "Revenue"]}
+                rows={segmentRows(byDevice, (k) => DEVICE_LABELS[k] ?? k)}
+              />
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+        <Layout.Section>
+          <Card padding="0">
+            <BlockStack gap="0">
+              <div style={{ padding: "16px 16px 0" }}>
+                <Text as="h2" variant="headingMd">Orders by traffic source</Text>
+                <Text as="p" variant="bodySm" tone="subdued">Where shoppers who used an Enigma Play code came from (utm tags, ad click ids, referrer).</Text>
+              </div>
+              <DataTable
+                columnContentTypes={["text", "numeric", "numeric", "numeric"]}
+                headings={["Source", "Orders", "Revenue", "Share of popup revenue"]}
+                rows={bySource.map((r) => [
+                  r.key ? SOURCE_LABELS[r.key] ?? r.key : UNKNOWN,
+                  r.orders.toLocaleString(),
+                  money(revenue.currency ? r.amount : r.amountUsd),
+                  pct(revenue.currency ? r.amount : r.amountUsd, revenue.currency ? revenue.amount : revenue.usd),
+                ])}
+              />
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+        <Layout.Section>
+          <Card padding="0">
+            <BlockStack gap="0">
+              <div style={{ padding: "16px 16px 0" }}>
+                <Text as="h2" variant="headingMd">By country</Text>
+                <Text as="p" variant="bodySm" tone="subdued">The storefront country (Shopify market) the visitor shopped in.</Text>
+              </div>
+              <DataTable
+                columnContentTypes={["text", "numeric", "numeric", "numeric", "numeric", "numeric"]}
+                headings={["Country", "Views", "Emails", "Wins", "Orders", "Revenue"]}
+                rows={segmentRows(byCountry, countryName)}
+              />
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+        <Layout.Section>
+          <Text as="p" variant="bodySm" tone="subdued">
+            Device, country and traffic source are recorded from version 0.16 on; earlier data shows as “{UNKNOWN}”.
+          </Text>
+        </Layout.Section>
       </Layout>
     </Page>
   );

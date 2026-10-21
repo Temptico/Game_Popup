@@ -96,9 +96,14 @@ export function colorsFromHtml(html: string): { colors: RGB[]; source: string } 
   ];
   const theme: RGB[] = [];
   for (const name of vars) {
-    const m = html.match(new RegExp(`--${name}\\s*:\\s*([^;}"]{3,40})`));
-    const c = m && parseColor(m[1]);
-    if (c && !isNearWhite(c)) theme.push(c);
+    // Themes define a value per color scheme; the first non-white one is the brand's.
+    for (const m of html.matchAll(new RegExp(`--${name}\\s*:\\s*([^;}"]{3,40})`, "g"))) {
+      const c = parseColor(m[1]);
+      if (c && !isNearWhite(c)) {
+        theme.push(c);
+        break;
+      }
+    }
   }
   // Colored values first; grays (e.g. Dawn's default #121212 buttons) only as a fallback.
   if (theme.length) return { colors: [...theme.filter((c) => !isGray(c)), ...theme.filter(isGray)], source: "theme" };
@@ -119,20 +124,25 @@ export function colorsFromHtml(html: string): { colors: RGB[]; source: string } 
   return { colors: top.map(([h]) => parseColor(h)!), source: "page" };
 }
 
-/** Popup colors from candidate brand colors. Exported for tests. */
+/** Popup colors from candidate brand colors (button colors first, text colors last). Exported for tests. */
 export function popupColors(colors: RGB[]): { primaryColor: string; accentColor: string } | null {
   if (!colors.length) return null;
   const brand = colors[0];
-  // Light brand colors (yellow, gold, pastels) turn muddy when darkened: they
-  // become the accent instead, on a near-black tinted with the same hue.
-  if (luminance(brand) > 0.35) {
-    const dark = colors.slice(1).find((c) => contrast(c, LIGHT_TEXT) >= 4.5);
-    const primary = readable(dark ?? mix(brand, [0, 0, 0], 0.82), LIGHT_TEXT, [0, 0, 0]);
-    return { primaryColor: hex(primary), accentColor: hex(readable(brand, DARK_TEXT, [255, 255, 255])) };
+  // A brand button color that dark text reads on stays the popup's button color
+  // unchanged, on the theme's darkest colorful color (usually its text color):
+  // the popup then looks like the store.
+  if (contrast(brand, DARK_TEXT) >= 4.5) {
+    const darks = colors.slice(1).filter((c) => contrast(c, LIGHT_TEXT) >= 4.5);
+    const dark = darks.find((c) => !isGray(c)) ?? darks[0];
+    let primary = readable(dark ?? mix(brand, [0, 0, 0], 0.82), LIGHT_TEXT, [0, 0, 0]);
+    // The accent is also the subtitle color on the background: darken until it reads.
+    primary = readable(primary, brand, [0, 0, 0], 4);
+    if (contrast(primary, brand) >= 4) return { primaryColor: hex(primary), accentColor: hex(brand) };
   }
+  // A dark brand color becomes the background; the accent is a second light
+  // brand color, or a light tint of the brand.
   const primary = readable(brand, LIGHT_TEXT, [0, 0, 0]);
-  // A second colorful candidate that is clearly different makes a better accent than a tint.
-  const second = colors.slice(1).find((c) => !isGray(c) && contrast(c, brand) > 1.6);
+  const second = colors.slice(1).find((c) => !isGray(c) && contrast(c, DARK_TEXT) >= 4.5);
   let accent = readable(second ?? mix(brand, [255, 255, 255], isGray(brand) ? 0.85 : 0.55), DARK_TEXT, [255, 255, 255]);
   if (contrast(accent, primary) < 3) accent = readable(mix(accent, [255, 255, 255], 0.5), DARK_TEXT, [255, 255, 255]);
   return { primaryColor: hex(primary), accentColor: hex(accent) };

@@ -1,5 +1,5 @@
 import type { Popup } from "@prisma/client";
-import { billingEnabled, previewFeatures } from "./billing.server";
+import { billingEnabled } from "./billing.server";
 import db from "../db.server";
 import {
   DEFAULT_STRINGS,
@@ -57,7 +57,6 @@ export function rowToSettings(row: Popup): PopupSettings {
     codeExpiryDays: row.codeExpiryDays,
     gameType: isGameType(row.gameType) ? row.gameType : "paddle",
     difficulty: row.difficulty === "easy" || row.difficulty === "hard" ? row.difficulty : "medium",
-    cartRule: row.cartRule === "empty" || row.cartRule === "items" ? row.cartRule : "any",
     trigger: row.trigger === "delay" || row.trigger === "exit" ? row.trigger : "both",
     frequency: (["session", "day", "week", "always"] as const).find((f) => f === row.frequency) ?? "session",
     teaser: row.teaser,
@@ -195,8 +194,6 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         autoApply: s.autoApply,
         gameType: s.gameType,
         difficulty: s.difficulty,
-        // Checked against /cart.js just before the popup opens by itself.
-        ...(s.cartRule !== "any" && previewFeatures() ? { cart: s.cartRule } : {}),
         trigger: s.trigger,
         frequency: s.frequency,
         teaser: s.teaser,

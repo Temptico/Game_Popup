@@ -54,8 +54,6 @@ model Popup {
   // A/B test: 50 % of visitors get variant B (JSON AbVariant), results count from abStartedAt
   // Pong: computer level (easy | medium | hard)
   difficulty     String    @default("medium")
-  // Cart condition for opening by itself: any | empty | items
-  cartRule       String    @default("any")
   // Name field in the form: required | optional | hidden
   nameField      String    @default("required")
   abEnabled      Boolean   @default(false)

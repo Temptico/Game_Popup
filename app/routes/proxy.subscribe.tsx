@@ -4,6 +4,7 @@ import { upsertCustomer } from "../lib/customers.server";
 import { recordEvent } from "../lib/analytics.server";
 import { hashEmail, newToken } from "../lib/discounts.server";
 import db from "../db.server";
+import { parseAbJson } from "../lib/popup-defaults";
 import { visitorOf } from "../lib/visitor.server";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -18,8 +19,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Storefront language, saved on new customers so Shopify emails them in it.
   const locale = /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(String(body.locale ?? "")) ? String(body.locale) : undefined;
 
-  if (!EMAIL.test(email) || !firstName) {
+  if (!EMAIL.test(email)) {
     return json({ ok: false, error: "invalid_input" }, { status: 422 });
+  }
+  // The name may be optional or hidden (in A or in the A/B test's variant B).
+  if (!firstName) {
+    const p = await db.popup.findFirst({ where: { id: popupId, shop }, select: { nameField: true, abEnabled: true, abVariant: true } });
+    const nameRequired = p?.nameField === "required" && !(p.abEnabled && parseAbJson(p.abVariant).nameField !== "required");
+    if (!p || nameRequired) return json({ ok: false, error: "invalid_input" }, { status: 422 });
   }
 
   const visitor = visitorOf(body);

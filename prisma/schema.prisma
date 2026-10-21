@@ -56,6 +56,8 @@ model Popup {
   difficulty     String    @default("medium")
   // Cart condition for opening by itself: any | empty | items
   cartRule       String    @default("any")
+  // Name field in the form: required | optional | hidden
+  nameField      String    @default("required")
   abEnabled      Boolean   @default(false)
   abStartedAt    DateTime?
   abVariant      String    @default("{}")

@@ -85,15 +85,14 @@
 .gd-revenue-value { font-size: 34px; font-weight: 700; line-height: 1.1; color: #fff; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .gd-revenue-meta { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 13px; opacity: 0.9; }
 .gd-revenue-meta b { font-size: 16px; color: #fff; }
-.gd-funnel { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; }
+.gd-funnel { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 20px; }
 .gd-funnel > li { position: relative; min-width: 0; }
 .gd-funnel .gd-tile-value { font-variant-numeric: tabular-nums; }
 /* arrow between steps */
-.gd-funnel > li + li::before { content: "→"; position: absolute; left: -19px; top: 50%; transform: translateY(-50%); color: var(--gd-violet); opacity: 0.55; font-size: 16px; font-weight: 700; }
+.gd-funnel > li + li::before { content: "→"; position: absolute; left: -17px; top: 50%; transform: translateY(-50%); color: var(--gd-violet); opacity: 0.55; font-size: 16px; font-weight: 700; }
 @media (max-width: 900px) {
   .gd-funnel { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .gd-funnel > li + li::before { content: none; }
-  .gd-funnel > li:last-child { grid-column: 1 / -1; }
 }
 
 /* ---------- plan cards ---------- */

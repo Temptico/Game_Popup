@@ -51,13 +51,13 @@
   var maxAttempts = Math.max(1, popup.maxAttempts | 0);
   var attemptsUsed = testMode ? 0 : parseInt(local.get(KEY_ATTEMPTS) || '0', 10) || 0;
 
-  // Claimed reward: { code, value, expiresAt } (very old builds stored the bare code).
+  // Claimed reward: { code, value, expiresAt }.
   var claimed = null;
   if (!testMode) {
     var rawClaim = local.get(KEY_CLAIMED);
     if (rawClaim) {
-      try { claimed = JSON.parse(rawClaim); } catch (e) { claimed = { code: rawClaim }; }
-      if (claimed.expiresAt && Date.parse(claimed.expiresAt) < Date.now()) return;
+      try { claimed = JSON.parse(rawClaim); } catch (e) { /* unreadable: treat as not claimed */ }
+      if (claimed && claimed.expiresAt && Date.parse(claimed.expiresAt) < Date.now()) return;
     }
     if (!claimed && attemptsUsed >= maxAttempts) return;
   }
@@ -111,9 +111,8 @@
   }
 
   var overlay = el('div', { class: 'gd-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'gd-intro-title', hidden: '' });
-  // Colors and size (--gd-sd desktop, --gd-sm phone) arrive as ready-made inline CSS;
-  // configs published before that only have the two colors.
-  var css = popup.css || '--gd-primary:' + popup.primaryColor + ';--gd-accent:' + popup.accentColor;
+  // Colors and size (--gd-sd desktop, --gd-sm phone) arrive as ready-made inline CSS.
+  var css = popup.css;
   overlay.style.cssText = css;
 
   var closeBtn = el('button', { class: 'gd-close', type: 'button', 'aria-label': t.closeBtn, text: '✕' });
@@ -257,13 +256,22 @@
   // Resolves to the claim token issued by /subscribe (null if unavailable).
   var tokenPromise = Promise.resolve(null);
 
-  startBtn.addEventListener('click', function () { show(form); nameInput.focus(); });
+  // Name field: required (default), "o" optional or "h" hidden.
+  var nameMode = popup.name;
+  nameInput.hidden = nameMode == 'h';
+  // "start" (first click per page) shows where visitors drop off: before or in the form.
+  var started;
+  startBtn.addEventListener('click', function () {
+    show(form);
+    (nameInput.hidden ? emailInput : nameInput).focus();
+    if (!started) { started = 1; track('start'); }
+  });
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var name = nameInput.value.trim();
     var email = emailInput.value.trim();
-    if (!name) { formError.textContent = t.nameError; nameInput.focus(); return; }
+    if (!name && !nameMode) { formError.textContent = t.nameError; nameInput.focus(); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { formError.textContent = t.emailError; emailInput.focus(); return; }
     if (popup.requireConsent && !consentInput.checked) { formError.textContent = t.consentError; return; }
     formError.textContent = '';

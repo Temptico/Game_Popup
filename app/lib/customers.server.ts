@@ -36,7 +36,7 @@ export async function upsertCustomer(
       variables: {
         input: {
           email,
-          firstName,
+          ...(firstName ? { firstName } : {}),
           tags: TAGS,
           ...(withLocale && locale ? { locale } : {}),
           ...(consent ? { emailMarketingConsent: consentInput() } : {}),

@@ -31,6 +31,7 @@ import {
   SIZE_LIMITS,
   BALL_SPEEDS,
   CART_RULES,
+  NAME_FIELDS,
   ballSpeedOf,
   DIFFICULTIES,
   abFromSettings,
@@ -317,6 +318,15 @@ export default function PopupEditor() {
                       onChange={set("active")}
                       error={errors.active}
                     />
+                    {preview && (
+                      <Select
+                        label="Name field"
+                        options={[...NAME_FIELDS]}
+                        value={s.nameField}
+                        onChange={(v) => set("nameField")(v as PopupSettings["nameField"])}
+                        helpText="Every extra field costs sign-ups. Hidden = visitors only enter their email."
+                      />
+                    )}
                     <Checkbox
                       label="Require marketing consent checkbox to play"
                       helpText="Visitors who tick it are subscribed to email marketing. Recommended for GDPR (EU stores)."
@@ -491,6 +501,7 @@ export default function PopupEditor() {
                     lang={lang}
                     setLang={setLang}
                     saving={saving}
+                    preview={preview}
                     onSaveNow={(next) =>
                       submit(next as unknown as Record<string, string>, { method: "POST", encType: "application/json" })
                     }
@@ -611,6 +622,7 @@ function AbTab({
   lang,
   setLang,
   saving,
+  preview,
   onSaveNow,
 }: {
   s: PopupSettings;
@@ -619,6 +631,7 @@ function AbTab({
   lang: Language;
   setLang: (l: Language) => void;
   saving: boolean;
+  preview: boolean;
   onSaveNow: (next: PopupSettings) => void;
 }) {
   const b = s.ab;
@@ -659,6 +672,10 @@ function AbTab({
               <TextField label="Delay (seconds)" type="number" autoComplete="off" value={String(b.delaySec)}
                 onChange={(v) => setB("delaySec", Number(v))} />
             </InlineGrid>
+            {preview && (
+              <Select label={`Name field (A: ${NAME_FIELDS.find((f) => f.value === s.nameField)?.label})`} options={[...NAME_FIELDS]}
+                value={b.nameField} onChange={(v) => setB("nameField", v as AbVariant["nameField"])} />
+            )}
 
             {s.codeMode === "unique" && !s.tiered && (
               <TextField label={`Discount for B (A: ${s.discountValue}${unit})`} type="number" autoComplete="off"

@@ -8,11 +8,11 @@ interface AdminApi {
   ) => Promise<Response>;
 }
 
-export const EVENT_TYPES = ["view", "submit", "play", "win"] as const;
+export const EVENT_TYPES = ["view", "start", "submit", "play", "win"] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 export type Counts = Record<EventType, number>;
 
-const emptyCounts = (): Counts => ({ view: 0, submit: 0, play: 0, win: 0 });
+const emptyCounts = (): Counts => ({ view: 0, start: 0, submit: 0, play: 0, win: 0 });
 
 /** A/B variant reported by the storefront; only kept while the popup runs a test. */
 export const readVariant = (v: unknown, abEnabled: boolean) =>

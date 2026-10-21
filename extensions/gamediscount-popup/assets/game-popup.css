@@ -200,3 +200,5 @@
 .gd-teaser-x:hover { opacity: 1; }
 @keyframes gd-pop { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .gd-teaser { animation: none; } }
+
+.gd-input[hidden] { display: none; }

@@ -69,7 +69,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return {
       name: p.name,
       code: p.codeMode === "unique" ? `Unique (${p.codePrefix || "no prefix"}-…)` : p.discountCode,
-      counts: byPopup[p.id] ?? { view: 0, submit: 0, play: 0, win: 0 },
+      counts: byPopup[p.id] ?? { view: 0, start: 0, submit: 0, play: 0, win: 0 },
       revenue: revenue.byPopup[p.id] ?? { amount: 0, orders: 0 },
       // null = the shared code doesn't exist in Shopify
       uses: shared === null && p.codeMode === "static" ? null : (shared ?? 0) + uniqueUsage[p.id],
@@ -125,6 +125,7 @@ export default function Analytics() {
   // Funnel: each step shows how many of the previous step made it through.
   const funnel = [
     { label: "Popup views", value: total.view, sub: "saw the popup" },
+    { label: "Started", value: total.start, sub: `${pct(total.start, total.view)} clicked Start` },
     { label: "Emails", value: total.submit, sub: `${pct(total.submit, total.view)} of views` },
     { label: "Games played", value: total.play, sub: "incl. retries" },
     { label: "Wins", value: total.win, sub: `${pct(total.win, total.submit)} of emails` },
@@ -172,12 +173,13 @@ export default function Analytics() {
         <Layout.Section>
           <Card padding="0">
             <DataTable
-              columnContentTypes={["text", "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"]}
-              headings={["Popup", "Code", "Views", "Emails", "Games", "Wins", "Code uses", "Revenue"]}
+              columnContentTypes={["text", "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"]}
+              headings={["Popup", "Code", "Views", "Started", "Emails", "Games", "Wins", "Code uses", "Revenue"]}
               rows={rows.map((r) => [
                 r.name,
                 r.code,
                 r.counts.view,
+                r.counts.start,
                 r.counts.submit,
                 r.counts.play,
                 r.counts.win,

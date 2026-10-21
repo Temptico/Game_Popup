@@ -4,7 +4,7 @@ import { recordEvent } from "../lib/analytics.server";
 import { visitorOf } from "../lib/visitor.server";
 
 // "submit" and "win" are recorded server-side by /subscribe and /claim.
-const CLIENT_EVENTS = ["view", "play"] as const;
+const CLIENT_EVENTS = ["view", "start", "play"] as const;
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, body } = await readProxyRequest(request, { name: "track", perHour: 600 });

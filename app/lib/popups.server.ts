@@ -24,6 +24,8 @@ interface AdminApi {
   ) => Promise<Response>;
 }
 
+const NAME_CODE = { required: "", optional: "o", hidden: "h" } as const;
+
 export function rowToSettings(row: Popup): PopupSettings {
   let strings: CustomStrings = {};
   try {
@@ -46,6 +48,7 @@ export function rowToSettings(row: Popup): PopupSettings {
     sizeMobile: row.sizeMobile,
     target: row.target,
     requireConsent: row.requireConsent,
+    nameField: row.nameField === "optional" || row.nameField === "hidden" ? row.nameField : "required",
     autoApply: row.autoApply,
     codeMode: row.codeMode === "unique" ? "unique" : "static",
     discountType: row.discountType === "fixed" ? "fixed" : "percentage",
@@ -165,6 +168,7 @@ export async function publishConfig(admin: AdminApi, shop: string) {
             gameType: s.ab.gameType,
             trigger: s.ab.trigger,
             delaySec: s.ab.delaySec,
+            name: NAME_CODE[s.ab.nameField],
             // B's texts for every language when its game changes the wording, else only where B overrides.
             strings: Object.fromEntries(
               LANGUAGES.filter((l) => s.ab.strings[l] || (s.ab.gameType !== s.gameType && (s.ab.gameType === "pong" || s.gameType === "pong")))
@@ -186,6 +190,8 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         css: `--gd-primary:${s.primaryColor};--gd-accent:${s.accentColor};--gd-sd:${s.sizeDesktop / 100};--gd-sm:${s.sizeMobile / 100}`,
         target: s.target,
         requireConsent: s.requireConsent,
+        // Name field: omitted = required, "o" optional, "h" hidden.
+        ...(s.nameField !== "required" ? { name: NAME_CODE[s.nameField] } : {}),
         autoApply: s.autoApply,
         gameType: s.gameType,
         difficulty: s.difficulty,

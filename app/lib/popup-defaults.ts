@@ -424,6 +424,14 @@ export function ballSpeedOf(vx: number, vy: number): string {
   return p ? p.value : "custom";
 }
 
+export const NAME_FIELDS = [
+  { label: "Required", value: "required" },
+  { label: "Optional", value: "optional" },
+  { label: "Hidden (email only)", value: "hidden" },
+] as const;
+export type NameField = (typeof NAME_FIELDS)[number]["value"];
+const isNameField = (v: unknown): v is NameField => NAME_FIELDS.some((f) => f.value === v);
+
 export const CART_RULES = [
   { label: "Always (cart does not matter)", value: "any" },
   { label: "Only when the cart is empty", value: "empty" },
@@ -456,6 +464,7 @@ export interface AbVariant {
   tierValues: [number, number, number];
   // Shared-code mode: B's code (empty = same code as A)
   discountCode: string;
+  nameField: NameField;
   // Headline/description per language (empty = same as A)
   strings: Partial<Record<Language, { introTitle?: string; introDesc?: string }>>;
 }
@@ -476,6 +485,7 @@ export interface PopupSettings {
   sizeMobile: number;
   target: string;
   requireConsent: boolean;
+  nameField: NameField;
   autoApply: boolean;
   codeMode: "static" | "unique";
   discountType: "percentage" | "fixed";
@@ -508,6 +518,7 @@ export function abFromSettings(s: PopupSettings): AbVariant {
     discountValue: s.discountValue,
     tierValues: [...s.tierValues],
     discountCode: s.discountCode,
+    nameField: s.nameField,
     strings: {},
   };
 }
@@ -528,6 +539,7 @@ export function applyVariantB(s: PopupSettings): PopupSettings {
     discountValue: b.discountValue,
     tierValues: [...b.tierValues],
     discountCode: b.discountCode || s.discountCode,
+    nameField: b.nameField,
     strings,
     abEnabled: false,
   };
@@ -548,6 +560,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   sizeMobile: 100,
   target: "all",
   requireConsent: true,
+  nameField: "required",
   autoApply: true,
   codeMode: "static",
   discountType: "percentage",
@@ -572,6 +585,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
     discountValue: 10,
     tierValues: [15, 10, 5],
     discountCode: "",
+    nameField: "required",
     strings: {},
   },
 };
@@ -606,6 +620,7 @@ export function parseAbVariant(input: unknown, fallback: AbVariant = DEFAULT_SET
     discountValue: num(o.discountValue, fallback.discountValue, 0.01, 100000),
     tierValues: [0, 1, 2].map((i) => num(tiers[i], fallback.tierValues[i], 0.01, 100000)) as [number, number, number],
     discountCode: String(o.discountCode ?? "").trim().slice(0, 255),
+    nameField: isNameField(o.nameField) ? o.nameField : fallback.nameField,
     strings,
   };
 }
@@ -730,6 +745,7 @@ export function parseSettings(input: Record<string, unknown>): {
       sizeMobile: Math.round(num(input.sizeMobile, d.sizeMobile, SIZE_LIMITS.mobile.min, SIZE_LIMITS.mobile.max)),
       target,
       requireConsent: input.requireConsent !== false && input.requireConsent !== "false",
+      nameField: isNameField(input.nameField) ? input.nameField : "required",
       autoApply: input.autoApply !== false && input.autoApply !== "false",
       codeMode,
       discountType,

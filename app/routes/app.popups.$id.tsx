@@ -412,16 +412,14 @@ export default function PopupEditor() {
 
                 {tab === 2 && (
                   <BlockStack gap="400">
-                    {preview && (
-                      <InlineStack gap="200" blockAlign="center">
-                        <Button onClick={() => brand.load("/app/brand-colors")} loading={brand.state !== "idle"}>
-                          Use my store colors
-                        </Button>
-                        <Text as="span" variant="bodySm" tone="subdued">
-                          Reads your theme and fills both colors. You can still adjust them.
-                        </Text>
-                      </InlineStack>
-                    )}
+                    <InlineStack gap="200" blockAlign="center">
+                      <Button onClick={() => brand.load("/app/brand-colors")} loading={brand.state !== "idle"}>
+                        Use my store colors
+                      </Button>
+                      <Text as="span" variant="bodySm" tone="subdued">
+                        Reads your theme and fills both colors. You can still adjust them.
+                      </Text>
+                    </InlineStack>
                     <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                       <ColorField label="Primary color (background)" value={s.primaryColor} onChange={set("primaryColor")} error={errors.primaryColor} />
                       <ColorField label="Accent color (buttons, code)" value={s.accentColor} onChange={set("accentColor")} error={errors.accentColor} />

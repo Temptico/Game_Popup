@@ -4,6 +4,7 @@ import { upsertCustomer } from "../lib/customers.server";
 import { recordEvent } from "../lib/analytics.server";
 import { hashEmail, newToken } from "../lib/discounts.server";
 import db from "../db.server";
+import { visitorOf } from "../lib/visitor.server";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -21,7 +22,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ ok: false, error: "invalid_input" }, { status: 422 });
   }
 
-  const known = await recordEvent(shop, popupId, "submit", body.v);
+  const visitor = visitorOf(body);
+  const known = await recordEvent(shop, popupId, "submit", body.v, visitor);
   if (!known) {
     return json({ ok: false, error: "unknown_popup" }, { status: 404 });
   }
@@ -32,7 +34,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const claim = await db.claim.upsert({
     where: { popupId_emailHash: { popupId, emailHash } },
     // The variant is fixed at the first sign-up (it decides B's discount in /claim).
-    create: { token: newToken(), shop, popupId, emailHash, variant: known.variant },
+    create: { token: newToken(), shop, popupId, emailHash, variant: known.variant, ...visitor },
     // Restart the play clock for claims that haven't won yet (see /claim).
     update: { issuedAt: new Date() },
   });

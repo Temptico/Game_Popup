@@ -1,5 +1,6 @@
 import db from "../db.server";
 import { parseAbJson } from "./popup-defaults";
+import { deviceFromUserAgent, orderSource } from "./visitor.server";
 import { GRACE_DAYS, getPlan, requiredPlan, type PlanName } from "./plans";
 
 // Approximate USD rates for plan thresholds only (not for accounting).
@@ -22,6 +23,9 @@ interface OrderPayload {
   total_price?: string;
   currency?: string;
   discount_codes?: { code?: string }[];
+  landing_site?: string | null;
+  referring_site?: string | null;
+  client_details?: { user_agent?: string | null } | null;
 }
 
 /**
@@ -37,7 +41,7 @@ export async function recordOrder(shop: string, order: OrderPayload) {
   const upper = codes.map((c) => c.toUpperCase());
 
   const [claim, popups] = await Promise.all([
-    db.claim.findFirst({ where: { shop, code: { in: codes } }, select: { popupId: true, code: true, variant: true } }),
+    db.claim.findFirst({ where: { shop, code: { in: codes } }, select: { popupId: true, code: true, variant: true, device: true, country: true } }),
     db.popup.findMany({ where: { shop }, select: { id: true, discountCode: true, abEnabled: true, abVariant: true } }),
   ]);
   const has = (code: string | null | undefined) => !!code && upper.includes(code.toUpperCase());
@@ -64,6 +68,10 @@ export async function recordOrder(shop: string, order: OrderPayload) {
     create: {
       shop, orderId, popupId: match.popupId, code: match.code, variant: match.variant,
       amount, currency, amountUsd: toUsd(amount, currency),
+      // Unique codes carry the winner's device and country; shared codes only the order's browser.
+      device: (claim?.code === match.code && claim.device) || deviceFromUserAgent(order.client_details?.user_agent),
+      country: claim?.code === match.code ? claim.country : "",
+      source: orderSource(order),
     },
     update: {},
   });

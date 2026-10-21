@@ -15,6 +15,7 @@
     window.GameDiscountContext = {
       template: {{ template.name | json }},
       locale: {{ request.locale.iso_code | json }},
+      country: {{ localization.country.iso_code | json }},
       designMode: {{ request.design_mode | json }},
       alwaysShow: {{ block.settings.always_show | json }},
       proxy: "/apps/gamediscount",

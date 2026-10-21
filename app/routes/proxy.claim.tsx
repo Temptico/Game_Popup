@@ -102,6 +102,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return reply(existing?.code ?? code, existing?.valueLabel ?? null, existing?.expiresAt ?? null);
   }
 
-  await db.event.create({ data: { shop, popupId: popup.id, type: "win", variant: popup.abEnabled ? claim.variant : "" } });
+  await db.event.create({ data: { shop, popupId: popup.id, type: "win", variant: popup.abEnabled ? claim.variant : "", device: claim.device, country: claim.country } });
   return reply(code, valueLabel, expiresAt);
 };

@@ -1,16 +1,20 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
 import {
+  BlockStack,
   Card,
   DataTable,
   Layout,
   Page,
   Select,
+  Text,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { getCounts, getDiscountUsage } from "../lib/analytics.server";
+import { getBreakdown, getCounts, getDiscountUsage, type BreakdownRow } from "../lib/analytics.server";
+import { SOURCE_LABELS } from "../lib/traffic-sources";
+import { previewFeatures } from "../lib/billing.server";
 import { getUniqueCodeUsage } from "../lib/discounts.server";
 import { getRevenue } from "../lib/revenue.server";
 
@@ -29,10 +33,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const days = parseInt(range, 10);
   const since = Number.isFinite(days) ? new Date(Date.now() - days * 86400_000) : null;
 
-  const [popups, { total, byPopup }, revenue] = await Promise.all([
+  const [popups, { total, byPopup }, revenue, byDevice, byCountry, bySource] = await Promise.all([
     db.popup.findMany({ where: { shop }, orderBy: { createdAt: "asc" } }),
     getCounts(shop, since),
     getRevenue(shop, since),
+    getBreakdown(shop, since, "device"),
+    getBreakdown(shop, since, "country"),
+    getBreakdown(shop, since, "source"),
   ]);
 
   // Code usage comes from Shopify and is lifetime (not range-filtered).
@@ -79,8 +86,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     total,
     totalUses,
     rows,
+    // Breakdowns are recorded everywhere but shown on store copies first.
+    preview: previewFeatures(),
+    byDevice,
+    byCountry: byCountry.slice(0, 12),
+    bySource: bySource.filter((r) => r.orders > 0).sort((a, b) => b.amount - a.amount),
   };
 };
+
+const DEVICE_LABELS: Record<string, string> = { d: "Desktop", m: "Phone / tablet" };
+const UNKNOWN = "Not recorded (older data)";
 
 const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(1)}%` : "–");
 
@@ -88,7 +103,24 @@ export default function Analytics() {
   const data = useLoaderData<typeof loader>();
   const [params, setParams] = useSearchParams();
 
-  const { total, totalUses, rows, range, revenue } = data;
+  const { total, totalUses, rows, range, revenue, byDevice, byCountry, bySource, preview } = data;
+  const countryName = (code: string) => {
+    try {
+      return new Intl.DisplayNames(["en"], { type: "region" }).of(code) ?? code;
+    } catch {
+      return code;
+    }
+  };
+  // Funnel per segment: views → emails (share of views) → wins (share of emails) → orders and revenue.
+  const segmentRows = (list: BreakdownRow[], label: (k: string) => string) =>
+    list.map((r) => [
+      r.key ? label(r.key) : UNKNOWN,
+      r.counts.view.toLocaleString(),
+      `${r.counts.submit.toLocaleString()} (${pct(r.counts.submit, r.counts.view)})`,
+      `${r.counts.win.toLocaleString()} (${pct(r.counts.win, r.counts.submit)})`,
+      r.orders.toLocaleString(),
+      money(revenue.currency ? r.amount : r.amountUsd),
+    ]);
   const money = (n: number) =>
     revenue.currency
       ? new Intl.NumberFormat(undefined, { style: "currency", currency: revenue.currency, maximumFractionDigits: 0 }).format(n)
@@ -158,6 +190,64 @@ export default function Analytics() {
             />
           </Card>
         </Layout.Section>
+        {preview && (
+          <>
+            <Layout.Section>
+              <Card padding="0">
+                <BlockStack gap="0">
+                  <div style={{ padding: "16px 16px 0" }}>
+                    <Text as="h2" variant="headingMd">Desktop vs phone</Text>
+                  </div>
+                  <DataTable
+                    columnContentTypes={["text", "numeric", "numeric", "numeric", "numeric", "numeric"]}
+                    headings={["Device", "Views", "Emails", "Wins", "Orders", "Revenue"]}
+                    rows={segmentRows(byDevice, (k) => DEVICE_LABELS[k] ?? k)}
+                  />
+                </BlockStack>
+              </Card>
+            </Layout.Section>
+            <Layout.Section>
+              <Card padding="0">
+                <BlockStack gap="0">
+                  <div style={{ padding: "16px 16px 0" }}>
+                    <Text as="h2" variant="headingMd">Orders by traffic source</Text>
+                    <Text as="p" variant="bodySm" tone="subdued">Where shoppers who used an Enigma Play code came from (utm tags, ad click ids, referrer).</Text>
+                  </div>
+                  <DataTable
+                    columnContentTypes={["text", "numeric", "numeric", "numeric"]}
+                    headings={["Source", "Orders", "Revenue", "Share of popup revenue"]}
+                    rows={bySource.map((r) => [
+                      r.key ? SOURCE_LABELS[r.key] ?? r.key : UNKNOWN,
+                      r.orders.toLocaleString(),
+                      money(revenue.currency ? r.amount : r.amountUsd),
+                      pct(revenue.currency ? r.amount : r.amountUsd, revenue.currency ? revenue.amount : revenue.usd),
+                    ])}
+                  />
+                </BlockStack>
+              </Card>
+            </Layout.Section>
+            <Layout.Section>
+              <Card padding="0">
+                <BlockStack gap="0">
+                  <div style={{ padding: "16px 16px 0" }}>
+                    <Text as="h2" variant="headingMd">By country</Text>
+                    <Text as="p" variant="bodySm" tone="subdued">The storefront country (Shopify market) the visitor shopped in.</Text>
+                  </div>
+                  <DataTable
+                    columnContentTypes={["text", "numeric", "numeric", "numeric", "numeric", "numeric"]}
+                    headings={["Country", "Views", "Emails", "Wins", "Orders", "Revenue"]}
+                    rows={segmentRows(byCountry, countryName)}
+                  />
+                </BlockStack>
+              </Card>
+            </Layout.Section>
+            <Layout.Section>
+              <Text as="p" variant="bodySm" tone="subdued">
+                Device, country and traffic source are recorded from version 0.16 on; earlier data shows as “{UNKNOWN}”.
+              </Text>
+            </Layout.Section>
+          </>
+        )}
       </Layout>
     </Page>
   );

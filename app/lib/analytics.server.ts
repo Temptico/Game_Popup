@@ -1,3 +1,4 @@
+import type { Visitor } from "./visitor.server";
 import db from "../db.server";
 
 interface AdminApi {
@@ -17,12 +18,12 @@ const emptyCounts = (): Counts => ({ view: 0, submit: 0, play: 0, win: 0 });
 export const readVariant = (v: unknown, abEnabled: boolean) =>
   abEnabled && (v === "a" || v === "b") ? v : "";
 
-export async function recordEvent(shop: string, popupId: string, type: EventType, variant: unknown = "") {
+export async function recordEvent(shop: string, popupId: string, type: EventType, variant: unknown = "", visitor: Visitor = { device: "", country: "" }) {
   // Only count events for popups that belong to this shop.
   const popup = await db.popup.findFirst({ where: { id: popupId, shop }, select: { id: true, abEnabled: true } });
   if (!popup) return null;
   const v = readVariant(variant, popup.abEnabled);
-  await db.event.create({ data: { shop, popupId, type, variant: v } });
+  await db.event.create({ data: { shop, popupId, type, variant: v, ...visitor } });
   return { variant: v };
 }
 
@@ -140,4 +141,36 @@ export async function getAbResults(popupId: string, startedAt: Date): Promise<Ab
   const enoughData =
     Math.min(arms.a.views, arms.b.views) >= 100 && arms.a.submits + arms.b.submits >= 20;
   return { startedAt: startedAt.toISOString(), currency, ...arms, confidence, leader, enoughData };
+}
+
+export interface BreakdownRow {
+  key: string;
+  counts: Counts;
+  orders: number;
+  amount: number;
+  amountUsd: number;
+}
+
+/** Funnel and popup revenue split by device, country or (orders only) traffic source. */
+export async function getBreakdown(shop: string, since: Date | null, by: "device" | "country" | "source") {
+  const where = { shop, ...(since ? { createdAt: { gte: since } } : {}) };
+  const [events, orders] = await Promise.all([
+    by === "source"
+      ? Promise.resolve([] as { key: string; type: string; n: number }[])
+      : db.event
+          .groupBy({ by: [by, "type"], where, _count: { _all: true } })
+          .then((rows) => rows.map((r) => ({ key: r[by], type: r.type, n: r._count._all }))),
+    db.attributedOrder
+      .groupBy({ by: [by], where, _count: { _all: true }, _sum: { amount: true, amountUsd: true } })
+      .then((rows) => rows.map((r) => ({ key: r[by], n: r._count._all, amount: r._sum.amount ?? 0, usd: r._sum.amountUsd ?? 0 }))),
+  ]);
+  const map = new Map<string, BreakdownRow>();
+  const row = (key: string) => {
+    if (!map.has(key)) map.set(key, { key, counts: emptyCounts(), orders: 0, amount: 0, amountUsd: 0 });
+    return map.get(key)!;
+  };
+  for (const e of events) if (EVENT_TYPES.includes(e.type as EventType)) row(e.key).counts[e.type as EventType] += e.n;
+  for (const o of orders) Object.assign(row(o.key), { orders: o.n, amount: o.amount, amountUsd: o.usd });
+  // Most views (or orders) first; rows recorded before tracking ("") last.
+  return [...map.values()].sort((a, b) => Number(a.key === "") - Number(b.key === "") || b.counts.view - a.counts.view || b.orders - a.orders);
 }

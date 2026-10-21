@@ -78,13 +78,14 @@
   }
 
   // ---------- network (via app proxy, same origin) ----------
+  // Exit intent needs a mouse; it also tells desktop (d) from phone/tablet (m) for analytics.
+  var hasMouse = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
   function post(path, body) {
     return fetch(ctx.proxy + path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
       keepalive: true,
-      body: JSON.stringify(Object.assign({ popupId: popup.id, v: popup.v }, body))
+      body: JSON.stringify(Object.assign({ popupId: popup.id, v: popup.v, d: hasMouse ? 'd' : 'm', c: ctx.country }, body))
     }).then(function (r) { return r.json().catch(function () { return { ok: false }; }); });
   }
   function track(type) {
@@ -410,7 +411,6 @@
   }
   var mode = testMode ? 'delay' : popup.trigger || 'both';
   // Exit intent needs a mouse; touch devices always use the delay.
-  var hasMouse = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
   if (mode !== 'delay' && hasMouse) {
     document.addEventListener('mouseout', function (e) {
       if (!e.relatedTarget && e.clientY <= 0) fire();

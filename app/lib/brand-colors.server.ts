@@ -148,21 +148,41 @@ export function popupColors(colors: RGB[]): { primaryColor: string; accentColor:
   return { primaryColor: hex(primary), accentColor: hex(accent) };
 }
 
-export async function fetchStoreColors(shop: string): Promise<BrandColorsResult> {
+async function readOnce(shop: string): Promise<BrandColorsResult> {
   let res: Response;
   try {
     res = await fetch(`https://${shop}/`, {
       redirect: "follow",
       signal: AbortSignal.timeout(8000),
-      headers: { "User-Agent": "EnigmaPlay-ColorMatch/1.0 (+https://apps.shopify.com/game-discount)" },
+      headers: {
+        // A plain browser request: storefronts may answer unknown bots with a challenge page.
+        "User-Agent": "Mozilla/5.0 (compatible; EnigmaPlay-ColorMatch/1.0; +https://apps.shopify.com/game-discount)",
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "en",
+      },
     });
-  } catch {
+  } catch (e) {
+    console.warn(`[colors] fetch failed: ${(e as Error).name}`);
     return { ok: false, reason: "unreachable" };
   }
   if (new URL(res.url).pathname.startsWith("/password")) return { ok: false, reason: "password" };
-  if (!res.ok) return { ok: false, reason: "unreachable" };
-  const html = (await res.text()).slice(0, 3_000_000);
+  const html = res.ok ? (await res.text()).slice(0, 3_000_000) : "";
   const { colors, source } = colorsFromHtml(html);
   const picked = popupColors(colors);
-  return picked ? { ok: true, ...picked, source } : { ok: false, reason: "not_found" };
+  if (!picked) console.warn(`[colors] no colors: status ${res.status}, ${html.length} bytes`);
+  return picked ? { ok: true, ...picked, source } : { ok: false, reason: res.ok ? "not_found" : "unreachable" };
+}
+
+/**
+ * The first request to a storefront often fails (cold cache or bot check) while
+ * the next one works, so retry a couple of times before giving up.
+ */
+export async function fetchStoreColors(shop: string): Promise<BrandColorsResult> {
+  let result = await readOnce(shop);
+  for (const wait of [1500, 3000]) {
+    if (result.ok || result.reason === "password") break;
+    await new Promise((r) => setTimeout(r, wait));
+    result = await readOnce(shop);
+  }
+  return result;
 }

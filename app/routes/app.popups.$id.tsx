@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
-import { useActionData, useLoaderData, useNavigate, useNavigation, useSubmit } from "@remix-run/react";
+import { useActionData, useFetcher, useLoaderData, useNavigate, useNavigation, useSubmit } from "@remix-run/react";
 import {
   Banner,
   Button,
@@ -22,7 +22,7 @@ import {
   Text,
   TextField,
 } from "@shopify/polaris";
-import { TitleBar } from "@shopify/app-bridge-react";
+import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import {
@@ -58,6 +58,7 @@ import {
 } from "../lib/popups.server";
 import { getAbResults, getDiscountUsage } from "../lib/analytics.server";
 import { previewFeatures } from "../lib/billing.server";
+import type { BrandColorsResult } from "../lib/brand-colors.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -122,6 +123,25 @@ export default function PopupEditor() {
   useEffect(() => setS(initial), [initial]);
 
   const [device, setDevice] = useState<"desktop" | "phone">("desktop");
+
+  // "Use my store colors": fills both color fields from the shop's theme.
+  const shopify = useAppBridge();
+  const brand = useFetcher<BrandColorsResult>();
+  useEffect(() => {
+    const r = brand.data;
+    if (!r || brand.state !== "idle") return;
+    if (r.ok) {
+      setS((prev) => ({ ...prev, primaryColor: r.primaryColor, accentColor: r.accentColor }));
+      shopify.toast.show(r.source === "brand" ? "Colors taken from your brand settings" : "Colors taken from your theme. Adjust if needed.");
+    } else {
+      shopify.toast.show(
+        r.reason === "password"
+          ? "Your store is password protected, so its colors can't be read. Set them by hand."
+          : "Couldn't find your store's colors. Set them by hand.",
+        { isError: true },
+      );
+    }
+  }, [brand.data, brand.state, shopify]);
   const set = <K extends keyof PopupSettings>(key: K) => (value: PopupSettings[K]) =>
     setS((prev) => ({ ...prev, [key]: value }));
   const setNum = (key: "delaySec" | "surviveSec" | "vx" | "vy" | "maxAttempts") =>
@@ -392,6 +412,16 @@ export default function PopupEditor() {
 
                 {tab === 2 && (
                   <BlockStack gap="400">
+                    {preview && (
+                      <InlineStack gap="200" blockAlign="center">
+                        <Button onClick={() => brand.load("/app/brand-colors")} loading={brand.state !== "idle"}>
+                          Use my store colors
+                        </Button>
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          Reads your theme and fills both colors. You can still adjust them.
+                        </Text>
+                      </InlineStack>
+                    )}
                     <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                       <ColorField label="Primary color (background)" value={s.primaryColor} onChange={set("primaryColor")} error={errors.primaryColor} />
                       <ColorField label="Accent color (buttons, code)" value={s.accentColor} onChange={set("accentColor")} error={errors.accentColor} />

@@ -3,6 +3,11 @@
   All settings are managed in the Enigma Play app and published to the
   app-data metafield app.metafields.gamediscount.config — nothing to edit here.
 {% endcomment %}
+{%- comment -%} Brand colors (Settings → Brand) for the app's "Use my store colors" button. {%- endcomment -%}
+{%- assign gd_brand = shop.brand.colors -%}
+{%- if gd_brand.primary.size > 0 or gd_brand.secondary.size > 0 -%}
+  <script type="text/plain" id="gd-brand">{{ gd_brand.primary[0].background }},{{ gd_brand.secondary[0].background }}</script>
+{%- endif -%}
 {%- assign gd_config = app.metafields.gamediscount.config -%}
 {%- if gd_config != blank and gd_config.value.popups.size > 0 -%}
   <script type="application/json" id="gd-config">{{ gd_config.value | json }}</script>

@@ -76,7 +76,7 @@ The storefront code lives in `storefront/`:
 2. **deploy-fly:** creates the Fly app and a 1 GB volume on the first run, sets runtime secrets, runs `flyctl deploy`, then a smoke test. The container applies Prisma migrations to `/data/prod.sqlite` on start.
 3. **shopify-deploy:** points `shopify.app.toml` at `https://<FLY_APP_NAME>.fly.dev` and runs `shopify app deploy --allow-updates` (config + theme extension, never deletes).
 
-Required repository secrets: `FLY_API_TOKEN`, `FLY_APP_NAME`, `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_AUTOMATION_TOKEN`. Optional: `BILLING_TEST=true` to force test charges on every store (by default only development stores get test charges).
+Required repository secrets: `FLY_API_TOKEN`, `FLY_APP_NAME`, `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_AUTOMATION_TOKEN`. Optional: `BILLING_TEST=true` to force test charges on every store (by default only development stores get test charges). Optional: `RESEND_API_KEY` and `INSTALL_ALERT_EMAIL` to get an email on every install, reinstall and uninstall, with a ready-to-send onboarding email for the merchant (sent from `apps@enigma101.com`, a domain verified in Resend).
 
 ### Production notes
 - The database is SQLite on a Fly volume (`DATABASE_URL`, see `fly.toml`), so the app runs as a single machine. Once traffic grows, move to Postgres (for example Neon) and scale out. Locally, `scripts/ensure-env.cjs` writes `DATABASE_URL="file:dev.sqlite"` to `.env` automatically.
@@ -112,5 +112,5 @@ Don't install a store copy and the public app on the same store at the same time
 ### Release flow while the public app is in review
 - Improvements are developed and tried on the store copies first (Actions → Deploy instance). The public app is not deployed during review.
 - The public app was approved on 14 Oct 2026 (listing: https://apps.shopify.com/game-discount). Updates go to the store copies first; the public app gets only what was verified there.
-- Features still on trial are shown only on store copies (`previewFeatures()` in `app/lib/billing.server.ts`). Currently: name field setting; storefront rate limits are enforced on store copies and only logged ("would rate limit") on the public app.
+- Features still on trial are shown only on store copies (`previewFeatures()` in `app/lib/billing.server.ts`). Currently: name field setting; install alerts; storefront rate limits are enforced on store copies and only logged ("would rate limit") on the public app.
 - After approval, deploy the current branch with Actions → Deploy to ship the tested improvements to the public app.

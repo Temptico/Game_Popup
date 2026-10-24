@@ -168,4 +168,7 @@ model ShopState {
   // the merchant hid the "leave a review" banner
   reviewAskedAt  DateTime?
   reviewHidden   Boolean   @default(false)
+  // Install alert: when the app was last installed and uninstalled
+  installedAt    DateTime?
+  uninstalledAt  DateTime?
 }

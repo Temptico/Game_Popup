@@ -8,6 +8,7 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 import { LEGACY_PLANS, PLANS } from "./lib/plans";
+import { alertOnInstall } from "./lib/install-alert.server";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -29,6 +30,12 @@ const shopify = shopifyApp({
       { lineItems: [{ amount: 9, currencyCode: "USD", interval: BillingInterval.Every30Days }] },
     ]),
   ]),
+  hooks: {
+    afterAuth: async ({ session, admin }) => {
+      // Never block the merchant's login on the alert.
+      await alertOnInstall(session.shop, admin).catch((e) => console.error(`[install] ${session.shop}: ${e}`));
+    },
+  },
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     expiringOfflineAccessTokens: true,

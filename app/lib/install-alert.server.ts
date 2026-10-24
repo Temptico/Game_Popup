@@ -7,7 +7,6 @@
  * Off unless RESEND_API_KEY and INSTALL_ALERT_EMAIL are set.
  */
 import db from "../db.server";
-import { previewFeatures } from "./billing.server";
 
 interface AdminApi {
   graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>;
@@ -23,7 +22,7 @@ interface ShopInfo {
   currencyCode?: string;
 }
 
-const enabled = () => !!process.env.RESEND_API_KEY && !!process.env.INSTALL_ALERT_EMAIL && previewFeatures();
+const enabled = () => !!process.env.RESEND_API_KEY && !!process.env.INSTALL_ALERT_EMAIL;
 
 async function send(subject: string, text: string) {
   try {

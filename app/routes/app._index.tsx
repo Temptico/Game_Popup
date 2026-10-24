@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { billingEnabled, previewFeatures } from "../lib/billing.server";
+import { billingEnabled } from "../lib/billing.server";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Link as RemixLink, useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
 import {
@@ -45,7 +45,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     db.attributedOrder.count({ where: { shop } }),
     db.shopState.findUnique({ where: { shop } }),
   ]);
-  const emails = orders === 0 && previewFeatures() ? await db.event.count({ where: { shop, type: "submit" } }) : 0;
+  const emails = orders === 0 ? await db.event.count({ where: { shop, type: "submit" } }) : 0;
   const goodMoment = orders > 0 || emails >= REVIEW_AFTER_EMAILS;
 
   return {

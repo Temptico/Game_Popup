@@ -1,5 +1,5 @@
 import type { Popup } from "@prisma/client";
-import { billingEnabled, previewFeatures } from "./billing.server";
+import { billingEnabled } from "./billing.server";
 import db from "../db.server";
 import {
   DEFAULT_STRINGS,
@@ -24,7 +24,6 @@ interface AdminApi {
   ) => Promise<Response>;
 }
 
-const PREVIEW_STRINGS = ["consentNote", "privacyLink", "doiNote"] as const;
 const NAME_CODE = { required: "", optional: "o", hidden: "h" } as const;
 
 export function rowToSettings(row: Popup): PopupSettings {
@@ -160,8 +159,6 @@ export async function publishConfig(admin: AdminApi, shop: string) {
             }
           : base;
       const base = Object.fromEntries(LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }])) as Record<Language, Strings>;
-      // Consent note, privacy link and double opt-in are tried on store copies first.
-      if (!previewFeatures()) for (const l of LANGUAGES) for (const k of PREVIEW_STRINGS) delete (base[l] as Partial<Strings>)[k];
       const strings = Object.fromEntries(LANGUAGES.map((l) => [l, forGame(s.gameType, l, base[l])]));
       // A/B test: the storefront picks a variant per visitor and overlays `ab`
       // (B's strings only for languages where B changes the texts).
@@ -193,7 +190,7 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         css: `--gd-primary:${s.primaryColor};--gd-accent:${s.accentColor};--gd-sd:${s.sizeDesktop / 100};--gd-sm:${s.sizeMobile / 100}`,
         target: s.target,
         requireConsent: s.requireConsent,
-        ...(s.doubleOptIn && previewFeatures() ? { doi: 1 } : {}),
+        ...(s.doubleOptIn ? { doi: 1 } : {}),
         // Name field: omitted = required, "o" optional, "h" hidden.
         ...(s.nameField !== "required" ? { name: NAME_CODE[s.nameField] } : {}),
         autoApply: s.autoApply,

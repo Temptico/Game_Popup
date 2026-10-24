@@ -332,15 +332,13 @@ export default function PopupEditor() {
                       checked={s.requireConsent}
                       onChange={set("requireConsent")}
                     />
-                    {preview && (
-                      <Checkbox
-                        label="Double opt-in: visitors confirm their subscription by email (recommended for Germany and Austria)"
-                        helpText="Also turn on Shopify Settings → Notifications → Customer marketing confirmation. Visitors get their code right away and are subscribed once they confirm."
-                        checked={s.doubleOptIn}
-                        disabled={!s.requireConsent}
-                        onChange={set("doubleOptIn")}
-                      />
-                    )}
+                    <Checkbox
+                      label="Double opt-in: visitors confirm their subscription by email (recommended for Germany and Austria)"
+                      helpText="Also turn on Shopify Settings → Notifications → Customer marketing confirmation. Visitors get their code right away and are subscribed once they confirm."
+                      checked={s.doubleOptIn}
+                      disabled={!s.requireConsent}
+                      onChange={set("doubleOptIn")}
+                    />
                     <Checkbox
                       label="Auto-apply the code to the visitor’s cart on win"
                       checked={s.autoApply}
@@ -478,7 +476,7 @@ export default function PopupEditor() {
                       onChange={(v) => setLang(v as Language)}
                     />
                     <FormLayout>
-                      {STRING_KEYS.filter((key) => preview || !["consentNote", "privacyLink", "doiNote"].includes(key)).map((key) => (
+                      {STRING_KEYS.map((key) => (
                         <TextField
                           key={`${lang}-${key}`}
                           label={STRING_LABELS[key]}

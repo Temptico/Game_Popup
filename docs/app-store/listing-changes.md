@@ -1,4 +1,4 @@
-# App Store listing: rename to Kodra Play
+# App Store listing: rename to Kodra Play (done 24 Oct 2026)
 
 Partner Dashboard → Distribution → Manage listing → English → Edit.
 Only these fields change. The app URL (apps.shopify.com/game-discount), reviews and installs stay.
@@ -16,11 +16,6 @@ Instead of another spin wheel, Kodra Play shows a short paddle, flipper or pong 
 ## Pricing: Free plan description
 ```
 Up to $500 popup revenue / 30 days · All games & features · Small Kodra Play icon in the popup
-```
-
-## Pricing: additional note
-```
-Popup revenue = orders that used a Kodra Play code in the last 30 days. If you outgrow your plan, the popup keeps running for 14 days so you have time to upgrade.
 ```
 
 ## SEO title

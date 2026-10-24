@@ -56,7 +56,7 @@ The app has no spin wheel; it is offered as the alternative to one, and the intr
 | Growth | $19.99 / month | Up to $12,000 popup revenue / 30 days · All games & features · No branding |
 | Scale | $29.99 / month | Unlimited popup revenue · All games & features · No branding |
 
-Additional pricing note: `Popup revenue = orders that used a Kodra Play code in the last 30 days. If you outgrow your plan, the popup keeps running for 14 days so you have time to upgrade.`
+Additional pricing note (the listing currently has no field for it; keep for reference): `Popup revenue = orders that used a Kodra Play code in the last 30 days. If you outgrow your plan, the popup keeps running for 14 days so you have time to upgrade.`
 
 ## SEO
 | Field | Text | Chars | Limit |

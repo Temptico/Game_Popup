@@ -24,3 +24,5 @@ pnpm-lock.yaml
 .shopify.lock
 /prisma/*.sqlite
 /prisma/*.sqlite-journal
+/ci.sqlite
+/ci.sqlite-journal

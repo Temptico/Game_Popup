@@ -67,7 +67,9 @@ Additional pricing note (the listing currently has no field for it; keep for ref
 ## Links
 | Field | Value |
 |---|---|
-| Privacy policy URL | `https://<FLY_APP_NAME>.fly.dev/privacy` |
+| Privacy policy URL | `https://www.kodraapps.com/apps/kodra-play/privacy` (must match the app's own `/privacy` page) |
+| Website | `https://www.kodraapps.com/apps/kodra-play` |
+| Support URL | `https://www.kodraapps.com/apps/kodra-play/support` |
 | Support email | `info@enigma101.com` |
 | Demo store URL | `https://<demo-store>.myshopify.com` (storefront password goes in the testing instructions) |
 

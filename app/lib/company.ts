@@ -5,5 +5,5 @@ export const COMPANY = {
   address: "Gajeva ulica 42, 10000 Zagreb, Croatia",
   registration: "MBS 081673164 · MB 06171923 · VAT ID HR03945849423",
   supportEmail: "info@enigma101.com",
-  policyUpdated: "30 September 2026",
+  policyUpdated: "24 October 2026",
 };

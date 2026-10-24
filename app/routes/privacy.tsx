@@ -42,7 +42,7 @@ export default function Privacy() {
         <h2 style={S.h2}>2. Data we process</h2>
         <table style={S.table}>
           <tbody>
-            <tr><td style={S.td}><b>Merchant &amp; store</b></td><td style={S.td}>Store domain, Shopify access token (to call the Shopify API on the store&rsquo;s behalf), popup settings, subscription plan.</td></tr>
+            <tr><td style={S.td}><b>Merchant &amp; store</b></td><td style={S.td}>Store domain, Shopify access token (to call the Shopify API on the store&rsquo;s behalf), popup settings, subscription plan, and when the App was installed or uninstalled. At install, the store&rsquo;s name, contact email, country, Shopify plan and currency are read once and sent to us in an internal notification email, so we can offer the merchant personal setup help. They are not stored in the App&rsquo;s database.</td></tr>
             <tr><td style={S.td}><b>Visitor name &amp; email</b></td><td style={S.td}>Sent directly to the merchant&rsquo;s Shopify store as a customer (with email-marketing consent only if the visitor ticks the consent box). <b>The App does not store names or email addresses on its own servers.</b></td></tr>
             <tr><td style={S.td}><b>Email hash</b></td><td style={S.td}>A salted SHA-256 hash of the email, to make sure each email receives at most one discount code per popup. The hash cannot be turned back into the email.</td></tr>
             <tr><td style={S.td}><b>Popup statistics</b></td><td style={S.td}>Anonymous counts of popup views, form submissions, games played and wins, split by device type (desktop or phone/tablet) and the store&rsquo;s storefront country. No IP addresses, device fingerprints or cookies are used for statistics. To stop abuse, the visitor&rsquo;s IP address is used briefly in memory to limit repeated requests; it is never stored.</td></tr>
@@ -69,6 +69,7 @@ export default function Privacy() {
         <ul>
           <li><b>Shopify</b> — customers, discount codes and orders live in the merchant&rsquo;s Shopify store.</li>
           <li><b>Fly.io</b> — hosts the App and its database (region: Frankfurt, Germany, EU).</li>
+          <li><b>Resend</b> — delivers our internal install and uninstall notification emails (region: Ireland, EU). These emails contain only the merchant&rsquo;s store details listed above, never visitor or customer data.</li>
         </ul>
         <p>All connections are encrypted (HTTPS/TLS).</p>
 
@@ -78,6 +79,7 @@ export default function Privacy() {
           <li>All remaining store data (settings, statistics, email hashes, order records) is deleted when Shopify sends the <code>shop/redact</code> request (48 hours after uninstalling).</li>
           <li>When Shopify sends a <code>customers/redact</code> request, the email hash for that customer is deleted.</li>
           <li>Statistics and order records are kept while the App is installed so the merchant can see historical analytics.</li>
+          <li>Install notification emails are kept in our mailbox to support the merchant; a merchant can ask us to delete them at any time.</li>
         </ul>
 
         <h2 style={S.h2}>7. Your rights</h2>

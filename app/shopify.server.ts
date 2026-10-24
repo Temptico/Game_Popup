@@ -7,7 +7,7 @@ import {
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
-import { LEGACY_PLANS, PLANS } from "./lib/plans";
+import { LEGACY_PLANS, PLANS, getPlan } from "./lib/plans";
 import { alertOnInstall } from "./lib/install-alert.server";
 
 const shopify = shopifyApp({
@@ -25,9 +25,9 @@ const shopify = shopifyApp({
       { lineItems: [{ amount: p.price, currencyCode: "USD", interval: BillingInterval.Every30Days }] },
     ]),
     // Keep the legacy plan registered so existing subscriptions are still recognised.
-    ...Object.keys(LEGACY_PLANS).map((name) => [
+    ...Object.entries(LEGACY_PLANS).map(([name, plan]) => [
       name,
-      { lineItems: [{ amount: 9, currencyCode: "USD", interval: BillingInterval.Every30Days }] },
+      { lineItems: [{ amount: name === "GameDiscount Pro" ? 9 : getPlan(plan).price, currencyCode: "USD", interval: BillingInterval.Every30Days }] },
     ]),
   ]),
   hooks: {

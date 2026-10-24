@@ -1,4 +1,4 @@
-/* Enigma Play – optional extras (win confetti, /contact fallback, manual code selection), loaded on demand by game-popup.js. */
+/* Kodra Play – optional extras (win confetti, /contact fallback, manual code selection), loaded on demand by game-popup.js. */
 (function () {
   'use strict';
   window.GameDiscountFx = {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Creates a private copy (custom distribution) of the app for one store.
 #   scripts/new-instance.sh <name> <client_id> "<app title>"
-#   e.g. scripts/new-instance.sh temptico 1a2b3c... "Enigma Play - Temptico"
+#   e.g. scripts/new-instance.sh temptico 1a2b3c... "Kodra Play - Temptico"
 # Writes shopify.app.<name>.toml and adds <name> to instances.txt. Deploy it with
 # Actions → "Deploy instance". The public app (shopify.app.toml) is not touched.
 set -euo pipefail

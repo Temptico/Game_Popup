@@ -154,7 +154,7 @@ export default function Analytics() {
               <div className="gd-revenue-value">{money(revenue.currency ? revenue.amount : revenue.usd)}</div>
             </div>
             <div className="gd-revenue-meta">
-              <span><b>{revenue.orders.toLocaleString()}</b> orders with an Enigma Play code</span>
+              <span><b>{revenue.orders.toLocaleString()}</b> orders with a Kodra Play code</span>
               <span><b>{totalUses.toLocaleString()}</b> code uses (lifetime)</span>
             </div>
           </div>
@@ -208,7 +208,7 @@ export default function Analytics() {
             <BlockStack gap="0">
               <div style={{ padding: "16px 16px 0" }}>
                 <Text as="h2" variant="headingMd">Orders by traffic source</Text>
-                <Text as="p" variant="bodySm" tone="subdued">Where shoppers who used an Enigma Play code came from (utm tags, ad click ids, referrer).</Text>
+                <Text as="p" variant="bodySm" tone="subdued">Where shoppers who used a Kodra Play code came from (utm tags, ad click ids, referrer).</Text>
               </div>
               <DataTable
                 columnContentTypes={["text", "numeric", "numeric", "numeric"]}

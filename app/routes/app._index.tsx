@@ -229,7 +229,7 @@ export default function Index() {
             title={
               billing.paused
                 ? "Your popup is paused"
-                : `Enigma Play made you ${usd(billing.revenueUsd)} in the last 30 days 🎉`
+                : `Kodra Play made you ${usd(billing.revenueUsd)} in the last 30 days 🎉`
             }
             action={{ content: `Upgrade to ${PLAN_LABELS[billing.required]} — $${getPlan(billing.required).price}/month`, url: "/app/plans" }}
           >
@@ -248,7 +248,7 @@ export default function Index() {
             secondaryAction={{ content: "Hide", onAction: hideReviewBanner }}
             onDismiss={hideReviewBanner}
           >
-            <p>Is Enigma Play working for you? A short review helps other stores find it and keeps the app improving.</p>
+            <p>Is Kodra Play working for you? A short review helps other stores find it and keeps the app improving.</p>
           </Banner>
         )}
         {showEmbedHint && (
@@ -259,7 +259,7 @@ export default function Index() {
             secondaryAction={{ content: "Done, hide this", onAction: dismissEmbedHint }}
             onDismiss={dismissEmbedHint}
           >
-            <p>Switch on “Enigma Play popup” under App embeds and click Save.</p>
+            <p>Switch on “Kodra Play popup” under App embeds and click Save.</p>
           </Banner>
         )}
 
@@ -358,7 +358,7 @@ export default function Index() {
           </Text>
         )}
         <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-          Enigma Play v{APP_VERSION}
+          Kodra Play v{APP_VERSION}
         </Text>
       </BlockStack>
       <Modal

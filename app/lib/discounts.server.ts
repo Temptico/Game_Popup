@@ -52,7 +52,7 @@ export async function createUniqueDiscount(
       {
         variables: {
           input: {
-            title: `Enigma Play – ${popup.name} – ${code}`,
+            title: `Kodra Play – ${popup.name} – ${code}`,
             code,
             startsAt: now.toISOString(),
             endsAt: endsAt ? endsAt.toISOString() : null,

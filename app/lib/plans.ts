@@ -1,6 +1,6 @@
 // Revenue-based pricing: every plan has every feature; plans differ only in
 // how much popup-generated revenue (last 30 days, USD) they cover, and the
-// Free plan shows a small Enigma Play icon in the popup (standard app attribution).
+// Free plan shows a small Kodra Play icon in the popup (standard app attribution).
 
 export type PlanName = "free" | "standard" | "growth" | "scale";
 
@@ -15,9 +15,9 @@ export interface Plan {
 
 export const PLANS: Plan[] = [
   { key: "free", billingName: null, price: 0, revenueCap: 500 },
-  { key: "standard", billingName: "Enigma Play Standard", price: 9.99, revenueCap: 3000 },
-  { key: "growth", billingName: "Enigma Play Growth", price: 19.99, revenueCap: 12000 },
-  { key: "scale", billingName: "Enigma Play Scale", price: 29.99, revenueCap: Infinity },
+  { key: "standard", billingName: "Kodra Play Standard", price: 9.99, revenueCap: 3000 },
+  { key: "growth", billingName: "Kodra Play Growth", price: 19.99, revenueCap: 12000 },
+  { key: "scale", billingName: "Kodra Play Scale", price: 29.99, revenueCap: Infinity },
 ];
 
 export const PLAN_LABELS: Record<PlanName, string> = {
@@ -34,6 +34,9 @@ export const LEGACY_PLANS: Record<string, PlanName> = {
   "GameDiscount Standard": "standard",
   "GameDiscount Growth": "growth",
   "GameDiscount Scale": "scale",
+  "Enigma Play Standard": "standard",
+  "Enigma Play Growth": "growth",
+  "Enigma Play Scale": "scale",
 };
 
 /** Days a store may exceed its plan's revenue cap before the popup pauses. */

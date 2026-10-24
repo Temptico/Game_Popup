@@ -1,4 +1,4 @@
-/* Enigma Play – pong against the computer. Loaded on demand by game-popup.js.
+/* Kodra Play – pong against the computer. Loaded on demand by game-popup.js.
  * Contract: factory(canvas, opts) -> { start({ tick(label), end(won) }), stop() }
  * Goal: score 3 goals before the computer does.
  * The game runs in "field" coordinates: x along the field (player at x≈0,

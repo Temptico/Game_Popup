@@ -6,7 +6,7 @@
 # the CLI fills in client_id and the URLs.
 
 client_id = "b9e13f7026e7b5f754e5ba5d1af6d195"
-name = "Enigma Play - Temptico"
+name = "Kodra Play - Temptico"
 application_url = "https://example.com"
 embedded = true
 
@@ -17,7 +17,7 @@ include_config_on_deploy = true
 [access_scopes]
 # write_customers: create/update customers from the popup form (protected customer data – see README)
 # write_discounts: create single-use codes per winner + read code usage for analytics
-# read_orders: attribute orders that used an Enigma Play code (revenue-based plans)
+# read_orders: attribute orders that used a Kodra Play code (revenue-based plans)
 scopes = "write_customers,write_discounts,read_orders"
 
 [auth]

@@ -1,4 +1,4 @@
-/* Enigma Play – gamification popup (storefront). Settings: app.metafields.gamediscount.config
+/* Kodra Play – gamification popup (storefront). Settings: app.metafields.gamediscount.config
  * Strict mode comes from the build ("use strict" is emitted by esbuild), which keeps this file small.
  * Source file. `npm run build:storefront` minifies it (and storefront/games/*)
  * into extensions/gamediscount-popup/assets/ — edit here, not there. */

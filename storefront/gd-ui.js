@@ -1,4 +1,4 @@
-/* Enigma Play – popup UI: screens, form, game flow, reward and the floating button.
+/* Kodra Play – popup UI: screens, form, game flow, reward and the floating button.
  * Loaded by game-popup.js only when something is shown, so the script on every page stays small.
  * Source file; `npm run build:storefront` minifies it into the theme extension assets. */
 (function () {
@@ -89,7 +89,7 @@
     var cardChildren = [closeBtn, intro, form, game, reward];
     // Free plan: Shopify's standard app attribution, a small (max 24×24 px) icon link.
     if (cfg.branding) {
-      cardChildren.push(el('a', { class: 'gd-branding', href: 'https://apps.shopify.com/game-discount', target: '_blank', rel: 'noopener', 'aria-label': 'Enigma Play', title: 'Enigma Play' }));
+      cardChildren.push(el('a', { class: 'gd-branding', href: 'https://apps.shopify.com/game-discount', target: '_blank', rel: 'noopener', 'aria-label': 'Kodra Play', title: 'Kodra Play' }));
     }
     overlay.appendChild(el('div', { class: 'gd-card' }, cardChildren));
     if (!popup.requireConsent) consentLabel.hidden = true;

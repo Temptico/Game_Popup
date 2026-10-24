@@ -156,7 +156,7 @@ async function readOnce(shop: string): Promise<BrandColorsResult> {
       signal: AbortSignal.timeout(8000),
       headers: {
         // A plain browser request: storefronts may answer unknown bots with a challenge page.
-        "User-Agent": "Mozilla/5.0 (compatible; EnigmaPlay-ColorMatch/1.0; +https://apps.shopify.com/game-discount)",
+        "User-Agent": "Mozilla/5.0 (compatible; KodraPlay-ColorMatch/1.0; +https://apps.shopify.com/game-discount)",
         Accept: "text/html,application/xhtml+xml",
         "Accept-Language": "en",
       },

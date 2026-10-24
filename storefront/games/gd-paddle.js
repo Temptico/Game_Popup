@@ -1,4 +1,4 @@
-/* Enigma Play – paddle & ball game. Loaded on demand by game-popup.js.
+/* Kodra Play – paddle & ball game. Loaded on demand by game-popup.js.
  * Contract: factory(canvas, opts) -> { start({ tick(msLeft), end(won) }), stop() } */
 (function () {
   'use strict';

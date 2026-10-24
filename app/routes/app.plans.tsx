@@ -7,7 +7,7 @@ import { authenticate } from "../shopify.server";
 import { getInstallation, publishConfig } from "../lib/popups.server";
 import { getBillingStatus } from "../lib/revenue.server";
 import { billingEnabled, shouldUseTestCharges } from "../lib/billing.server";
-import { PLANS, PLAN_LABELS, planFromSubscriptionName, type PlanName } from "../lib/plans";
+import { LEGACY_PLANS, PLANS, PLAN_LABELS, planFromSubscriptionName, type PlanName } from "../lib/plans";
 
 
 // Private store copies have no billing (see billingEnabled); the nav hides this page there.
@@ -19,7 +19,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const [{ plan }, isTest] = await Promise.all([getInstallation(admin), shouldUseTestCharges(admin)]);
   const status = await getBillingStatus(session.shop, plan);
   const { appSubscriptions } = await billing.check({
-    plans: PLANS.flatMap((p) => (p.billingName ? [p.billingName] : [])),
+    // Include the earlier names so a subscription made before a rename is found (and can be changed).
+    plans: [...PLANS.flatMap((p) => (p.billingName ? [p.billingName] : [])), ...Object.keys(LEGACY_PLANS)],
     isTest,
   });
   const current = appSubscriptions.find((s) => planFromSubscriptionName(s.name) === plan);
@@ -95,8 +96,8 @@ export default function Plans() {
         )}
         <BrandHero
           eyebrow="Plans"
-          title="Pay only when Enigma Play makes you money"
-          subtitle="Every plan includes every feature: all games, unique codes, reward tiers, countdown, unlimited popups and analytics. Plans differ only by the revenue the popup generates for you (orders using an Enigma Play code, last 30 days)."
+          title="Pay only when Kodra Play makes you money"
+          subtitle="Every plan includes every feature: all games, unique codes, reward tiers, countdown, unlimited popups and analytics. Plans differ only by the revenue the popup generates for you (orders using a Kodra Play code, last 30 days)."
           stats={[
             { label: "Your popup revenue (30 days)", value: usd(revenueUsd) },
             { label: "Current plan", value: PLAN_LABELS[plan] },
@@ -130,7 +131,7 @@ export default function Plans() {
                 <ul>
                   <li>All games &amp; features</li>
                   <li>Unique codes &amp; analytics</li>
-                  <li>{p.key === "free" ? "Small Enigma Play icon in the popup" : "No branding"}</li>
+                  <li>{p.key === "free" ? "Small Kodra Play icon in the popup" : "No branding"}</li>
                 </ul>
                 {isCurrent ? (
                   p.key !== "free" && subscriptionId ? (

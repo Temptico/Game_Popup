@@ -1,6 +1,6 @@
 # App Store listing: paste-ready
 
-Where to paste: **Dev Dashboard → Enigma Play → Distribution → App Store listing** (English, primary).
+Where to paste: **Dev Dashboard → Kodra Play → Distribution → App Store listing** (English, primary).
 Character counts were checked with a script. Only plain hyphens "-" are used, never en or em dashes.
 
 Goal of this version: rank for what merchants search ("email popup", "popup", "spin wheel", "spin to win")
@@ -10,11 +10,11 @@ Search terms cover words that are not already in the name or subtitle.
 ## Basics
 | Field | Final text | Chars | Limit |
 |---|---|---|---|
-| **App name** | `Enigma Play: Email Popup Game` | 29 | 30 |
+| **App name** | `Kodra Play: Email Popup Game` | 28 | 30 |
 | **App card subtitle** | `Gamified discount popup that grows your email list` | 50 | 62 (kept under 60) |
 | **App introduction** | `A 15-second game instead of a spin wheel. Visitors win a unique code, you get their email.` | 90 | 100 |
 
-The app name must also be the name in `shopify.app.toml` (`name = "Enigma Play: Email Popup Game"`), which is
+The app name must also be the name in `shopify.app.toml` (`name = "Kodra Play: Email Popup Game"`), which is
 what merchants see in their admin.
 
 Other fields (unchanged):
@@ -25,9 +25,9 @@ Other fields (unchanged):
 | Secondary category | Marketing and conversion → Discounts (or Email capture) |
 | Languages | English (the admin is in English; the storefront popup ships in 10 languages) |
 
-## App details (491/500)
+## App details (490/500)
 ```
-Instead of another spin wheel, Enigma Play shows a short paddle, flipper or pong game. Visitors enter their email, play a quick round and win a unique discount code that is auto-applied at checkout. Codes are single-use, so a code shared online works only once. Every email is saved to your Shopify customers, with marketing consent when they opt in, ready for your email marketing tool. Track views, emails, wins and revenue per popup. Free until the popup brings you $500 in sales a month.
+Instead of another spin wheel, Kodra Play shows a short paddle, flipper or pong game. Visitors enter their email, play a quick round and win a unique discount code that is auto-applied at checkout. Codes are single-use, so a code shared online works only once. Every email is saved to your Shopify customers, with marketing consent when they opt in, ready for your email marketing tool. Track views, emails, wins and revenue per popup. Free until the popup brings you $500 in sales a month.
 ```
 
 ## Feature list (max 80 each)
@@ -51,17 +51,17 @@ The app has no spin wheel; it is offered as the alternative to one, and the intr
 ## Pricing (must match the app exactly)
 | Plan | Price | Description to enter |
 |---|---|---|
-| Free | Free | Up to $500 popup revenue / 30 days · All games & features · Small Enigma Play icon in the popup |
+| Free | Free | Up to $500 popup revenue / 30 days · All games & features · Small Kodra Play icon in the popup |
 | Standard | $9.99 / month | Up to $3,000 popup revenue / 30 days · All games & features · No branding |
 | Growth | $19.99 / month | Up to $12,000 popup revenue / 30 days · All games & features · No branding |
 | Scale | $29.99 / month | Unlimited popup revenue · All games & features · No branding |
 
-Additional pricing note: `Popup revenue = orders that used an Enigma Play code in the last 30 days. If you outgrow your plan, the popup keeps running for 14 days so you have time to upgrade.`
+Additional pricing note: `Popup revenue = orders that used a Kodra Play code in the last 30 days. If you outgrow your plan, the popup keeps running for 14 days so you have time to upgrade.`
 
 ## SEO
 | Field | Text | Chars | Limit |
 |---|---|---|---|
-| Title tag | `Enigma Play: Email Popup Game with Unique Discount Codes` | 56 | 60 |
+| Title tag | `Kodra Play: Email Popup Game with Unique Discount Codes` | 55 | 60 |
 | Meta description | `Grow your email list with a short game popup. Visitors win a unique, single-use discount code, auto-applied at checkout. Free up to $500 a month.` | 145 | 160 |
 
 ## Links

@@ -1,7 +1,7 @@
-# Security incident response policy: Enigma Play
+# Security incident response policy: Kodra Play
 
 Owner: Enigma 101 global j.d.o.o., Gajeva ulica 42, 10000 Zagreb, Croatia · info@enigma101.com
-Applies to: the Enigma Play Shopify app, its server (Fly.io, Frankfurt), database and source code.
+Applies to: the Kodra Play Shopify app, its server (Fly.io, Frankfurt), database and source code.
 
 ## What counts as an incident
 Unauthorised access to the server, database, source code or accounts (GitHub, Fly.io, Shopify Partners); leaked credentials; loss or corruption of data; any processing of personal data outside the documented purpose.

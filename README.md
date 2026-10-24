@@ -1,4 +1,4 @@
-# Enigma Play: Email Popup Game
+# Kodra Play: Email Popup Game
 
 A Shopify app, built with Remix and App Bridge, that shows a popup after a set delay. The visitor enters their name and email, plays a paddle-and-ball game, and gets a discount code if they last long enough.
 
@@ -23,11 +23,11 @@ assets/game-popup.js  (minified)                 /app/analytics    funnel + code
 - **Email capture** goes through the app proxy to the Admin GraphQL API (`customerCreate`, or `tagsAdd` plus `customerEmailMarketingConsentUpdate` if the customer already exists). It works on every Shopify plan. Customers get the tag `gamediscount`. Marketing consent is recorded only when the visitor ticks the checkbox. Consent is never downgraded, and an existing customer's name is never overwritten. If the proxy can't be reached, the script falls back to `fetch('/contact', { redirect: 'manual' })`.
 - **Anti-replay.** `localStorage` stores `gd_claimed_<id>` and `gd_attempts_<id>`, and `sessionStorage` stores `gd_dismissed_<id>`. A visitor who closes the popup doesn't see it again in that session.
 - **Languages.** Supported languages are en, de, fr, es, it, nl, pl, sl, hr and ro, picked from `document.documentElement.lang` (the shopper's storefront language; anything else falls back to English). The server resolves the strings (defaults plus the merchant's overrides) and publishes them in the metafield, so the storefront JS carries no translations and stays under Theme Check's 10 KB app-block limit.
-- **Plans (revenue-based).** Every plan has every feature. Plans differ only by how much revenue the popup generates, meaning orders that used an Enigma Play code (shared or unique), over a rolling 30 days, converted to USD at approximate rates:
+- **Plans (revenue-based).** Every plan has every feature. Plans differ only by how much revenue the popup generates, meaning orders that used a Kodra Play code (shared or unique), over a rolling 30 days, converted to USD at approximate rates:
 
   | Plan | Price | Popup revenue / 30 days |
   |---|---|---|
-  | Free | $0 | up to $500 (with a small Enigma Play icon in the popup) |
+  | Free | $0 | up to $500 (with a small Kodra Play icon in the popup) |
   | Standard | $9.99 | up to $3,000 |
   | Growth | $19.99 | up to $12,000 |
   | Scale | $29.99 | unlimited |
@@ -45,7 +45,7 @@ npm run dev                # builds the storefront bundle, runs migrations, star
 Then:
 
 1. In the app, **create the discount code** under Shopify → Discounts, then create a popup and enter that code.
-2. Click **Open theme editor** on the app home. This enables the **Enigma Play popup** app embed. Save the theme.
+2. Click **Open theme editor** on the app home. This enables the **Kodra Play popup** app embed. Save the theme.
 3. To test on the storefront, turn on *Test mode* in the embed settings. The popup then shows after 0.5 s, ignores the "already played" memory, and doesn't record analytics. Turn it off before going live.
 
 ### Required Partner Dashboard settings
@@ -81,7 +81,7 @@ Required repository secrets: `FLY_API_TOKEN`, `FLY_APP_NAME`, `SHOPIFY_API_KEY`,
 ### Production notes
 - The database is SQLite on a Fly volume (`DATABASE_URL`, see `fly.toml`), so the app runs as a single machine. Once traffic grows, move to Postgres (for example Neon) and scale out. Locally, `scripts/ensure-env.cjs` writes `DATABASE_URL="file:dev.sqlite"` to `.env` automatically.
 - The GDPR compliance webhooks are handled in `webhooks.compliance.tsx`. Customers live in Shopify, events are anonymous, and claims store only an email hash, which `customers/redact` deletes.
-- Every generated code is its own discount in Shopify → Discounts, titled `Enigma Play – <popup> – <code>`. With an expiry set, they expire on their own.
+- Every generated code is its own discount in Shopify → Discounts, titled `Kodra Play – <popup> – <code>`. With an expiry set, they expire on their own.
 
 ## Scopes
 `write_customers` (email capture), `write_discounts` (unique codes per winner and code usage on the analytics page), `read_orders` (revenue attribution for plans and analytics). Merchants who installed with the old `read_discounts` scope are asked to approve the new scope the next time they open the app.

@@ -1,4 +1,4 @@
-/* Enigma Play – flipper (pinball) game. Loaded on demand by game-popup.js.
+/* Kodra Play – flipper (pinball) game. Loaded on demand by game-popup.js.
  * Contract: factory(canvas, opts) -> { start({ tick(msLeft), end(won) }), stop() }
  * Goal: keep the ball in play for surviveMs. Bumpers only add score/fun. */
 (function () {

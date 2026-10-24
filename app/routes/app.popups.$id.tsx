@@ -602,7 +602,7 @@ function Preview({ settings: s, branding, device }: { settings: PopupSettings; b
             {t.startBtn}
           </div>
           {branding && (
-            <div title="Enigma Play icon (free plan)" style={{ fontSize: 16, opacity: 0.55, marginTop: 14 }}>🎮</div>
+            <div title="Kodra Play icon (free plan)" style={{ fontSize: 16, opacity: 0.55, marginTop: 14 }}>🎮</div>
           )}
         </div>
       </div>

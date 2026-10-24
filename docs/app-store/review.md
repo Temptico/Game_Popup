@@ -2,10 +2,10 @@
 
 ## 1. Testing instructions (paste into "Testing instructions")
 ```
-Enigma Play shows a gamified popup on the storefront (theme app extension / app embed). No theme code edits are needed.
+Kodra Play shows a gamified popup on the storefront (theme app extension / app embed). No theme code edits are needed.
 
 SETUP (2 minutes)
-1. Install the app and open it. The home page shows a banner "Step 1: turn on the popup in your theme". Click "Open theme editor", make sure "Enigma Play popup" is switched on under App embeds, and click Save.
+1. Install the app and open it. The home page shows a banner "Step 1: turn on the popup in your theme". Click "Open theme editor", make sure "Kodra Play popup" is switched on under App embeds, and click Save.
 2. In the app click "+ Create popup". On the General tab choose "Unique single-use code per winner" (the app creates the discount itself) and click Save.
 
 TEST ON THE STOREFRONT
@@ -33,8 +33,8 @@ Before recording: open the storefront in a **new incognito window** (the popup r
 
 | # | Screen / what you do | Subtitle (paste as is) |
 |---|---|---|
-| 1 | Shopify admin → Apps → install Enigma Play → approve | Installing Enigma Play from the Shopify admin. |
-| 2 | App home: point at the banner → Open theme editor → App embeds → switch on "Enigma Play popup" → Save | Step 1: turn on the popup in the theme editor (app embed, no code changes). |
+| 1 | Shopify admin → Apps → install Kodra Play → approve | Installing Kodra Play from the Shopify admin. |
+| 2 | App home: point at the banner → Open theme editor → App embeds → switch on "Kodra Play popup" → Save | Step 1: turn on the popup in the theme editor (app embed, no code changes). |
 | 3 | Back in the app → "+ Create popup" → General tab: Discount code type = Unique single-use code, 10 % | Step 2: create a popup. Each winner gets a unique single-use discount code. |
 | 4 | Scroll: tick "Reward by attempt" (15 / 10 / 5 %), Urgency countdown 15 min | Optional: better reward for winning on the first try, and a real expiry countdown. |
 | 5 | Game tab: show Paddle / Flipper, Trigger, Frequency; Design tab: change colors → Save | Choose the game, when the popup opens, and match your brand colors. |
@@ -48,7 +48,7 @@ Before recording: open the storefront in a **new incognito window** (the popup r
 | 13 | Shopify admin → **Discounts** → the new code "WIN-…" (one use) | The unique code was created by the app in Shopify Discounts. |
 | 14 | App → Analytics | Analytics: views, emails, games, wins, code uses and revenue per popup. |
 | 15 | App → Plans → click Upgrade on a plan → approve (test charge) | Revenue-based plans through Shopify Billing (test charge on this development store). |
-| 16 | Apps → Enigma Play → Uninstall | Uninstalling removes the popup; all app data is deleted (GDPR webhooks). |
+| 16 | Apps → Kodra Play → Uninstall | Uninstalling removes the popup; all app data is deleted (GDPR webhooks). |
 
 ## 3. Protected customer data: answers (Dev Dashboard → API access → Protected customer data)
 **Data used:** Name, Email (level 2). Orders webhook (level 1).

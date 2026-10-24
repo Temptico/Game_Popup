@@ -31,7 +31,7 @@ async function send(subject: string, text: string) {
       signal: AbortSignal.timeout(8000),
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.ALERT_FROM_EMAIL || "Enigma Play <apps@enigma101.com>",
+        from: process.env.ALERT_FROM_EMAIL || "Kodra Play <apps@enigma101.com>",
         to: process.env.INSTALL_ALERT_EMAIL,
         subject,
         text,
@@ -50,56 +50,56 @@ type Lang = "en" | "de" | "sl" | "hr";
 export function onboardingDraft(lang: Lang, storeName: string): { subject: string; body: string } {
   const drafts: Record<Lang, { subject: string; body: string }> = {
     en: {
-      subject: `Your Enigma Play popup for ${storeName}`,
+      subject: `Your Kodra Play popup for ${storeName}`,
       body: `Hi,
 
-thanks for installing Enigma Play on ${storeName}. I'm Primož, I built the app.
+thanks for installing Kodra Play on ${storeName}. I'm Primož, I built the app.
 
 If you like, I'll set up your first game popup for you for free: your colors, the discount, when it shows up, and a quick test on your store. Just reply with the discount you want to give (for example 10% off) and I'll take care of the rest.
 
 If something doesn't work or isn't clear, reply to this email and I'll help.
 
 Primož
-Enigma Play`,
+Kodra Play`,
     },
     de: {
-      subject: `Ihr Enigma Play Popup für ${storeName}`,
+      subject: `Ihr Kodra Play Popup für ${storeName}`,
       body: `Hallo,
 
-danke, dass Sie Enigma Play in ${storeName} installiert haben. Ich bin Primož und habe die App entwickelt.
+danke, dass Sie Kodra Play in ${storeName} installiert haben. Ich bin Primož und habe die App entwickelt.
 
 Wenn Sie möchten, richte ich Ihr erstes Spiel-Popup kostenlos für Sie ein: Ihre Farben, den Rabatt, wann es erscheint, und einen kurzen Test in Ihrem Shop. Antworten Sie einfach mit dem Rabatt, den Sie geben möchten (zum Beispiel 10 %), und ich kümmere mich um den Rest.
 
 Wenn etwas nicht funktioniert oder unklar ist, antworten Sie auf diese E-Mail und ich helfe Ihnen.
 
 Primož
-Enigma Play`,
+Kodra Play`,
     },
     sl: {
-      subject: `Vaš Enigma Play popup za ${storeName}`,
+      subject: `Vaš Kodra Play popup za ${storeName}`,
       body: `Pozdravljeni,
 
-hvala, ker ste namestili Enigma Play v ${storeName}. Sem Primož in sem razvil aplikacijo.
+hvala, ker ste namestili Kodra Play v ${storeName}. Sem Primož in sem razvil aplikacijo.
 
 Če želite, vam prvi popup z igro brezplačno nastavim sam: vaše barve, popust, kdaj se prikaže, in kratek test v vaši trgovini. Samo odgovorite, kakšen popust želite dati (na primer 10 %), za ostalo poskrbim jaz.
 
 Če kaj ne deluje ali ni jasno, odgovorite na ta email in vam pomagam.
 
 Primož
-Enigma Play`,
+Kodra Play`,
     },
     hr: {
-      subject: `Vaš Enigma Play popup za ${storeName}`,
+      subject: `Vaš Kodra Play popup za ${storeName}`,
       body: `Pozdrav,
 
-hvala što ste instalirali Enigma Play u ${storeName}. Ja sam Primož i razvio sam aplikaciju.
+hvala što ste instalirali Kodra Play u ${storeName}. Ja sam Primož i razvio sam aplikaciju.
 
 Ako želite, besplatno ću vam sam postaviti prvi popup s igrom: vaše boje, popust, kada se prikazuje, i kratki test u vašoj trgovini. Samo odgovorite koji popust želite dati (na primjer 10 %), a za ostalo ću se pobrinuti ja.
 
 Ako nešto ne radi ili nije jasno, odgovorite na ovaj email i pomoći ću vam.
 
 Primož
-Enigma Play`,
+Kodra Play`,
     },
   };
   return drafts[lang];
@@ -158,5 +158,5 @@ export async function alertOnUninstall(shop: string) {
   console.log(`[install] uninstall: ${shop}`);
   if (!enabled()) return;
   const days = state?.installedAt ? Math.round((Date.now() - state.installedAt.getTime()) / 86_400_000) : null;
-  await send(`Uninstalled: ${shop}`, `${shop} uninstalled Enigma Play${days !== null ? ` after ${days} day(s)` : ""}.\n\nAdmin: https://${shop}/admin`);
+  await send(`Uninstalled: ${shop}`, `${shop} uninstalled Kodra Play${days !== null ? ` after ${days} day(s)` : ""}.\n\nAdmin: https://${shop}/admin`);
 }

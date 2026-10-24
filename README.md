@@ -1,4 +1,4 @@
-# Enigma Play: Game Popup
+# Enigma Play: Email Popup Game
 
 A Shopify app, built with Remix and App Bridge, that shows a popup after a set delay. The visitor enters their name and email, plays a paddle-and-ball game, and gets a discount code if they last long enough.
 

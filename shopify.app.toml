@@ -3,7 +3,7 @@
 # the CLI fills in client_id and the URLs.
 
 client_id = ""
-name = "Enigma Play: Game Popup"
+name = "Enigma Play: Email Popup Game"
 application_url = "https://example.com"
 embedded = true
 

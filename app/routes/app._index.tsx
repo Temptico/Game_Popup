@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { billingEnabled } from "../lib/billing.server";
+import { billingEnabled, previewFeatures } from "../lib/billing.server";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Link as RemixLink, useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
 import {
@@ -26,6 +26,8 @@ import { TARGETS } from "../lib/popup-defaults";
 import { APP_VERSION, LISTING_URL } from "../lib/version";
 import { BrandHero } from "../components/BrandHero";
 
+const REVIEW_AFTER_EMAILS = 50;
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
@@ -37,11 +39,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const live = new Set(billing.paused ? [] : livePopups(popups).map((p) => p.id));
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
   const { byPopup } = await getCounts(shop, since);
-  // Ask for a review once the popup has brought the first order.
+  // Ask for a review once the popup has brought the first order, or (stores
+  // with little traffic) collected its first 50 emails.
   const [orders, state] = await Promise.all([
     db.attributedOrder.count({ where: { shop } }),
     db.shopState.findUnique({ where: { shop } }),
   ]);
+  const emails = orders === 0 && previewFeatures() ? await db.event.count({ where: { shop, type: "submit" } }) : 0;
+  const goodMoment = orders > 0 || emails >= REVIEW_AFTER_EMAILS;
 
   return {
     plan,
@@ -49,8 +54,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     showPlans: billingEnabled(),
     apiKey: process.env.SHOPIFY_API_KEY || "",
     review: {
-      ask: orders > 0 && !state?.reviewAskedAt,
-      banner: orders > 0 && !state?.reviewHidden,
+      ask: goodMoment && !state?.reviewAskedAt,
+      banner: goodMoment && !state?.reviewHidden,
+      emails: orders > 0 ? 0 : emails,
     },
     popups: popups.map((p) => ({
       id: p.id,
@@ -236,7 +242,7 @@ export default function Index() {
         )}
         {reviewBanner && (
           <Banner
-            title="Your popup brought its first order 🎉"
+            title={review.emails ? `Your popup collected ${review.emails} emails 🎉` : "Your popup brought its first order 🎉"}
             tone="success"
             action={{ content: "Leave a review", url: `${LISTING_URL}/reviews`, target: "_blank" }}
             secondaryAction={{ content: "Hide", onAction: hideReviewBanner }}

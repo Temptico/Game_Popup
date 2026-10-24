@@ -48,7 +48,10 @@
     var nameInput = el('input', { class: 'gd-input', type: 'text', name: 'name', autocomplete: 'given-name', placeholder: t.namePlaceholder, 'aria-label': t.namePlaceholder, maxlength: '100' });
     var emailInput = el('input', { class: 'gd-input', type: 'email', name: 'email', autocomplete: 'email', inputmode: 'email', placeholder: t.emailPlaceholder, 'aria-label': t.emailPlaceholder, maxlength: '254' });
     var consentInput = el('input', { type: 'checkbox', name: 'consent' });
-    var consentLabel = el('label', { class: 'gd-consent' }, [consentInput, el('span', { text: t.consentLabel })]);
+    // Under the consent text: "unsubscribe any time" and a link to the store's privacy policy.
+    var consentText = el('span', { text: t.consentLabel + (t.consentNote ? ' ' + t.consentNote + ' ' : '') });
+    if (t.consentNote && t.privacyLink && ctx.privacy) consentText.appendChild(el('a', { href: ctx.privacy, target: '_blank', rel: 'noopener', text: t.privacyLink }));
+    var consentLabel = el('label', { class: 'gd-consent' }, [consentInput, consentText]);
     var formError = el('p', { class: 'gd-error', role: 'alert' });
     var submitBtn = el('button', { class: 'gd-btn', type: 'submit', text: t.formSubmit });
     var form = el('form', { class: 'gd-screen', novalidate: '', hidden: '' }, [
@@ -69,6 +72,8 @@
 
     // Screen 4: reward
     var rewardIntro = el('p', { class: 'gd-muted' });
+    // Double opt-in: reminds the winner to confirm their subscription.
+    var doiEl = el('p', { class: 'gd-muted', text: t.doiNote || '', hidden: '' });
     var valueEl = el('p', { class: 'gd-value', hidden: '' });
     var codeEl = el('span', { class: 'gd-code', text: '…' });
     var expiryEl = el('p', { class: 'gd-expiry', hidden: '' });
@@ -77,6 +82,7 @@
     var reward = el('div', { class: 'gd-screen', hidden: '' }, [
       rewardIntro, valueEl, codeEl, expiryEl,
       el('p', { class: 'gd-muted', text: t.rewardTeaser }),
+      doiEl,
       el('div', { class: 'gd-reward-actions' }, [copyBtn, closeReward])
     ]);
 
@@ -199,6 +205,7 @@
       submitBtn.disabled = true;
 
       var consent = consentInput.checked;
+      doiEl.hidden = !(popup.doi && consent && t.doiNote);
       var proceed = function () { submitBtn.disabled = false; show(game); startGame(); };
       if (testMode) return proceed();
       // Don't make the visitor wait on the network for more than ~2.5s.
@@ -208,6 +215,12 @@
         .then(function (res) {
           var token = (res && res.token) || null;
           if (!res || !res.ok) return contactFallback(name, email, consent).then(function () { return token; });
+          // Double opt-in: the theme's newsletter form subscribes them, so Shopify
+          // sends its confirmation email (the app saved the customer without consent).
+          if (popup.doi && consent) {
+            (window.GameDiscountFx ? Promise.resolve() : script(ctx.assets.fx))
+              .then(function () { return contactFallback(name, email, true); }).catch(function () {});
+          }
           return token;
         }, function () { return contactFallback(name, email, consent).then(function () { return null; }); });
       tokenPromise.then(function () { if (!done) { done = true; clearTimeout(timeout); proceed(); } });

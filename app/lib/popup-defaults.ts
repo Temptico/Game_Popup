@@ -46,6 +46,9 @@ export const STRING_KEYS = [
   "pongDesc",
   "pongHelp",
   "pongFail",
+  "consentNote",
+  "privacyLink",
+  "doiNote",
 ] as const;
 export type StringKey = (typeof STRING_KEYS)[number];
 export type Strings = Record<StringKey, string>;
@@ -80,6 +83,9 @@ export const STRING_LABELS: Record<StringKey, string> = {
   pongDesc: "Pong: intro description",
   pongHelp: "Pong: status while playing",
   pongFail: "Pong: computer won message",
+  consentNote: "Under the consent checkbox (unsubscribe note)",
+  privacyLink: "Privacy policy link text",
+  doiNote: "Double opt-in: check your inbox note",
 };
 
 export const DEFAULT_STRINGS: Record<Language, Strings> = {
@@ -112,6 +118,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     pongDesc: "Erziele 3 Tore vor dem Computer und schalte einen geheimen Rabatt frei.",
     pongHelp: "Wer zuerst 3 Tore schießt, gewinnt!",
     pongFail: "Der Computer hat diese Runde gewonnen!",
+    consentNote: "Abmeldung jederzeit möglich.",
+    privacyLink: "Datenschutzerklärung",
+    doiNote: "Bitte bestätige deine Anmeldung in der E-Mail, die wir dir gerade geschickt haben.",
   },
   fr: {
     introTitle: "Jouez pour une remise mystère",
@@ -142,6 +151,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     pongDesc: "Marquez 3 buts avant l'ordinateur et débloquez une remise mystère.",
     pongHelp: "Le premier à 3 buts gagne !",
     pongFail: "L'ordinateur a gagné cette manche !",
+    consentNote: "Désinscription possible à tout moment.",
+    privacyLink: "Politique de confidentialité",
+    doiNote: "Confirmez votre inscription dans l'e-mail que nous venons de vous envoyer.",
   },
   es: {
     introTitle: "Juega por un descuento sorpresa",
@@ -172,6 +184,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     pongDesc: "Marca 3 goles antes que el ordenador y desbloquea un descuento sorpresa.",
     pongHelp: "¡Gana quien marque primero 3 goles!",
     pongFail: "¡El ordenador ganó esta ronda!",
+    consentNote: "Puedes darte de baja en cualquier momento.",
+    privacyLink: "Política de privacidad",
+    doiNote: "Confirma tu suscripción en el email que te acabamos de enviar.",
   },
   it: {
     introTitle: "Gioca per uno sconto misterioso",
@@ -202,6 +217,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     pongDesc: "Segna 3 gol prima del computer e sblocca uno sconto misterioso.",
     pongHelp: "Vince chi segna per primo 3 gol!",
     pongFail: "Il computer ha vinto questo round!",
+    consentNote: "Puoi annullare l'iscrizione in qualsiasi momento.",
+    privacyLink: "Informativa sulla privacy",
+    doiNote: "Conferma l'iscrizione nell'email che ti abbiamo appena inviato.",
   },
   nl: {
     introTitle: "Speel voor een geheime korting",
@@ -232,6 +250,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     pongDesc: "Scoor 3 goals vóór de computer en ontgrendel een geheime korting.",
     pongHelp: "Wie het eerst 3 goals scoort, wint!",
     pongFail: "De computer won deze ronde!",
+    consentNote: "Je kunt je op elk moment afmelden.",
+    privacyLink: "Privacybeleid",
+    doiNote: "Bevestig je inschrijving in de e-mail die we je net hebben gestuurd.",
   },
   pl: {
     introTitle: "Zagraj o tajemniczy rabat",
@@ -262,6 +283,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     pongDesc: "Strzel 3 gole przed komputerem i odblokuj tajemniczy rabat.",
     pongHelp: "Wygrywa ten, kto pierwszy strzeli 3 gole!",
     pongFail: "Komputer wygrał tę rundę!",
+    consentNote: "Możesz w każdej chwili zrezygnować z subskrypcji.",
+    privacyLink: "Polityka prywatności",
+    doiNote: "Potwierdź subskrypcję w e-mailu, który właśnie wysłaliśmy.",
   },
   sl: {
     introTitle: "Igraj za skrivnostni popust",
@@ -292,6 +316,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     pongDesc: "Zabij 3 gole pred računalnikom in odkleni skrivnostni popust.",
     pongHelp: "Zmaga, kdor prvi zabije 3 gole!",
     pongFail: "Računalnik je dobil to rundo!",
+    consentNote: "Odjaviš se lahko kadar koli.",
+    privacyLink: "Politika zasebnosti",
+    doiNote: "Potrdi prijavo v e-poštnem sporočilu, ki smo ti ga pravkar poslali.",
   },
   hr: {
     introTitle: "Igraj za tajni popust",
@@ -322,6 +349,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     pongDesc: "Zabij 3 gola prije računala i otključaj tajni popust.",
     pongHelp: "Pobjeđuje tko prvi zabije 3 gola!",
     pongFail: "Računalo je osvojilo ovu rundu!",
+    consentNote: "Možeš se odjaviti u bilo kojem trenutku.",
+    privacyLink: "Pravila privatnosti",
+    doiNote: "Potvrdi prijavu u e-poruci koju smo ti upravo poslali.",
   },
   ro: {
     introTitle: "Joacă pentru o reducere surpriză",
@@ -352,6 +382,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     pongDesc: "Marchează 3 goluri înaintea calculatorului și deblochează o reducere surpriză.",
     pongHelp: "Câștigă cine marchează primul 3 goluri!",
     pongFail: "Calculatorul a câștigat această rundă!",
+    consentNote: "Te poți dezabona oricând.",
+    privacyLink: "Politica de confidențialitate",
+    doiNote: "Confirmă abonarea din e-mailul pe care tocmai ți l-am trimis.",
   },
   en: {
     introTitle: "Play for a mystery discount",
@@ -382,6 +415,9 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     pongDesc: "Score 3 goals before the computer does and unlock a mystery discount.",
     pongHelp: "First to 3 goals wins!",
     pongFail: "The computer won this round!",
+    consentNote: "You can unsubscribe at any time.",
+    privacyLink: "Privacy policy",
+    doiNote: "Check your inbox to confirm your subscription.",
   },
 };
 
@@ -479,6 +515,8 @@ export interface PopupSettings {
   sizeMobile: number;
   target: string;
   requireConsent: boolean;
+  // Subscribe through the storefront newsletter form so Shopify sends its confirmation email
+  doubleOptIn: boolean;
   nameField: NameField;
   autoApply: boolean;
   codeMode: "static" | "unique";
@@ -553,6 +591,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   sizeMobile: 100,
   target: "all",
   requireConsent: true,
+  doubleOptIn: false,
   nameField: "required",
   autoApply: true,
   codeMode: "static",
@@ -737,6 +776,7 @@ export function parseSettings(input: Record<string, unknown>): {
       sizeMobile: Math.round(num(input.sizeMobile, d.sizeMobile, SIZE_LIMITS.mobile.min, SIZE_LIMITS.mobile.max)),
       target,
       requireConsent: input.requireConsent !== false && input.requireConsent !== "false",
+      doubleOptIn: input.doubleOptIn === true || input.doubleOptIn === "true",
       nameField: isNameField(input.nameField) ? input.nameField : "required",
       autoApply: input.autoApply !== false && input.autoApply !== "false",
       codeMode,

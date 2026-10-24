@@ -202,3 +202,4 @@
 @media (prefers-reduced-motion: reduce) { .gd-teaser { animation: none; } }
 
 .gd-input[hidden] { display: none; }
+.gd-consent a { color: inherit; text-decoration: underline; }

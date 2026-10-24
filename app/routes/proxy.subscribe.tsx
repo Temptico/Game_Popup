@@ -5,6 +5,7 @@ import { recordEvent } from "../lib/analytics.server";
 import { hashEmail, newToken } from "../lib/discounts.server";
 import db from "../db.server";
 import { parseAbJson } from "../lib/popup-defaults";
+import { previewFeatures } from "../lib/billing.server";
 import { visitorOf } from "../lib/visitor.server";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -48,7 +49,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   let customerOk = false;
   try {
-    const result = await upsertCustomer(admin, { email, firstName, consent, locale });
+    // Double opt-in: the storefront subscribes the visitor through the theme's
+    // newsletter form, so Shopify sends its confirmation email. Here the
+    // customer is only saved, without marketing consent.
+    const doi = previewFeatures() && (await db.popup.findFirst({ where: { id: popupId, shop }, select: { doubleOptIn: true } }))?.doubleOptIn;
+    const result = await upsertCustomer(admin, { email, firstName, consent: consent && !doi, locale });
     customerOk = result.ok;
     if (!result.ok) console.error(`[subscribe] ${shop}: ${result.error}`);
   } catch (err) {

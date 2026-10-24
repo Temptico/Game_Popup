@@ -59,6 +59,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   } catch (err) {
     console.error(`[subscribe] ${shop}`, err);
   }
+  // One discount per email: a returning winner sees their code again instead
+  // of playing for nothing; once it has expired they're told so up front.
+  if (claim.code) {
+    const expired = !!claim.expiresAt && claim.expiresAt.getTime() <= Date.now();
+    return json(
+      expired
+        ? { ok: customerOk, token: claim.token, already: true }
+        : { ok: customerOk, token: claim.token, won: { code: claim.code, value: claim.valueLabel, expiresAt: claim.expiresAt } },
+    );
+  }
   // The visitor can play either way; a failed customer write shouldn't block the game.
   return json({ ok: customerOk, token: claim.token });
 };

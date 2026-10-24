@@ -214,6 +214,15 @@
       tokenPromise = post('/subscribe', { name: name, email: email, consent: consent, locale: locale })
         .then(function (res) {
           var token = (res && res.token) || null;
+          // This email already got its one discount: show the code again, or say it was used up.
+          if (res && (res.won || res.already) && !done) {
+            done = true; clearTimeout(timeout); submitBtn.disabled = false;
+            if (res.already) { formError.textContent = t.alreadyClaimed; return null; }
+            claimed = { code: res.won.code, value: res.won.value || null, expiresAt: res.won.expiresAt || null };
+            if (!testMode) { local.set(KEY_CLAIMED, JSON.stringify(claimed)); local.set(KEY_ATTEMPTS, String(maxAttempts)); }
+            renderReward(); rewardIntro.textContent = t.alreadyWon; show(reward); copyBtn.focus({ preventScroll: true });
+            return null;
+          }
           if (!res || !res.ok) return contactFallback(name, email, consent).then(function () { return token; });
           // Double opt-in: the theme's newsletter form subscribes them, so Shopify
           // sends its confirmation email (the app saved the customer without consent).

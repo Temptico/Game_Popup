@@ -49,6 +49,8 @@ export const STRING_KEYS = [
   "consentNote",
   "privacyLink",
   "doiNote",
+  "alreadyClaimed",
+  "alreadyWon",
 ] as const;
 export type StringKey = (typeof STRING_KEYS)[number];
 export type Strings = Record<StringKey, string>;
@@ -86,6 +88,8 @@ export const STRING_LABELS: Record<StringKey, string> = {
   consentNote: "Under the consent checkbox (unsubscribe note)",
   privacyLink: "Privacy policy link text",
   doiNote: "Double opt-in: check your inbox note",
+  alreadyClaimed: "Email already got a code that has expired",
+  alreadyWon: "Email already has a valid code (shown instead of the game)",
 };
 
 export const DEFAULT_STRINGS: Record<Language, Strings> = {
@@ -121,6 +125,8 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     consentNote: "Abmeldung jederzeit möglich.",
     privacyLink: "Datenschutzerklärung",
     doiNote: "Bitte bestätige deine Anmeldung in der E-Mail, die wir dir gerade geschickt haben.",
+    alreadyClaimed: "Diese E-Mail-Adresse hat bereits einen Rabatt erhalten.",
+    alreadyWon: "Du hast bereits einen Code:",
   },
   fr: {
     introTitle: "Jouez pour une remise mystère",
@@ -154,6 +160,8 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     consentNote: "Désinscription possible à tout moment.",
     privacyLink: "Politique de confidentialité",
     doiNote: "Confirmez votre inscription dans l'e-mail que nous venons de vous envoyer.",
+    alreadyClaimed: "Cette adresse e-mail a déjà reçu une remise.",
+    alreadyWon: "Vous avez déjà un code\u00a0:",
   },
   es: {
     introTitle: "Juega por un descuento sorpresa",
@@ -187,6 +195,8 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     consentNote: "Puedes darte de baja en cualquier momento.",
     privacyLink: "Política de privacidad",
     doiNote: "Confirma tu suscripción en el email que te acabamos de enviar.",
+    alreadyClaimed: "Este email ya ha recibido un descuento.",
+    alreadyWon: "Ya tienes un código:",
   },
   it: {
     introTitle: "Gioca per uno sconto misterioso",
@@ -220,6 +230,8 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     consentNote: "Puoi annullare l'iscrizione in qualsiasi momento.",
     privacyLink: "Informativa sulla privacy",
     doiNote: "Conferma l'iscrizione nell'email che ti abbiamo appena inviato.",
+    alreadyClaimed: "Questa email ha già ricevuto uno sconto.",
+    alreadyWon: "Hai già un codice:",
   },
   nl: {
     introTitle: "Speel voor een geheime korting",
@@ -253,6 +265,8 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     consentNote: "Je kunt je op elk moment afmelden.",
     privacyLink: "Privacybeleid",
     doiNote: "Bevestig je inschrijving in de e-mail die we je net hebben gestuurd.",
+    alreadyClaimed: "Dit e-mailadres heeft al een korting ontvangen.",
+    alreadyWon: "Je hebt al een code:",
   },
   pl: {
     introTitle: "Zagraj o tajemniczy rabat",
@@ -286,6 +300,8 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     consentNote: "Możesz w każdej chwili zrezygnować z subskrypcji.",
     privacyLink: "Polityka prywatności",
     doiNote: "Potwierdź subskrypcję w e-mailu, który właśnie wysłaliśmy.",
+    alreadyClaimed: "Ten adres e-mail otrzymał już rabat.",
+    alreadyWon: "Masz już kod:",
   },
   sl: {
     introTitle: "Igraj za skrivnostni popust",
@@ -319,6 +335,8 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     consentNote: "Odjaviš se lahko kadar koli.",
     privacyLink: "Politika zasebnosti",
     doiNote: "Potrdi prijavo v e-poštnem sporočilu, ki smo ti ga pravkar poslali.",
+    alreadyClaimed: "Ta e-naslov je popust že prejel.",
+    alreadyWon: "Že imaš kodo:",
   },
   hr: {
     introTitle: "Igraj za tajni popust",
@@ -352,6 +370,8 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     consentNote: "Možeš se odjaviti u bilo kojem trenutku.",
     privacyLink: "Pravila privatnosti",
     doiNote: "Potvrdi prijavu u e-poruci koju smo ti upravo poslali.",
+    alreadyClaimed: "Ova e-adresa već je dobila popust.",
+    alreadyWon: "Već imaš kod:",
   },
   ro: {
     introTitle: "Joacă pentru o reducere surpriză",
@@ -385,6 +405,8 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     consentNote: "Te poți dezabona oricând.",
     privacyLink: "Politica de confidențialitate",
     doiNote: "Confirmă abonarea din e-mailul pe care tocmai ți l-am trimis.",
+    alreadyClaimed: "Această adresă de e-mail a primit deja o reducere.",
+    alreadyWon: "Ai deja un cod:",
   },
   en: {
     introTitle: "Play for a mystery discount",
@@ -418,6 +440,8 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     consentNote: "You can unsubscribe at any time.",
     privacyLink: "Privacy policy",
     doiNote: "Check your inbox to confirm your subscription.",
+    alreadyClaimed: "This email has already received a discount.",
+    alreadyWon: "You already have a code:",
   },
 };
 

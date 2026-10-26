@@ -223,12 +223,6 @@ export default function PopupEditor() {
                   onChange={set("noCart")}
                 />
                 <Checkbox
-                  label="Don't show it to people who already have something in the cart"
-                  helpText="They're about to buy anyway, so the popup would only interrupt them (and give away a discount)."
-                  checked={s.noCart}
-                  onChange={set("noCart")}
-                />
-                <Checkbox
                   label={s.gameType === "none" ? "Show a floating “Get a discount” button after the popup is closed" : "Show a floating “Play for a discount” button after the popup is closed"}
                   helpText="A small button in the corner, so visitors can come back to the game. After a win it shows their code."
                   checked={s.teaser}

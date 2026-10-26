@@ -9,7 +9,8 @@
   <script type="text/plain" id="gd-brand">{{ gd_brand.primary[0].background }},{{ gd_brand.secondary[0].background }}</script>
 {%- endif -%}
 {%- assign gd_config = app.metafields.gamediscount.config -%}
-{%- if gd_config != blank and gd_config.value.popups.size > 0 -%}
+{%- comment -%} Also with no live popup: "Preview on store" (?gd_preview=…) shows a draft. {%- endcomment -%}
+{%- if gd_config != blank -%}
   <script type="application/json" id="gd-config">{{ gd_config.value | json }}</script>
   <script>
     window.GameDiscountContext = {

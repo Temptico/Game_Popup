@@ -31,7 +31,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, admin, body } = await readProxyRequest(request, { name: "claim", perHour: 30 });
   const popupId = String(body.popupId ?? "");
 
-  const popup = await db.popup.findFirst({ where: { id: popupId, shop, active: true } });
+  // Test mode (theme editor, draft preview) may run a popup that isn't live yet.
+  const popup = await db.popup.findFirst({ where: { id: popupId, shop, ...(body.test === true ? {} : { active: true }) } });
   if (!popup) return fail("unknown_popup", 404);
 
   // 1 = won on the first attempt (best reward). Client-reported: the spread

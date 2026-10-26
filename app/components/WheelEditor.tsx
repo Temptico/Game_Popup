@@ -45,7 +45,7 @@ export function WheelEditor({
             </div>
             <div style={{ flex: 1 }}>
               <TextField
-                label={i === 0 ? "Chance to win" : `Chance ${i + 1}`}
+                label={i === 0 ? "Chance" : `Chance ${i + 1}`}
                 labelHidden={i > 0}
                 type="number"
                 min={1}
@@ -78,8 +78,7 @@ export function WheelEditor({
           </Text>
         )}
         <Text as="p" variant="bodySm" tone="subdued">
-          Every segment is a reward that can really be won: the wheel only shows what you list here. Each visitor spins
-          once; the reward is drawn by these chances and the wheel stops on it. All segments look the same size.
+          Each visitor spins once. The wheel shows only these discounts and lands on one using your chances.
         </Text>
       </BlockStack>
       <WheelPreview labels={segments.map((x) => `${x.value}${unit === "%" ? "%" : ""}`)} primary={primary} accent={accent} />

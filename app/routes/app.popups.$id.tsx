@@ -3,8 +3,10 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import { useActionData, useFetcher, useLoaderData, useNavigate, useNavigation, useSubmit } from "@remix-run/react";
 import {
+  Badge,
   Banner,
   Button,
+  ButtonGroup,
   BlockStack,
   Box,
   Card,
@@ -22,7 +24,7 @@ import {
   Text,
   TextField,
 } from "@shopify/polaris";
-import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
+import { SaveBar, TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import {
@@ -62,7 +64,7 @@ import {
 import { getAbResults, getDiscountUsage } from "../lib/analytics.server";
 import { previewFeatures } from "../lib/billing.server";
 import type { BrandColorsResult } from "../lib/brand-colors.server";
-import { GamePicker } from "../components/GamePicker";
+import { GamePicker, GameThumb } from "../components/GamePicker";
 import { WheelEditor } from "../components/WheelEditor";
 
 const ALL_GAMES = GAMES.map((g) => g.value);
@@ -76,7 +78,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { plan } = await getInstallation(admin);
 
   if (params.id === "new") {
-    return { id: null, settings: DEFAULT_SETTINGS, plan, codeExists: true, abResults: null, preview: previewFeatures() };
+    return { id: null, settings: DEFAULT_SETTINGS, plan, codeExists: true, abResults: null, preview: previewFeatures(), shop: session.shop };
   }
   const row = await db.popup.findFirst({ where: { id: params.id, shop: session.shop } });
   if (!row) throw redirect("/app");
@@ -85,7 +87,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     row.discountCode ? getDiscountUsage(admin, row.discountCode) : 0,
     row.abStartedAt ? getAbResults(row.id, row.abStartedAt) : null,
   ]);
-  return { id: row.id, settings: rowToSettings(row), plan, codeExists: usage !== null, abResults, preview: previewFeatures() };
+  return { id: row.id, settings: rowToSettings(row), plan, codeExists: usage !== null, abResults, preview: previewFeatures(), shop: session.shop };
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
@@ -109,6 +111,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     : await db.popup.update({ where: { id: params.id }, data });
 
   await publishConfig(admin, shop);
+  // A new draft opens in the editor, where it can be previewed on the store.
+  if (isNew && !row.active) return redirect(`/app/popups/${row.id}`);
   return redirect(`/app?saved=${encodeURIComponent(row.name)}`);
 };
 
@@ -121,12 +125,21 @@ const tabsFor = (game: GameType) => [
     content: SKILL_GAMES.includes(game) ? "Game & rewards" : game === "wheel" ? "Wheel & rewards" : "Reward",
   },
   { id: "design", content: "Design" },
-  { id: "texts", content: "Texts (advanced)" },
+  { id: "texts", content: "Texts" },
   { id: "ab", content: "A/B test" },
 ];
 
+// New popup, step by step: each step shows one of the editor's sections (tab index).
+const WIZARD_STEPS: { title: string; section?: number }[] = [
+  { title: "Choose a game" },
+  { title: "Set the discount", section: 1 },
+  { title: "Match your store", section: 2 },
+  { title: "When and where it shows", section: 0 },
+  { title: "Check and publish" },
+];
+
 export default function PopupEditor() {
-  const { id, settings: initial, plan, codeExists, abResults, preview } = useLoaderData<typeof loader>();
+  const { id, settings: initial, plan, codeExists, abResults, preview, shop } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const errors: ValidationErrors = actionData?.errors ?? {};
   const submit = useSubmit();
@@ -169,26 +182,414 @@ export default function PopupEditor() {
       strings: { ...prev.strings, [lang]: { ...prev.strings[lang], [key]: value } },
     }));
 
-  const save = () =>
-    submit(s as unknown as Record<string, string>, { method: "POST", encType: "application/json" });
+  const save = (over: Partial<PopupSettings> = {}) =>
+    submit({ ...s, ...over } as unknown as Record<string, string>, { method: "POST", encType: "application/json" });
+  // New popups are set up step by step; saved ones are edited in tabs with the save bar.
+  const wizard = !id;
+  const [step, setStep] = useState(0);
+  const at = (section: number) => (wizard ? WIZARD_STEPS[step].section === section : tab === section);
+  const dirty = !wizard && JSON.stringify(s) !== JSON.stringify(initial);
+  const previewUrl = `https://${shop}/?gd_preview=${id}`;
 
   const branded = plan === "free";
   const saving = nav.state === "submitting";
   const skill = SKILL_GAMES.includes(s.gameType);
   const unit = s.discountType === "percentage" ? "%" : "";
 
+  const sections = (
+    <>
+            {at(0) && (
+              <FormLayout>
+                <TextField label="Name (only you see it)" value={s.name} onChange={set("name")} autoComplete="off" />
+                <Select label="Show it on" options={[...TARGETS]} value={s.target} onChange={set("target")} />
+                <Select
+                  label="When it opens"
+                  options={[...TRIGGERS]}
+                  value={s.trigger}
+                  onChange={(v) => set("trigger")(v as PopupSettings["trigger"])}
+                />
+                <Select
+                  label="How often it opens by itself"
+                  options={[...FREQUENCIES]}
+                  value={s.frequency}
+                  onChange={(v) => set("frequency")(v as PopupSettings["frequency"])}
+                  helpText="Per visitor. After someone wins, it doesn't open by itself again."
+                />
+                <TextField label="Wait before it opens (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />
+                <Checkbox
+                  label={s.gameType === "none" ? "Show a floating “Get a discount” button after the popup is closed" : "Show a floating “Play for a discount” button after the popup is closed"}
+                  helpText="A small button in the corner, so visitors can come back to the game. After a win it shows their code."
+                  checked={s.teaser}
+                  onChange={set("teaser")}
+                />
+                {preview && (
+                  <Select
+                    label="Name field"
+                    options={[...NAME_FIELDS]}
+                    value={s.nameField}
+                    onChange={(v) => set("nameField")(v as PopupSettings["nameField"])}
+                    helpText="Fewer fields = more sign-ups. Hidden: visitors only enter their email."
+                  />
+                )}
+                <Checkbox
+                  label={s.gameType === "none" ? "Require marketing consent checkbox to get the code" : "Require marketing consent checkbox to play"}
+                  helpText="Emails are saved as customers in Shopify. People who tick the box can get your marketing emails. Recommended in the EU."
+                  checked={s.requireConsent}
+                  onChange={set("requireConsent")}
+                />
+                <Checkbox
+                  label="Double opt-in: people confirm by email (recommended in Germany and Austria)"
+                  helpText="Also turn on Shopify Settings → Notifications → Customer marketing confirmation. Visitors still get their code right away."
+                  checked={s.doubleOptIn}
+                  disabled={!s.requireConsent}
+                  onChange={set("doubleOptIn")}
+                />
+                <Checkbox
+                  label="Add the code to the cart automatically"
+                  checked={s.autoApply}
+                  onChange={set("autoApply")}
+                />
+              </FormLayout>
+            )}
+
+            {at(1) && (
+              <BlockStack gap="500">
+                {skill && (
+                  <BlockStack gap="300">
+                    <Text as="h3" variant="headingSm">Game</Text>
+                    <FormLayout>
+                      {s.gameType === "pong" && (
+                        <Select
+                          label="Computer level"
+                          options={[...DIFFICULTIES]}
+                          value={s.difficulty}
+                          onChange={(v) => set("difficulty")(v as PopupSettings["difficulty"])}
+                          helpText="Medium: most people win within a few tries. Hard: fewer winners."
+                        />
+                      )}
+                      {s.gameType !== "pong" && (
+                        <TextField label="Seconds to survive to win" type="number" min={3} value={String(s.surviveSec)} onChange={setNum("surviveSec")} autoComplete="off" />
+                      )}
+                      {s.gameType === "paddle" && (
+                        <Select
+                          label="Ball speed"
+                          options={[
+                            ...BALL_SPEEDS.map(({ label, value }) => ({ label, value })),
+                            ...(ballSpeedOf(Number(s.vx), Number(s.vy)) === "custom"
+                              ? [{ label: `Custom (${s.vx} / ${s.vy})`, value: "custom" }]
+                              : []),
+                          ]}
+                          value={ballSpeedOf(Number(s.vx), Number(s.vy))}
+                          onChange={(v) => {
+                            const p = BALL_SPEEDS.find((b) => b.value === v);
+                            if (p) setS((prev) => ({ ...prev, vx: p.vx, vy: p.vy }));
+                          }}
+                          helpText="Slower ball = more winners."
+                        />
+                      )}
+                      <TextField label="Tries per visitor" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off" />
+                      <Select
+                        label="When to ask for the email"
+                        options={EMAIL_TIMING}
+                        value={s.emailAfter ? "after" : "before"}
+                        onChange={(v) => set("emailAfter")(v === "after")}
+                        helpText="After a win: winners want their code, but people who lose leave no email. Try both with an A/B test."
+                      />
+                    </FormLayout>
+                  </BlockStack>
+                )}
+
+                <BlockStack gap="300">
+                  <Text as="h3" variant="headingSm">{s.gameType === "wheel" ? "Rewards on the wheel" : "Discount"}</Text>
+                  <FormLayout>
+                    <Select
+                      label="Discount code"
+                      options={[
+                        { label: "The same code for everyone", value: "static" },
+                        { label: "A new code for each winner (recommended)", value: "unique" },
+                      ]}
+                      value={s.codeMode}
+                      onChange={(v) => set("codeMode")(v as PopupSettings["codeMode"])}
+                      error={errors.codeMode}
+                      helpText={
+                        s.codeMode === "unique"
+                          ? "Each winner gets their own code that works once. It can't be shared on coupon sites."
+                          : "Every winner gets the same code. You create it in Discounts."
+                      }
+                    />
+                    {s.gameType === "wheel" && s.codeMode !== "unique" && (
+                      <Banner tone="warning">
+                        The wheel gives each winner their own code. Choose “A new code for each winner”.
+                      </Banner>
+                    )}
+                    {s.codeMode === "unique" && (
+                      <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
+                        <Select
+                          label="Discount type"
+                          options={[
+                            { label: "% off the order", value: "percentage" },
+                            { label: "Amount off the order", value: "fixed" },
+                          ]}
+                          value={s.discountType}
+                          onChange={(v) => set("discountType")(v as PopupSettings["discountType"])}
+                        />
+                        {s.gameType !== "wheel" && (
+                          <TextField
+                            label={s.discountType === "percentage" ? "Discount (%)" : "Discount (amount)"}
+                            type="number"
+                            min={0}
+                            suffix={unit || undefined}
+                            value={String(s.discountValue)}
+                            onChange={(v) => setS((prev) => ({ ...prev, discountValue: v as unknown as number }))}
+                            error={errors.discountValue}
+                            disabled={skill && s.tiered}
+                            helpText={skill && s.tiered ? "Set per try below." : undefined}
+                            autoComplete="off"
+                          />
+                        )}
+                      </InlineGrid>
+                    )}
+                    {s.codeMode === "unique" && (
+                      <Checkbox
+                        label="Show the discount in the title, e.g. “Win up to 20% off”"
+                        helpText="More people play when they know what they can win."
+                        checked={s.showValue}
+                        onChange={set("showValue")}
+                      />
+                    )}
+                    {s.codeMode === "unique" && s.gameType === "wheel" && (
+                      <WheelEditor
+                        segments={s.wheelSegments}
+                        onChange={set("wheelSegments")}
+                        unit={unit}
+                        primary={s.primaryColor}
+                        accent={s.accentColor}
+                        error={errors.wheelSegments}
+                      />
+                    )}
+                    {s.codeMode === "unique" && skill && (
+                      <BlockStack gap="300">
+                        {/* Kept for popups that already use it; not offered to new ones. */}
+                        {initial.tiered && (
+                          <Checkbox
+                            label="Bigger discount for winning on the first try"
+                            checked={s.tiered}
+                            onChange={set("tiered")}
+                          />
+                        )}
+                        {s.tiered && (
+                          <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
+                            {["Won on 1st attempt", "Won on 2nd attempt", "Won on 3rd attempt or later"].map((label, i) => (
+                              <TextField
+                                key={label}
+                                label={label}
+                                type="number"
+                                min={0}
+                                suffix={unit || undefined}
+                                value={String(s.tierValues[i])}
+                                onChange={(v) =>
+                                  setS((prev) => {
+                                    const next = [...prev.tierValues] as PopupSettings["tierValues"];
+                                    next[i] = v as unknown as number;
+                                    return { ...prev, tierValues: next };
+                                  })
+                                }
+                                error={i === 0 ? errors.tierValues : undefined}
+                                autoComplete="off"
+                              />
+                            ))}
+                          </InlineGrid>
+                        )}
+                        <Checkbox
+                          label="Give a small discount to players who lose"
+                          helpText="Everyone who leaves their email gets a code. Winners still get the bigger discount."
+                          checked={s.consolation}
+                          onChange={set("consolation")}
+                        />
+                        {s.consolation && (
+                          <TextField
+                            label="Discount for players who lose"
+                            type="number"
+                            min={0}
+                            suffix={unit || undefined}
+                            value={String(s.consolationValue)}
+                            onChange={(v) => setS((prev) => ({ ...prev, consolationValue: v as unknown as number }))}
+                            error={errors.consolationValue}
+                            autoComplete="off"
+                          />
+                        )}
+                      </BlockStack>
+                    )}
+                    {s.codeMode === "unique" && (
+                      <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
+                        <TextField
+                          label="Code starts with"
+                          value={s.codePrefix}
+                          onChange={(v) => set("codePrefix")(v.toUpperCase())}
+                          error={errors.codePrefix}
+                          helpText={`Example: ${s.codePrefix ? `${s.codePrefix}-` : ""}K7M2QX9A`}
+                          autoComplete="off"
+                        />
+                        <TextField
+                          label="Code works for (days)"
+                          type="number"
+                          min={0}
+                          value={String(s.codeExpiryDays)}
+                          onChange={(v) => setS((prev) => ({ ...prev, codeExpiryDays: v as unknown as number }))}
+                          disabled={s.urgencyMinutes > 0}
+                          helpText={s.urgencyMinutes > 0 ? "The countdown below is used instead." : "0 = no end date. A short time gets people to buy sooner."}
+                          autoComplete="off"
+                        />
+                      </InlineGrid>
+                    )}
+                    {s.codeMode === "unique" && (
+                      <TextField
+                        label="Countdown (minutes)"
+                        type="number"
+                        min={0}
+                        value={String(s.urgencyMinutes)}
+                        onChange={(v) => setS((prev) => ({ ...prev, urgencyMinutes: v as unknown as number }))}
+                        helpText="0 = off. The code stops working after this many minutes, and winners see a timer."
+                        autoComplete="off"
+                      />
+                    )}
+                    <TextField
+                      label={s.codeMode === "unique" ? "Backup code (optional)" : "Your discount code"}
+                      value={s.discountCode}
+                      onChange={(v) => set("discountCode")(v.toUpperCase())}
+                      error={errors.discountCode}
+                      autoComplete="off"
+                      helpText={
+                        <>
+                          {s.codeMode === "unique"
+                            ? "Only used if a new code can't be made (rare). Create it in "
+                            : "Create it first in "}
+                          <Link url="shopify:admin/discounts" target="_top">
+                            Discounts
+                          </Link>
+                          . Visitors only see it after they win.
+                        </>
+                      }
+                    />
+                    {id && initial.discountCode && !codeExists && (
+                      <Banner tone="warning">
+                        “{initial.discountCode}” doesn’t exist in your Discounts yet — winners will get a code
+                        that doesn’t work at checkout.
+                      </Banner>
+                    )}
+                  </FormLayout>
+                </BlockStack>
+              </BlockStack>
+            )}
+
+            {at(2) && (
+              <BlockStack gap="400">
+                <InlineStack gap="200" blockAlign="center">
+                  <Button onClick={() => brand.load("/app/brand-colors")} loading={brand.state !== "idle"}>
+                    Use my store colors
+                  </Button>
+                  <Text as="span" variant="bodySm" tone="subdued">
+                    Reads your theme and fills both colors. You can still adjust them.
+                  </Text>
+                </InlineStack>
+                <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
+                  <ColorField label="Background color" value={s.primaryColor} onChange={set("primaryColor")} error={errors.primaryColor} />
+                  <ColorField label="Button color" value={s.accentColor} onChange={set("accentColor")} error={errors.accentColor} />
+                </InlineGrid>
+                <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
+                  <RangeSlider
+                    label="Popup size on desktop"
+                    min={SIZE_LIMITS.desktop.min}
+                    max={SIZE_LIMITS.desktop.max}
+                    step={5}
+                    value={s.sizeDesktop}
+                    onChange={(v) => { set("sizeDesktop")(Number(v)); setDevice("desktop"); }}
+                    output
+                    suffix={<Text as="span" variant="bodyMd">{s.sizeDesktop}%</Text>}
+                    helpText={`${SIZE_LIMITS.desktop.min}–${SIZE_LIMITS.desktop.max}% of the standard size`}
+                  />
+                  <RangeSlider
+                    label="Popup size on phones"
+                    min={SIZE_LIMITS.mobile.min}
+                    max={SIZE_LIMITS.mobile.max}
+                    step={5}
+                    value={s.sizeMobile}
+                    onChange={(v) => { set("sizeMobile")(Number(v)); setDevice("phone"); }}
+                    output
+                    suffix={<Text as="span" variant="bodyMd">{s.sizeMobile}%</Text>}
+                    helpText={`${SIZE_LIMITS.mobile.min}–${SIZE_LIMITS.mobile.max}% of the standard size`}
+                  />
+                </InlineGrid>
+                <InlineStack gap="200">
+                  <Button pressed={device === "desktop"} onClick={() => setDevice("desktop")}>Desktop preview</Button>
+                  <Button pressed={device === "phone"} onClick={() => setDevice("phone")}>Phone preview</Button>
+                </InlineStack>
+                <Preview settings={s} branding={branded} device={device} />
+              </BlockStack>
+            )}
+
+            {at(3) && (
+              <BlockStack gap="400">
+                <Banner tone="info" title="The popup speaks your customer's language">
+                  <p>
+                    If your store has several languages, each visitor sees the popup in the language they shop in.
+                    All texts are already translated into 10 languages. Change a text only if you want your own
+                    wording; empty fields keep the text shown in grey.
+                  </p>
+                </Banner>
+                <Select
+                  label="Language"
+                  options={LANGUAGES.map((l) => ({ label: LANGUAGE_LABELS[l], value: l }))}
+                  value={lang}
+                  onChange={(v) => setLang(v as Language)}
+                />
+                <FormLayout>
+                  {textFieldsFor(s.gameType).map(({ key, source }) => (
+                    <TextField
+                      key={`${lang}-${key}`}
+                      label={STRING_LABELS[key]}
+                      value={s.strings[lang]?.[key] ?? ""}
+                      placeholder={DEFAULT_STRINGS[lang][source]}
+                      onChange={(v) => setString(key, v)}
+                      autoComplete="off"
+                    />
+                  ))}
+                </FormLayout>
+              </BlockStack>
+            )}
+
+            {at(4) && (
+              <AbTab
+                s={s}
+                setS={setS}
+                results={abResults}
+                lang={lang}
+                setLang={setLang}
+                saving={saving}
+                preview={preview}
+                onSaveNow={(next) =>
+                  submit(next as unknown as Record<string, string>, { method: "POST", encType: "application/json" })
+                }
+              />
+            )}
+    </>
+  );
+
   return (
     <Page>
       <TitleBar title={id ? s.name : "New popup"}>
-        <button variant="primary" onClick={save} disabled={saving}>
-          {saving ? "Saving…" : "Save"}
-        </button>
-        <button onClick={() => navigate("/app")}>Cancel</button>
+        <button variant="breadcrumb" onClick={() => navigate("/app")}>Popups</button>
       </TitleBar>
+      {!wizard && (
+        <SaveBar id="popup-save-bar" open={dirty}>
+          <button variant="primary" onClick={() => save()} {...(saving ? { loading: "" } : {})}></button>
+          <button onClick={() => setS(initial)}></button>
+        </SaveBar>
+      )}
       <Layout>
         {Object.keys(errors).length > 0 && (
           <Layout.Section>
-            <Banner tone="critical" title="Please fix the highlighted fields">
+            <Banner tone="critical" title="Please fix these first">
               <ul>
                 {Object.values(errors).map((e) => (
                   <li key={e}>{e}</li>
@@ -197,419 +598,167 @@ export default function PopupEditor() {
             </Banner>
           </Layout.Section>
         )}
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="300">
-              <Text as="h2" variant="headingMd">Game</Text>
-              <GamePicker
-                value={s.gameType}
-                onChange={set("gameType")}
-                games={ALL_GAMES}
-                primary={s.primaryColor}
-                accent={s.accentColor}
-              />
-              {errors.gameType && <Text as="p" tone="critical">{errors.gameType}</Text>}
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-        <Layout.Section>
-          <Card>
-            <Tabs tabs={tabsFor(s.gameType)} selected={tab} onSelect={setTab}>
-              <Box paddingBlockStart="400">
-                {tab === 0 && (
-                  <FormLayout>
-                    <TextField label="Internal name" value={s.name} onChange={set("name")} autoComplete="off" />
-                    <Checkbox
-                      label="Active"
-                      checked={s.active}
-                      onChange={set("active")}
-                      error={errors.active}
-                    />
-                    <Select label="Show on" options={[...TARGETS]} value={s.target} onChange={set("target")} />
-                    <Select
-                      label="When to show the popup"
-                      options={[...TRIGGERS]}
-                      value={s.trigger}
-                      onChange={(v) => set("trigger")(v as PopupSettings["trigger"])}
-                    />
-                    <Select
-                      label="How often to show it automatically"
-                      options={[...FREQUENCIES]}
-                      value={s.frequency}
-                      onChange={(v) => set("frequency")(v as PopupSettings["frequency"])}
-                      helpText="Counted per visitor. After a win the popup never opens by itself again; the floating button stays available."
-                    />
-                    <TextField label="Popup delay (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />
-                    <Checkbox
-                      label={s.gameType === "none" ? "Show a floating “Get a discount” button after the popup is closed" : "Show a floating “Play for a discount” button after the popup is closed"}
-                      helpText="Visitors who close the popup too early can come back to it. After a win it reminds them of their code."
-                      checked={s.teaser}
-                      onChange={set("teaser")}
-                    />
-                    {preview && (
-                      <Select
-                        label="Name field"
-                        options={[...NAME_FIELDS]}
-                        value={s.nameField}
-                        onChange={(v) => set("nameField")(v as PopupSettings["nameField"])}
-                        helpText="Every extra field costs sign-ups. Hidden = visitors only enter their email."
-                      />
-                    )}
-                    <Checkbox
-                      label={s.gameType === "none" ? "Require marketing consent checkbox to get the code" : "Require marketing consent checkbox to play"}
-                      helpText="Every email is saved as a customer in Shopify (tag “gamediscount”), where your email marketing app picks it up. Visitors who tick the box are subscribed to email marketing. Recommended for GDPR (EU stores)."
-                      checked={s.requireConsent}
-                      onChange={set("requireConsent")}
-                    />
-                    <Checkbox
-                      label="Double opt-in: visitors confirm their subscription by email (recommended for Germany and Austria)"
-                      helpText="Also turn on Shopify Settings → Notifications → Customer marketing confirmation. Visitors get their code right away and are subscribed once they confirm."
-                      checked={s.doubleOptIn}
-                      disabled={!s.requireConsent}
-                      onChange={set("doubleOptIn")}
-                    />
-                    <Checkbox
-                      label="Auto-apply the code to the visitor’s cart on win"
-                      checked={s.autoApply}
-                      onChange={set("autoApply")}
-                    />
-                  </FormLayout>
-                )}
-
-                {tab === 1 && (
-                  <BlockStack gap="500">
-                    {skill && (
-                      <BlockStack gap="300">
-                        <Text as="h3" variant="headingSm">Game</Text>
-                        <FormLayout>
-                          {s.gameType === "pong" && (
-                            <Select
-                              label="Computer level"
-                              options={[...DIFFICULTIES]}
-                              value={s.difficulty}
-                              onChange={(v) => set("difficulty")(v as PopupSettings["difficulty"])}
-                              helpText="Medium: most visitors win within a few attempts. Hard makes the discount feel earned but costs sign-ups."
-                            />
-                          )}
-                          {s.gameType !== "pong" && (
-                            <TextField label="Survive time to win (seconds)" type="number" min={3} value={String(s.surviveSec)} onChange={setNum("surviveSec")} autoComplete="off" />
-                          )}
-                          {s.gameType === "paddle" && (
-                            <Select
-                              label="Ball speed"
-                              options={[
-                                ...BALL_SPEEDS.map(({ label, value }) => ({ label, value })),
-                                ...(ballSpeedOf(Number(s.vx), Number(s.vy)) === "custom"
-                                  ? [{ label: `Custom (${s.vx} / ${s.vy})`, value: "custom" }]
-                                  : []),
-                              ]}
-                              value={ballSpeedOf(Number(s.vx), Number(s.vy))}
-                              onChange={(v) => {
-                                const p = BALL_SPEEDS.find((b) => b.value === v);
-                                if (p) setS((prev) => ({ ...prev, vx: p.vx, vy: p.vy }));
-                              }}
-                              helpText="Slower ball = more winners = more orders. Faster ball = the discount feels earned."
-                            />
-                          )}
-                          <TextField label="Max attempts" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off" />
-                          <Select
-                            label="When to ask for the email"
-                            options={EMAIL_TIMING}
-                            value={s.emailAfter ? "after" : "before"}
-                            onChange={(v) => set("emailAfter")(v === "after")}
-                            helpText="After a win, visitors have already played and want their code, so more of them may leave an email; but those who lose leave none. Test both with an A/B test."
-                          />
-                        </FormLayout>
-                      </BlockStack>
-                    )}
-
-                    <BlockStack gap="300">
-                      <Text as="h3" variant="headingSm">{s.gameType === "wheel" ? "Rewards on the wheel" : "Discount"}</Text>
-                      <FormLayout>
-                        <Select
-                          label="Discount code type"
-                          options={[
-                            { label: "One shared code (you create it in Discounts)", value: "static" },
-                            { label: "Unique single-use code per winner", value: "unique" },
-                          ]}
-                          value={s.codeMode}
-                          onChange={(v) => set("codeMode")(v as PopupSettings["codeMode"])}
-                          error={errors.codeMode}
-                          helpText={
-                            s.codeMode === "unique"
-                              ? "Each winner gets their own code, valid for one order. Shared codes can't leak to coupon sites."
-                              : "Every winner sees the same code."
-                          }
-                        />
-                        {s.gameType === "wheel" && s.codeMode !== "unique" && (
-                          <Banner tone="warning">
-                            The spin wheel gives each winner their own code with the reward they won. Choose “Unique single-use code per winner”.
-                          </Banner>
-                        )}
-                        {s.codeMode === "unique" && (
-                          <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
-                            <Select
-                              label="Discount type"
-                              options={[
-                                { label: "Percentage off order", value: "percentage" },
-                                { label: "Fixed amount off order", value: "fixed" },
-                              ]}
-                              value={s.discountType}
-                              onChange={(v) => set("discountType")(v as PopupSettings["discountType"])}
-                            />
-                            {s.gameType !== "wheel" && (
-                              <TextField
-                                label={s.discountType === "percentage" ? "Percentage" : "Amount (store currency)"}
-                                type="number"
-                                min={0}
-                                suffix={unit || undefined}
-                                value={String(s.discountValue)}
-                                onChange={(v) => setS((prev) => ({ ...prev, discountValue: v as unknown as number }))}
-                                error={errors.discountValue}
-                                disabled={skill && s.tiered}
-                                helpText={skill && s.tiered ? "Set per attempt below." : undefined}
-                                autoComplete="off"
-                              />
-                            )}
-                          </InlineGrid>
-                        )}
-                        {s.codeMode === "unique" && (
-                          <Checkbox
-                            label="Show the discount in the title, e.g. “Win up to 20% off”"
-                            helpText="More people play when they know what they can win."
-                            checked={s.showValue}
-                            onChange={set("showValue")}
-                          />
-                        )}
-                        {s.codeMode === "unique" && s.gameType === "wheel" && (
-                          <WheelEditor
-                            segments={s.wheelSegments}
-                            onChange={set("wheelSegments")}
-                            unit={unit}
-                            primary={s.primaryColor}
-                            accent={s.accentColor}
-                            error={errors.wheelSegments}
-                          />
-                        )}
-                        {s.codeMode === "unique" && skill && (
-                          <BlockStack gap="300">
-                            {/* Kept for popups that already use it; not offered to new ones. */}
-                            {initial.tiered && (
-                              <Checkbox
-                                label="Bigger discount for winning on the first try"
-                                checked={s.tiered}
-                                onChange={set("tiered")}
-                              />
-                            )}
-                            {s.tiered && (
-                              <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
-                                {["Won on 1st attempt", "Won on 2nd attempt", "Won on 3rd attempt or later"].map((label, i) => (
-                                  <TextField
-                                    key={label}
-                                    label={label}
-                                    type="number"
-                                    min={0}
-                                    suffix={unit || undefined}
-                                    value={String(s.tierValues[i])}
-                                    onChange={(v) =>
-                                      setS((prev) => {
-                                        const next = [...prev.tierValues] as PopupSettings["tierValues"];
-                                        next[i] = v as unknown as number;
-                                        return { ...prev, tierValues: next };
-                                      })
-                                    }
-                                    error={i === 0 ? errors.tierValues : undefined}
-                                    autoComplete="off"
-                                  />
-                                ))}
-                              </InlineGrid>
-                            )}
-                            <Checkbox
-                              label="Give a small discount to players who lose"
-                              helpText="Everyone who leaves their email gets a code. Winners still get the bigger discount."
-                              checked={s.consolation}
-                              onChange={set("consolation")}
-                            />
-                            {s.consolation && (
-                              <TextField
-                                label="Discount for players who lose"
-                                type="number"
-                                min={0}
-                                suffix={unit || undefined}
-                                value={String(s.consolationValue)}
-                                onChange={(v) => setS((prev) => ({ ...prev, consolationValue: v as unknown as number }))}
-                                error={errors.consolationValue}
-                                autoComplete="off"
-                              />
-                            )}
-                          </BlockStack>
-                        )}
-                        {s.codeMode === "unique" && (
-                          <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
-                            <TextField
-                              label="Code prefix"
-                              value={s.codePrefix}
-                              onChange={(v) => set("codePrefix")(v.toUpperCase())}
-                              error={errors.codePrefix}
-                              helpText={`Example: ${s.codePrefix ? `${s.codePrefix}-` : ""}K7M2QX9A`}
-                              autoComplete="off"
-                            />
-                            <TextField
-                              label="Code valid for (days)"
-                              type="number"
-                              min={0}
-                              value={String(s.codeExpiryDays)}
-                              onChange={(v) => setS((prev) => ({ ...prev, codeExpiryDays: v as unknown as number }))}
-                              disabled={s.urgencyMinutes > 0}
-                              helpText={s.urgencyMinutes > 0 ? "Overridden by the urgency countdown below." : "0 = never expires. A short window pushes winners to buy now."}
-                              autoComplete="off"
-                            />
-                          </InlineGrid>
-                        )}
-                        {s.codeMode === "unique" && (
-                          <TextField
-                            label="Urgency countdown (minutes)"
-                            type="number"
-                            min={0}
-                            value={String(s.urgencyMinutes)}
-                            onChange={(v) => setS((prev) => ({ ...prev, urgencyMinutes: v as unknown as number }))}
-                            helpText="0 = off. When set, each winner's code really expires after this many minutes and a live countdown is shown. (A fake countdown would be misleading under EU consumer law, so it's always real.)"
-                            autoComplete="off"
-                          />
-                        )}
-                        <TextField
-                          label={s.codeMode === "unique" ? "Fallback shared code (optional)" : "Discount code shown on win"}
-                          value={s.discountCode}
-                          onChange={(v) => set("discountCode")(v.toUpperCase())}
-                          error={errors.discountCode}
-                          autoComplete="off"
-                          helpText={
-                            <>
-                              {s.codeMode === "unique"
-                                ? "Used only if a unique code can't be created (e.g. a temporary Shopify error). Create it in "
-                                : "Create the code first in "}
-                              <Link url="shopify:admin/discounts" target="_top">
-                                Discounts
-                              </Link>
-                              . Codes are only revealed after a win — never in the page source.
-                            </>
-                          }
-                        />
-                        {id && initial.discountCode && !codeExists && (
-                          <Banner tone="warning">
-                            “{initial.discountCode}” doesn’t exist in your Discounts yet — winners will get a code
-                            that doesn’t work at checkout.
-                          </Banner>
-                        )}
-                      </FormLayout>
-                    </BlockStack>
-                  </BlockStack>
-                )}
-
-                {tab === 2 && (
-                  <BlockStack gap="400">
-                    <InlineStack gap="200" blockAlign="center">
-                      <Button onClick={() => brand.load("/app/brand-colors")} loading={brand.state !== "idle"}>
-                        Use my store colors
-                      </Button>
-                      <Text as="span" variant="bodySm" tone="subdued">
-                        Reads your theme and fills both colors. You can still adjust them.
-                      </Text>
-                    </InlineStack>
-                    <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
-                      <ColorField label="Primary color (background)" value={s.primaryColor} onChange={set("primaryColor")} error={errors.primaryColor} />
-                      <ColorField label="Accent color (buttons, code)" value={s.accentColor} onChange={set("accentColor")} error={errors.accentColor} />
-                    </InlineGrid>
-                    <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
-                      <RangeSlider
-                        label="Popup size on desktop"
-                        min={SIZE_LIMITS.desktop.min}
-                        max={SIZE_LIMITS.desktop.max}
-                        step={5}
-                        value={s.sizeDesktop}
-                        onChange={(v) => { set("sizeDesktop")(Number(v)); setDevice("desktop"); }}
-                        output
-                        suffix={<Text as="span" variant="bodyMd">{s.sizeDesktop}%</Text>}
-                        helpText={`${SIZE_LIMITS.desktop.min}–${SIZE_LIMITS.desktop.max}% of the standard size`}
-                      />
-                      <RangeSlider
-                        label="Popup size on phones"
-                        min={SIZE_LIMITS.mobile.min}
-                        max={SIZE_LIMITS.mobile.max}
-                        step={5}
-                        value={s.sizeMobile}
-                        onChange={(v) => { set("sizeMobile")(Number(v)); setDevice("phone"); }}
-                        output
-                        suffix={<Text as="span" variant="bodyMd">{s.sizeMobile}%</Text>}
-                        helpText={`${SIZE_LIMITS.mobile.min}–${SIZE_LIMITS.mobile.max}% of the standard size`}
-                      />
-                    </InlineGrid>
-                    <InlineStack gap="200">
-                      <Button pressed={device === "desktop"} onClick={() => setDevice("desktop")}>Desktop preview</Button>
-                      <Button pressed={device === "phone"} onClick={() => setDevice("phone")}>Phone preview</Button>
-                    </InlineStack>
-                    <Preview settings={s} branding={branded} device={device} />
-                  </BlockStack>
-                )}
-
-                {tab === 3 && (
-                  <BlockStack gap="400">
-                    <Banner tone="info" title="The popup speaks your customer's language">
-                      <p>
-                        If your store has several languages, each visitor sees the popup in the language they shop in.
-                        All texts are already translated into 10 languages. Change a text only if you want your own
-                        wording; empty fields keep the text shown in grey.
-                      </p>
-                    </Banner>
-                    <Select
-                      label="Language"
-                      options={LANGUAGES.map((l) => ({ label: LANGUAGE_LABELS[l], value: l }))}
-                      value={lang}
-                      onChange={(v) => setLang(v as Language)}
-                    />
-                    <FormLayout>
-                      {textFieldsFor(s.gameType).map(({ key, source }) => (
-                        <TextField
-                          key={`${lang}-${key}`}
-                          label={STRING_LABELS[key]}
-                          value={s.strings[lang]?.[key] ?? ""}
-                          placeholder={DEFAULT_STRINGS[lang][source]}
-                          onChange={(v) => setString(key, v)}
-                          autoComplete="off"
-                        />
-                      ))}
-                    </FormLayout>
-                  </BlockStack>
-                )}
-
-                {tab === 4 && (
-                  <AbTab
-                    s={s}
-                    setS={setS}
-                    results={abResults}
-                    lang={lang}
-                    setLang={setLang}
-                    saving={saving}
-                    preview={preview}
-                    onSaveNow={(next) =>
-                      submit(next as unknown as Record<string, string>, { method: "POST", encType: "application/json" })
-                    }
-                  />
-                )}
-              </Box>
-            </Tabs>
-          </Card>
-        </Layout.Section>
-        <Layout.Section>
-          <InlineStack align="end" gap="200">
-            <Button onClick={() => navigate("/app")}>Cancel</Button>
-            <Button variant="primary" onClick={save} loading={saving}>
-              Save
-            </Button>
-          </InlineStack>
-        </Layout.Section>
+        {!wizard && (
+          <Layout.Section>
+            <Card>
+              <InlineStack align="space-between" blockAlign="center" gap="300">
+                <InlineStack gap="200" blockAlign="center">
+                  {initial.active ? <Badge tone="success">Live</Badge> : <Badge>Draft</Badge>}
+                  <Text as="span" tone="subdued">
+                    {initial.active ? "Visitors on your store see this popup." : "Not shown to visitors yet. Preview it, then publish."}
+                  </Text>
+                </InlineStack>
+                <InlineStack gap="200">
+                  <Button url={previewUrl} target="_blank">Preview on store</Button>
+                  <Button variant={initial.active ? "secondary" : "primary"} loading={saving} onClick={() => save({ active: !initial.active })}>
+                    {initial.active ? "Pause" : "Publish"}
+                  </Button>
+                </InlineStack>
+              </InlineStack>
+            </Card>
+          </Layout.Section>
+        )}
+        {wizard && (
+          <Layout.Section>
+            <Steps steps={WIZARD_STEPS} current={step} onSelect={setStep} />
+          </Layout.Section>
+        )}
+        {(!wizard || step === 0) && (
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="300">
+                <Text as="h2" variant="headingMd">{wizard ? "Choose a game" : "Game"}</Text>
+                <GamePicker
+                  value={s.gameType}
+                  onChange={set("gameType")}
+                  games={ALL_GAMES}
+                  primary={s.primaryColor}
+                  accent={s.accentColor}
+                />
+                {errors.gameType && <Text as="p" tone="critical">{errors.gameType}</Text>}
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+        )}
+        {(!wizard || step > 0) && (
+          <Layout.Section>
+            <Card>
+              {!wizard ? (
+                <Tabs tabs={tabsFor(s.gameType)} selected={tab} onSelect={setTab}>
+                  <Box paddingBlockStart="400">{sections}</Box>
+                </Tabs>
+              ) : step === WIZARD_STEPS.length - 1 ? (
+                <Summary settings={s} branding={branded} />
+              ) : (
+                <BlockStack gap="400">
+                  <Text as="h2" variant="headingMd">{WIZARD_STEPS[step].title}</Text>
+                  {sections}
+                </BlockStack>
+              )}
+            </Card>
+          </Layout.Section>
+        )}
+        {wizard && (
+          <Layout.Section>
+            <InlineStack align="space-between">
+              <Button onClick={() => (step === 0 ? navigate("/app") : setStep(step - 1))}>{step === 0 ? "Cancel" : "Back"}</Button>
+              {step < WIZARD_STEPS.length - 1 ? (
+                <Button variant="primary" onClick={() => setStep(step + 1)}>Next</Button>
+              ) : (
+                <InlineStack gap="200">
+                  <Button onClick={() => save({ active: false })} loading={saving}>Save as draft</Button>
+                  <Button variant="primary" onClick={() => save({ active: true })} loading={saving}>Publish</Button>
+                </InlineStack>
+              )}
+            </InlineStack>
+          </Layout.Section>
+        )}
       </Layout>
     </Page>
+  );
+}
+
+/** The wizard's progress: numbered steps, earlier ones clickable. */
+function Steps({ steps, current, onSelect }: { steps: { title: string }[]; current: number; onSelect: (i: number) => void }) {
+  return (
+    <InlineStack gap="200" wrap>
+      {steps.map((st, i) => (
+        <button
+          key={st.title}
+          type="button"
+          onClick={() => onSelect(i)}
+          disabled={i > current}
+          aria-current={i === current ? "step" : undefined}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 12px 6px 6px",
+            borderRadius: 999,
+            border: "1px solid var(--p-color-border)",
+            background: i === current ? "var(--p-color-bg-fill-brand)" : "var(--p-color-bg-surface)",
+            color: i === current ? "var(--p-color-text-brand-on-bg-fill)" : "inherit",
+            cursor: i > current ? "default" : "pointer",
+            opacity: i > current ? 0.6 : 1,
+            font: "inherit",
+          }}
+        >
+          <span
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 999,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 12,
+              fontWeight: 700,
+              background: i < current ? "var(--p-color-bg-fill-success)" : "rgba(0,0,0,0.08)",
+              color: i < current ? "#fff" : "inherit",
+            }}
+          >
+            {i < current ? "✓" : i + 1}
+          </span>
+          <span style={{ fontWeight: i === current ? 600 : 400 }}>{st.title}</span>
+        </button>
+      ))}
+    </InlineStack>
+  );
+}
+
+/** Last wizard step: what the popup will do, before saving it. */
+function Summary({ settings: s, branding }: { settings: PopupSettings; branding: boolean }) {
+  const unit = s.discountType === "percentage" ? "%" : "";
+  const discount =
+    s.codeMode !== "unique"
+      ? `Shared code ${s.discountCode || "(not set)"}`
+      : s.gameType === "wheel"
+        ? s.wheelSegments.map((x) => `${x.value}${unit} (${x.chance}% chance)`).join(", ")
+        : `${s.discountValue}${unit} off, a new code for every winner`;
+  const rows: [string, string][] = [
+    ["Game", GAMES.find((g) => g.value === s.gameType)?.label ?? s.gameType],
+    ["Discount", discount],
+    ["Shows on", TARGETS.find((t) => t.value === s.target)?.label ?? s.target],
+    ["Opens", TRIGGERS.find((t) => t.value === s.trigger)?.label ?? s.trigger],
+  ];
+  return (
+    <BlockStack gap="400">
+      <Text as="h2" variant="headingMd">Check and publish</Text>
+      <BlockStack gap="150">
+        {rows.map(([k, v]) => (
+          <InlineStack key={k} gap="200" wrap={false}>
+            <div style={{ width: 110, flex: "none" }}>
+              <Text as="span" tone="subdued">{k}</Text>
+            </div>
+            <Text as="span">{v}</Text>
+          </InlineStack>
+        ))}
+      </BlockStack>
+      <Preview settings={s} branding={branding} device="desktop" />
+      <Text as="p" tone="subdued">
+        Publish to show it to visitors now, or save it as a draft and preview it on your store first.
+      </Text>
+    </BlockStack>
   );
 }
 
@@ -658,11 +807,31 @@ function Preview({ settings: s, branding, device }: { settings: PopupSettings; b
   };
   const phone = device === "phone";
   const scale = (phone ? s.sizeMobile : s.sizeDesktop) / 100;
+  const [screen, setScreen] = useState<"intro" | "form" | "game" | "win">("intro");
+  const btn = { background: s.accentColor, color: "#11151c", fontWeight: 700, padding: 12, borderRadius: 8 };
+  const input = { background: "#fff", color: "#6d7175", borderRadius: 8, padding: "10px 12px", textAlign: "left" as const, fontSize: 14, marginBottom: 8, fontFamily: "sans-serif" };
+  const nameShown = s.nameField !== "hidden";
   return (
     <BlockStack gap="200">
-      <Text as="h3" variant="headingSm">
-        Preview
-      </Text>
+      <InlineStack align="space-between" blockAlign="center">
+        <Text as="h3" variant="headingSm">
+          Preview
+        </Text>
+        <ButtonGroup variant="segmented">
+          {(
+            [
+              ["intro", "Start"],
+              ["form", "Email form"],
+              ...(s.gameType === "none" ? [] : [["game", "Game"]]),
+              ["win", "Code"],
+            ] as [typeof screen, string][]
+          ).map(([k, label]) => (
+            <Button key={k} pressed={screen === k} onClick={() => setScreen(k)} size="slim">
+              {label}
+            </Button>
+          ))}
+        </ButtonGroup>
+      </InlineStack>
       {/* Same geometry as the storefront: standard card 420px (desktop) or the screen width (phone), scaled. */}
       <div
         style={{
@@ -692,21 +861,42 @@ function Preview({ settings: s, branding, device }: { settings: PopupSettings; b
             fontFamily: "Georgia, serif",
           }}
         >
-          <div style={{ fontSize: 22, marginBottom: 8 }}>{t.introTitle}</div>
-          <div style={{ color: s.accentColor, fontSize: 14, marginBottom: 20 }}>
-            {t.introDesc.replace("{seconds}", String(s.surviveSec))}
-          </div>
-          <div
-            style={{
-              background: s.accentColor,
-              color: "#11151c",
-              fontWeight: 700,
-              padding: 12,
-              borderRadius: 8,
-            }}
-          >
-            {t.startBtn}
-          </div>
+          {screen === "intro" && (
+            <>
+              <div style={{ fontSize: 22, marginBottom: 8 }}>{t.introTitle}</div>
+              <div style={{ color: s.accentColor, fontSize: 14, marginBottom: 20 }}>
+                {t.introDesc.replace("{seconds}", String(s.surviveSec))}
+              </div>
+              <div style={btn}>{t.startBtn}</div>
+            </>
+          )}
+          {screen === "form" && (
+            <>
+              <div style={{ fontSize: 17, marginBottom: 14 }}>{s.emailAfter && SKILL_GAMES.includes(s.gameType) ? t.formWinTitle : t.formTitle}</div>
+              {nameShown && <div style={input}>{t.namePlaceholder}</div>}
+              <div style={input}>{t.emailPlaceholder}</div>
+              {s.requireConsent && (
+                <div style={{ fontSize: 12, textAlign: "left", margin: "4px 0 12px", fontFamily: "sans-serif" }}>☐ {t.consentLabel}</div>
+              )}
+              <div style={btn}>{s.emailAfter && SKILL_GAMES.includes(s.gameType) ? t.noneSubmit : t.formSubmit}</div>
+            </>
+          )}
+          {screen === "game" && (
+            <>
+              <GameThumb game={s.gameType} primary={s.primaryColor} accent={s.accentColor} />
+              <div style={{ fontSize: 14, marginTop: 10 }}>{t.playing}</div>
+            </>
+          )}
+          {screen === "win" && (
+            <>
+              <div style={{ color: s.accentColor, fontSize: 14, marginBottom: 6 }}>{t.rewardIntro.replace(/,? ?\{name\}/, nameShown ? ", Ana" : "")}</div>
+              {s.codeMode === "unique" && <div style={{ fontSize: 18, marginBottom: 6 }}>{t.rewardValue.replace("{value}", best)}</div>}
+              <div style={{ border: `2px dashed ${s.accentColor}`, borderRadius: 8, padding: 10, fontFamily: "monospace", fontSize: 20, letterSpacing: 2, marginBottom: 12 }}>
+                {s.codeMode === "unique" ? `${s.codePrefix ? `${s.codePrefix}-` : ""}K7M2QX9A` : s.discountCode || "YOURCODE"}
+              </div>
+              <div style={btn}>{t.copyBtn}</div>
+            </>
+          )}
           {branding && (
             <div title="Kodra Play icon (free plan)" style={{ fontSize: 16, opacity: 0.55, marginTop: 14 }}>🎮</div>
           )}
@@ -764,8 +954,8 @@ function AbTab({
   return (
     <BlockStack gap="400">
       <Checkbox
-        label="Run an A/B test: half of the visitors see variant B"
-        helpText="Each visitor always sees the same variant. Variant A is the popup as set up in the other tabs."
+        label="A/B test: half of the visitors see version B"
+        helpText="Each visitor always sees the same version. Version A is your popup as it is now."
         checked={s.abEnabled}
         onChange={(on) =>
           setS((prev) => ({ ...prev, abEnabled: on, ab: on && !prev.abEnabled ? { ...abFromSettings(prev), strings: prev.ab.strings } : prev.ab }))
@@ -775,10 +965,9 @@ function AbTab({
       {s.abEnabled && (
         <Card background="bg-surface-secondary">
           <BlockStack gap="400">
-            <Text as="h3" variant="headingSm">Variant B: change what you want to test</Text>
+            <Text as="h3" variant="headingSm">Version B: change what you want to test</Text>
             <Text as="p" tone="subdued">
-              Change one thing at a time to learn what works (for example only the discount). Saving restarts nothing;
-              switching the test off and on again starts new results.
+              Change one thing at a time, for example only the discount. Turning the test off and on again starts new results.
             </Text>
             <BlockStack gap="200">
               <Text as="p" variant="bodyMd">Game for B (A: {GAMES.find((g) => g.value === s.gameType)?.label})</Text>
@@ -808,11 +997,11 @@ function AbTab({
                     onChange={(v) => setS((prev) => ({ ...prev, difficulty: v as PopupSettings["difficulty"] }))} />
                 )}
                 {needsTime && (
-                  <TextField label="Survive time to win (seconds)" type="number" min={3} autoComplete="off" value={String(s.surviveSec)}
+                  <TextField label="Seconds to survive to win" type="number" min={3} autoComplete="off" value={String(s.surviveSec)}
                     onChange={(v) => setS((prev) => ({ ...prev, surviveSec: v as unknown as number }))} />
                 )}
                 {needsAttempts && (
-                  <TextField label="Max attempts" type="number" min={1} autoComplete="off" value={String(s.maxAttempts)}
+                  <TextField label="Tries per visitor" type="number" min={1} autoComplete="off" value={String(s.maxAttempts)}
                     onChange={(v) => setS((prev) => ({ ...prev, maxAttempts: v as unknown as number }))} />
                 )}
               </InlineGrid>
@@ -853,10 +1042,10 @@ function AbTab({
             <Select label="Texts for language"
               options={LANGUAGES.map((l) => ({ label: LANGUAGE_LABELS[l], value: l }))}
               value={lang} onChange={(v) => setLang(v as Language)}
-              helpText="Set B's texts for every language your store uses. Empty = same text as A." />
-            <TextField label="Headline for B" autoComplete="off" value={b.strings[lang]?.introTitle ?? ""}
+              helpText="Empty = same text as A." />
+            <TextField label="Title for B" autoComplete="off" value={b.strings[lang]?.introTitle ?? ""}
               placeholder={textOf(b.gameType, "introTitle")} onChange={(v) => setBString("introTitle", v)} />
-            <TextField label="Description for B" autoComplete="off" value={b.strings[lang]?.introDesc ?? ""}
+            <TextField label="Text under the title for B" autoComplete="off" value={b.strings[lang]?.introDesc ?? ""}
               placeholder={textOf(b.gameType, "introDesc").replace("{seconds}", String(s.surviveSec))} onChange={(v) => setBString("introDesc", v)} />
           </BlockStack>
         </Card>

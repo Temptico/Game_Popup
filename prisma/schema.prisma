@@ -180,4 +180,6 @@ model ShopState {
   // Install alert: when the app was last installed and uninstalled
   installedAt    DateTime?
   uninstalledAt  DateTime?
+  // The merchant hid the setup guide on the dashboard
+  guideHidden    Boolean   @default(false)
 }

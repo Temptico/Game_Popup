@@ -657,22 +657,22 @@ export function ballSpeedOf(vx: number, vy: number): string {
 export const NAME_FIELDS = [
   { label: "Required", value: "required" },
   { label: "Optional", value: "optional" },
-  { label: "Hidden (email only)", value: "hidden" },
+  { label: "Hidden (only email)", value: "hidden" },
 ] as const;
 export type NameField = (typeof NAME_FIELDS)[number]["value"];
 const isNameField = (v: unknown): v is NameField => NAME_FIELDS.some((f) => f.value === v);
 
 export const TRIGGERS = [
-  { label: "Exit intent or delay – whichever comes first (recommended)", value: "both" },
-  { label: "After the delay", value: "delay" },
-  { label: "On exit intent only (desktop; mobile falls back to delay)", value: "exit" },
+  { label: "When they’re about to leave, or after the wait (recommended)", value: "both" },
+  { label: "After the wait", value: "delay" },
+  { label: "Only when they’re about to leave (phones: after the wait)", value: "exit" },
 ] as const;
 
 export const FREQUENCIES = [
-  { label: "Once per visit (session) – recommended", value: "session" },
+  { label: "Once per visit (recommended)", value: "session" },
   { label: "Once per day", value: "day" },
   { label: "Once per week", value: "week" },
-  { label: "On every page until closed", value: "always" },
+  { label: "On every page until they close it", value: "always" },
 ] as const;
 
 /** Spin wheel reward: the discount and its chance in % (all chances add up to 100). */
@@ -865,7 +865,7 @@ export function applyVariantB(s: PopupSettings): PopupSettings {
 
 export const DEFAULT_SETTINGS: PopupSettings = {
   name: "Mystery discount game",
-  active: true,
+  active: false,
   discountCode: "",
   delaySec: 15,
   surviveSec: 15,

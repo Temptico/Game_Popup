@@ -173,23 +173,13 @@ export function livePopups(popups: Popup[]) {
 }
 
 /**
- * Publishes the storefront configuration as an app-data metafield on the app
- * installation. The theme app extension reads it via
- * `app.metafields.gamediscount.config`. Discount codes are deliberately left
- * out — they're only released by the app proxy after a win.
+ * The storefront settings of the given popups: what the app embed reads from
+ * the published config, and what a draft preview loads through the app proxy.
  */
-export async function publishConfig(admin: AdminApi, shop: string) {
-  const [{ id: ownerId, plan }, popups] = await Promise.all([
-    getInstallation(admin),
-    db.popup.findMany({ where: { shop } }),
-  ]);
-  const limits = PLAN_LIMITS[plan];
-  // Over the plan's revenue cap past the grace period → pause the storefront popup.
-  const billing = await getBillingStatus(shop, plan);
-
+export async function storefrontPopups(admin: AdminApi, rows: Popup[]) {
+  const all = rows.map(rowToSettings);
   // Reward labels are written exactly like the won value: the wheel stops on it.
   // Shared codes have no known value (gifts on the wheel, no value in the headline).
-  const all = popups.map(rowToSettings);
   const currency = all.some(
     (s) => s.codeMode === "unique" && s.discountType !== "percentage" && (s.showValue || s.gameType === "wheel" || (s.abEnabled && s.ab.gameType === "wheel")),
   )
@@ -207,78 +197,96 @@ export async function publishConfig(admin: AdminApi, shop: string) {
   const rewardTitle = (s: PopupSettings, game: GameType, best: ReturnType<typeof bestReward>, t: Strings) =>
     (game === "none" ? t.noneTitleValue : best.several ? t.titleUpTo : t.titleWin).replace("{value}", best.value);
 
+  return rows.map((p) => {
+    const s = rowToSettings(p);
+    // Some games word texts their own way unless the merchant wrote their own
+    // (for A's game: a text written for A doesn't fit B's other game).
+    const forGame = (game: GameType, l: Language, base: Strings) => ({
+      ...base,
+      ...Object.fromEntries(
+        Object.entries(GAME_TEXTS[game]).map(([key, src]) => [
+          key,
+          (game === s.gameType ? s.strings[l]?.[key as StringKey] : undefined) ?? base[src],
+        ]),
+      ),
+    });
+    const base = Object.fromEntries(LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }])) as Record<Language, Strings>;
+    // Headline with the reward, unless the merchant wrote their own title.
+    const named = s.showValue && s.codeMode === "unique";
+    const titled = (game: GameType, v: PopupSettings | PopupSettings["ab"], l: Language, t: Strings) =>
+      named && !s.strings[l]?.introTitle ? { ...t, introTitle: rewardTitle(s, game, bestReward(s, v, game), t) } : t;
+    const strings = Object.fromEntries(LANGUAGES.map((l) => [l, titled(s.gameType, s, l, forGame(s.gameType, l, base[l]))]));
+    // A/B test: the storefront picks a variant per visitor and overlays `ab`
+    // (B's strings only for languages where B changes the texts).
+    const ab = s.abEnabled
+      ? {
+          v: "b",
+          gameType: s.ab.gameType,
+          ...(s.ab.gameType === "wheel" ? { wheel: wheelLabels(s, s.ab) } : {}),
+          trigger: s.ab.trigger,
+          delaySec: s.ab.delaySec,
+          name: NAME_CODE[s.ab.nameField],
+          after: s.ab.emailAfter ? 1 : 0,
+          // B's texts for every language when its game or reward changes the wording, else only where B overrides.
+          strings: Object.fromEntries(
+            LANGUAGES.filter((l) => named || s.ab.strings[l] || (s.ab.gameType !== s.gameType && (OWN_TEXTS.has(s.ab.gameType) || OWN_TEXTS.has(s.gameType))))
+              .map((l) => [l, { ...titled(s.ab.gameType, s.ab, l, forGame(s.ab.gameType, l, base[l])), ...s.ab.strings[l] }]),
+          ),
+        }
+      : undefined;
+    return {
+      id: p.id,
+      ...(ab ? { v: "a", ab } : {}),
+      delaySec: s.delaySec,
+      surviveSec: s.surviveSec,
+      vx: s.vx,
+      vy: s.vy,
+      maxAttempts: s.maxAttempts,
+      primaryColor: s.primaryColor,
+      accentColor: s.accentColor,
+      // Inline style for the popup and the floating button: colors and size.
+      css: `--gd-primary:${s.primaryColor};--gd-accent:${s.accentColor};--gd-sd:${s.sizeDesktop / 100};--gd-sm:${s.sizeMobile / 100}`,
+      target: s.target,
+      requireConsent: s.requireConsent,
+      ...(s.doubleOptIn ? { doi: 1 } : {}),
+      // Name field: omitted = required, "o" optional, "h" hidden.
+      ...(s.nameField !== "required" ? { name: NAME_CODE[s.nameField] } : {}),
+      autoApply: s.autoApply,
+      // Skill games: consolation code when all attempts are lost; email asked after a win.
+      ...(s.consolation && s.codeMode === "unique" ? { cons: 1 } : {}),
+      ...(s.emailAfter ? { after: 1 } : {}),
+      gameType: s.gameType,
+      ...(s.gameType === "wheel" ? { wheel: wheelLabels(s) } : {}),
+      difficulty: s.difficulty,
+      trigger: s.trigger,
+      frequency: s.frequency,
+      teaser: s.teaser,
+      // Resolved per language so the storefront script carries no translations.
+      strings,
+    };
+  });
+}
+
+/**
+ * Publishes the storefront configuration as an app-data metafield on the app
+ * installation. The theme app extension reads it via
+ * `app.metafields.gamediscount.config`. Discount codes are deliberately left
+ * out — they're only released by the app proxy after a win.
+ */
+export async function publishConfig(admin: AdminApi, shop: string) {
+  const [{ id: ownerId, plan }, popups] = await Promise.all([
+    getInstallation(admin),
+    db.popup.findMany({ where: { shop } }),
+  ]);
+  const limits = PLAN_LIMITS[plan];
+  // Over the plan's revenue cap past the grace period → pause the storefront popup.
+  const billing = await getBillingStatus(shop, plan);
+
   const config = {
     v: 1,
     plan,
     branding: limits.branding,
-    popups: (billing.paused ? [] : livePopups(popups)).map((p) => {
-      const s = rowToSettings(p);
-      // Some games word texts their own way unless the merchant wrote their own
-      // (for A's game: a text written for A doesn't fit B's other game).
-      const forGame = (game: GameType, l: Language, base: Strings) => ({
-        ...base,
-        ...Object.fromEntries(
-          Object.entries(GAME_TEXTS[game]).map(([key, src]) => [
-            key,
-            (game === s.gameType ? s.strings[l]?.[key as StringKey] : undefined) ?? base[src],
-          ]),
-        ),
-      });
-      const base = Object.fromEntries(LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }])) as Record<Language, Strings>;
-      // Headline with the reward, unless the merchant wrote their own title.
-      const named = s.showValue && s.codeMode === "unique";
-      const titled = (game: GameType, v: PopupSettings | PopupSettings["ab"], l: Language, t: Strings) =>
-        named && !s.strings[l]?.introTitle ? { ...t, introTitle: rewardTitle(s, game, bestReward(s, v, game), t) } : t;
-      const strings = Object.fromEntries(LANGUAGES.map((l) => [l, titled(s.gameType, s, l, forGame(s.gameType, l, base[l]))]));
-      // A/B test: the storefront picks a variant per visitor and overlays `ab`
-      // (B's strings only for languages where B changes the texts).
-      const ab = s.abEnabled
-        ? {
-            v: "b",
-            gameType: s.ab.gameType,
-            ...(s.ab.gameType === "wheel" ? { wheel: wheelLabels(s, s.ab) } : {}),
-            trigger: s.ab.trigger,
-            delaySec: s.ab.delaySec,
-            name: NAME_CODE[s.ab.nameField],
-            after: s.ab.emailAfter ? 1 : 0,
-            // B's texts for every language when its game or reward changes the wording, else only where B overrides.
-            strings: Object.fromEntries(
-              LANGUAGES.filter((l) => named || s.ab.strings[l] || (s.ab.gameType !== s.gameType && (OWN_TEXTS.has(s.ab.gameType) || OWN_TEXTS.has(s.gameType))))
-                .map((l) => [l, { ...titled(s.ab.gameType, s.ab, l, forGame(s.ab.gameType, l, base[l])), ...s.ab.strings[l] }]),
-            ),
-          }
-        : undefined;
-      return {
-        id: p.id,
-        ...(ab ? { v: "a", ab } : {}),
-        delaySec: s.delaySec,
-        surviveSec: s.surviveSec,
-        vx: s.vx,
-        vy: s.vy,
-        maxAttempts: s.maxAttempts,
-        primaryColor: s.primaryColor,
-        accentColor: s.accentColor,
-        // Inline style for the popup and the floating button: colors and size.
-        css: `--gd-primary:${s.primaryColor};--gd-accent:${s.accentColor};--gd-sd:${s.sizeDesktop / 100};--gd-sm:${s.sizeMobile / 100}`,
-        target: s.target,
-        requireConsent: s.requireConsent,
-        ...(s.doubleOptIn ? { doi: 1 } : {}),
-        // Name field: omitted = required, "o" optional, "h" hidden.
-        ...(s.nameField !== "required" ? { name: NAME_CODE[s.nameField] } : {}),
-        autoApply: s.autoApply,
-        // Skill games: consolation code when all attempts are lost; email asked after a win.
-        ...(s.consolation && s.codeMode === "unique" ? { cons: 1 } : {}),
-        ...(s.emailAfter ? { after: 1 } : {}),
-        gameType: s.gameType,
-        ...(s.gameType === "wheel" ? { wheel: wheelLabels(s) } : {}),
-        difficulty: s.difficulty,
-        trigger: s.trigger,
-        frequency: s.frequency,
-        teaser: s.teaser,
-        // Resolved per language so the storefront script carries no translations.
-        strings,
-      };
-    }),
+    popups: billing.paused ? [] : await storefrontPopups(admin, livePopups(popups)),
   };
 
   const res = await admin.graphql(

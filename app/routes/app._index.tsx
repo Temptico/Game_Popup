@@ -25,7 +25,8 @@ import { livePopups, publishConfig } from "../lib/popups.server";
 import { getCounts } from "../lib/analytics.server";
 import { getRevenue } from "../lib/revenue.server";
 import { PLAN_LABELS, getPlan } from "../lib/plans";
-import { TARGETS } from "../lib/popup-defaults";
+import { DEFAULT_ACCENT, DEFAULT_PRIMARY, TARGETS, type GameType } from "../lib/popup-defaults";
+import { ColorsPicture, EmbedPicture, GameThumb, PublishPicture, SetupGuide } from "../components/SetupGuide";
 import { APP_VERSION, LISTING_URL } from "../lib/version";
 import { BrandHero } from "../components/BrandHero";
 
@@ -78,7 +79,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       target: p.target,
       counts: byPopup[p.id] ?? { view: 0, submit: 0, play: 0, win: 0 },
       sales: revenue.byPopup[p.id] ?? { amount: 0, orders: 0 },
+      primaryColor: p.primaryColor,
+      accentColor: p.accentColor,
+      gameType: p.gameType,
     })),
+    guideHidden: !!state?.guideHidden,
   };
 };
 
@@ -88,6 +93,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const form = await request.formData();
   const intent = form.get("intent");
   const id = String(form.get("id"));
+
+  if (intent === "guide") {
+    await db.shopState.upsert({ where: { shop }, create: { shop, guideHidden: true }, update: { guideHidden: true } });
+    return { ok: true, message: "" };
+  }
 
   if (intent === "review") {
     // done: Shopify's review modal was answered (or can't be shown to this merchant);
@@ -113,7 +123,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const activate = !popup.active;
     await db.popup.update({ where: { id }, data: { active: activate } });
     await publishConfig(admin, shop);
-    return { ok: true, message: activate ? "Popup activated" : "Popup paused" };
+    return { ok: true, message: activate ? "Popup published" : "Popup paused" };
   }
 
   return { ok: false, message: "Unknown action" };
@@ -125,7 +135,7 @@ const targetLabel = (v: string) => TARGETS.find((t) => t.value === v)?.label ?? 
 const EMBED_HINT_KEY = "gd_embed_hint_dismissed";
 
 export default function Index() {
-  const { popups, plan, billing, apiKey, showPlans, review, sales, lastSeen } = useLoaderData<typeof loader>();
+  const { popups, plan, billing, apiKey, showPlans, review, sales, lastSeen, guideHidden } = useLoaderData<typeof loader>();
   // Revenue in the store's currency; plan limits stay in USD.
   const money = (n: number) =>
     sales.currency
@@ -133,6 +143,13 @@ export default function Index() {
       : usd(n);
   const revenueNow = sales.currency ? sales.amount : sales.usd;
   const seenDaysAgo = lastSeen ? (Date.now() - new Date(lastSeen).getTime()) / 86_400_000 : null;
+  // Setup guide until everything is done or the merchant hides it.
+  const [guideOff, setGuideOff] = useState(guideHidden);
+  const first = popups[0];
+  const colors = { primary: first?.primaryColor ?? DEFAULT_PRIMARY, accent: first?.accentColor ?? DEFAULT_ACCENT };
+  const allDone = popups.length > 0 && popups.some((p) => p.active) && lastSeen !== null &&
+    popups.some((p) => p.primaryColor !== DEFAULT_PRIMARY || p.accentColor !== DEFAULT_ACCENT);
+  const showGuide = !guideOff && !allDone;
   const totals = popups.reduce(
     (t, p) => ({ view: t.view + p.counts.view, submit: t.submit + p.counts.submit, win: t.win + p.counts.win }),
     { view: 0, submit: 0, win: 0 },
@@ -240,6 +257,44 @@ export default function Index() {
             </>
           }
         />
+        {showGuide && (
+          <SetupGuide
+            onHide={() => {
+              setGuideOff(true);
+              fetcher.submit({ intent: "guide", id: "" }, { method: "POST" });
+            }}
+            steps={[
+              {
+                title: "Create your popup",
+                text: "Pick a game and the discount visitors can win. It takes about 2 minutes.",
+                done: popups.length > 0,
+                action: first ? { label: "Open your popup", onAction: () => navigate(`/app/popups/${first.id}`) } : { label: "Create popup", onAction: () => navigate("/app/popups/new") },
+                picture: <GameThumb game={(first?.gameType as GameType) ?? "wheel"} primary={colors.primary} accent={colors.accent} />,
+              },
+              {
+                title: "Match your store colors",
+                text: "In your popup, open Design and click “Use my store colors”. The popup then looks like part of your store.",
+                done: popups.some((p) => p.primaryColor !== DEFAULT_PRIMARY || p.accentColor !== DEFAULT_ACCENT),
+                action: { label: "Open Design", onAction: () => navigate(first ? `/app/popups/${first.id}` : "/app/popups/new") },
+                picture: <ColorsPicture primary={colors.primary} accent={colors.accent} />,
+              },
+              {
+                title: "Publish it",
+                text: "Check it with “Preview on store”, then click Publish. Until then only you can see it.",
+                done: popups.some((p) => p.active),
+                action: { label: "Open your popup", onAction: () => navigate(first ? `/app/popups/${first.id}` : "/app/popups/new") },
+                picture: <PublishPicture />,
+              },
+              {
+                title: "Switch it on in your theme",
+                text: "In the theme editor, open App embeds, switch on “Kodra Play popup” and click Save. This step turns green once a visitor has seen the popup.",
+                done: lastSeen !== null,
+                action: { label: "Open theme editor", url: embedUrl, external: true },
+                picture: <EmbedPicture />,
+              },
+            ]}
+          />
+        )}
         {billing.overLimit && (
           <Banner
             tone={billing.paused ? "critical" : "warning"}
@@ -285,7 +340,7 @@ export default function Index() {
             <p>Make sure “Kodra Play popup” is switched on under App embeds in your current theme (a new theme needs it switched on again).</p>
           </Banner>
         )}
-        {seenDaysAgo === null && showEmbedHint && (
+        {seenDaysAgo === null && showEmbedHint && !showGuide && (
           <Banner
             title="Step 1: turn on the popup in your theme"
             tone="info"
@@ -349,7 +404,7 @@ export default function Index() {
                       ) : p.active ? (
                         <Badge tone="warning">Over plan limit</Badge>
                       ) : (
-                        <Badge>Paused</Badge>
+                        <Badge>Draft</Badge>
                       )}
                       {p.ab && p.active && <Badge tone="info">A/B test</Badge>}
                     </InlineStack>
@@ -381,7 +436,7 @@ export default function Index() {
                     <div onClick={(e) => e.stopPropagation()}>
                       <InlineStack gap="200" align="end" wrap={false}>
                         <Button size="slim" onClick={() => submit("toggle", p.id)}>
-                          {p.active ? "Pause" : "Activate"}
+                          {p.active ? "Pause" : "Publish"}
                         </Button>
                         <RowMenu
                           onEdit={() => navigate(`/app/popups/${p.id}`)}
@@ -397,7 +452,7 @@ export default function Index() {
         </Card>
         {popups.length > 0 && (
           <Text as="p" variant="bodySm" tone="subdued">
-            Last 30 days. Emails = share of views that entered an email; Wins = share of emails that won.
+            Last 30 days. % under Emails: of the people who saw the popup. % under Wins: of the people who left an email.
             Collected emails are saved as customers in Shopify (tag “gamediscount”), where your email marketing app picks them up.{" "}
             <Link url="shopify:admin/customers" target="_top">Open customers</Link>
           </Text>

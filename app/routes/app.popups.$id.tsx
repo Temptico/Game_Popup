@@ -236,6 +236,15 @@ export default function PopupEditor() {
                   checked={s.teaser}
                   onChange={set("teaser")}
                 />
+                {skill && (
+                  <Select
+                    label="When to ask for the email"
+                    options={EMAIL_TIMING}
+                    value={s.emailAfter ? "after" : "before"}
+                    onChange={(v) => set("emailAfter")(v === "after")}
+                    helpText="After a win: winners want their code, but people who lose leave no email. Try both with an A/B test."
+                  />
+                )}
                 {preview && (
                   <Select
                     label="Name field"
@@ -302,13 +311,6 @@ export default function PopupEditor() {
                         />
                       )}
                       <TextField label="Tries per visitor" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off" />
-                      <Select
-                        label="When to ask for the email"
-                        options={EMAIL_TIMING}
-                        value={s.emailAfter ? "after" : "before"}
-                        onChange={(v) => set("emailAfter")(v === "after")}
-                        helpText="After a win: winners want their code, but people who lose leave no email. Try both with an A/B test."
-                      />
                     </FormLayout>
                   </BlockStack>
                 )}

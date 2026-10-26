@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { json, type ActionFunctionArgs } from "@remix-run/node";
 import db from "../db.server";
 import { readProxyRequest } from "../lib/proxy.server";
@@ -24,7 +25,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   // 1 = won on the first attempt (best reward). Client-reported: the spread
   // between tiers is small and each code is single-use anyway.
-  const tier = Math.min(3, Math.max(1, Math.round(Number(body.tier) || 3)));
+  let tier = Math.min(3, Math.max(1, Math.round(Number(body.tier) || 3)));
   // Variant B of an A/B test has its own discount. The variant comes from the
   // claim (fixed at sign-up), or from the request in theme-editor test mode.
   const reward = (variant: string) => {
@@ -37,9 +38,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     };
   };
 
+  // Spin wheel: the server draws the reward. The wheel shows the top reward on
+  // 1 of 6 segments, the middle on 2 and the lowest on 3, and these are the odds.
+  const gameOf = (variant: string) =>
+    popup.abEnabled && variant === "b" ? parseAbJson(popup.abVariant).gameType : popup.gameType;
+  const draw = () => {
+    const r = randomInt(6);
+    return r === 0 ? 1 : r < 3 ? 2 : 3;
+  };
+
   // Theme-editor test mode: show a placeholder, never a real code, and don't
   // touch analytics. (A real code here would let anyone skip the game.)
   if (body.test === true) {
+    if (gameOf(String(body.v ?? "")) === "wheel") tier = draw();
     const { amount } = reward(String(body.v ?? ""));
     const unique = popup.codeMode === "unique";
     return reply(
@@ -56,12 +67,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (claim.code) return reply(claim.code, claim.valueLabel, claim.expiresAt);
 
   // Pong ends when someone reaches 3 goals, which takes at least a few seconds
-  // (serve pauses + ball travel); the other games last surviveSec.
-  const game = popup.abEnabled && claim.variant === "b" ? parseAbJson(popup.abVariant).gameType : popup.gameType;
-  const minMs = game === "pong" ? PONG_MIN_MS : popup.surviveSec * 1000;
+  // (serve pauses + ball travel); the wheel asks while it spins; the other games last surviveSec.
+  const game = gameOf(claim.variant);
+  const minMs = game === "pong" ? PONG_MIN_MS : game === "wheel" ? 0 : popup.surviveSec * 1000;
   if (Date.now() - claim.issuedAt.getTime() < minMs - SLACK_MS) {
     return fail("too_fast", 403);
   }
+  if (game === "wheel") tier = draw();
 
   const { amount, sharedCode } = reward(claim.variant);
   let code: string | null = null;

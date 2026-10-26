@@ -13,6 +13,7 @@ import {
 } from "./popup-defaults";
 import { PLAN_LIMITS, planFromSubscriptionName, type PlanName } from "./plans";
 import { getBillingStatus } from "./revenue.server";
+import { getShopCurrency } from "./discounts.server";
 
 export const METAFIELD_NAMESPACE = "gamediscount";
 export const METAFIELD_KEY = "config";
@@ -25,6 +26,8 @@ interface AdminApi {
 }
 
 const NAME_CODE = { required: "", optional: "o", hidden: "h" } as const;
+// Games with their own intro and status texts.
+const OWN_TEXTS = new Set(["pong", "wheel"]);
 
 export function rowToSettings(row: Popup): PopupSettings {
   let strings: CustomStrings = {};
@@ -142,13 +145,26 @@ export async function publishConfig(admin: AdminApi, shop: string) {
   // Over the plan's revenue cap past the grace period → pause the storefront popup.
   const billing = await getBillingStatus(shop, plan);
 
+  // Spin wheel segments show the real rewards, labelled exactly like the won
+  // value (so the wheel can stop on it). Shared codes have no known value: gifts.
+  const wheelPopups = popups.map(rowToSettings).filter((s) => s.gameType === "wheel" || (s.abEnabled && s.ab.gameType === "wheel"));
+  const currency = wheelPopups.some((s) => s.codeMode === "unique" && s.discountType !== "percentage")
+    ? await getShopCurrency(admin).catch(() => "")
+    : "";
+  const wheelLabels = (s: PopupSettings, b?: PopupSettings["ab"]) =>
+    s.codeMode !== "unique"
+      ? undefined
+      : (s.tiered ? (b ?? s).tierValues : [(b ?? s).discountValue]).map((v) =>
+          s.discountType === "percentage" ? `${v}%` : `${v} ${currency}`.trim(),
+        );
+
   const config = {
     v: 1,
     plan,
     branding: limits.branding,
     popups: (billing.paused ? [] : livePopups(popups)).map((p) => {
       const s = rowToSettings(p);
-      // Pong has its own intro/status/lose texts unless the merchant wrote their own.
+      // Pong and the wheel have their own intro/status/lose texts unless the merchant wrote their own.
       const forGame = (game: string, l: Language, base: Strings) =>
         game === "pong"
           ? {
@@ -157,7 +173,9 @@ export async function publishConfig(admin: AdminApi, shop: string) {
               playing: s.strings[l]?.playing ?? base.pongHelp,
               fail: s.strings[l]?.fail ?? base.pongFail,
             }
-          : base;
+          : game === "wheel"
+            ? { ...base, introDesc: s.strings[l]?.introDesc ?? base.wheelDesc, playing: s.strings[l]?.playing ?? base.wheelHelp }
+            : base;
       const base = Object.fromEntries(LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }])) as Record<Language, Strings>;
       const strings = Object.fromEntries(LANGUAGES.map((l) => [l, forGame(s.gameType, l, base[l])]));
       // A/B test: the storefront picks a variant per visitor and overlays `ab`
@@ -166,12 +184,13 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         ? {
             v: "b",
             gameType: s.ab.gameType,
+            ...(s.ab.gameType === "wheel" ? { wheel: wheelLabels(s, s.ab) } : {}),
             trigger: s.ab.trigger,
             delaySec: s.ab.delaySec,
             name: NAME_CODE[s.ab.nameField],
             // B's texts for every language when its game changes the wording, else only where B overrides.
             strings: Object.fromEntries(
-              LANGUAGES.filter((l) => s.ab.strings[l] || (s.ab.gameType !== s.gameType && (s.ab.gameType === "pong" || s.gameType === "pong")))
+              LANGUAGES.filter((l) => s.ab.strings[l] || (s.ab.gameType !== s.gameType && (OWN_TEXTS.has(s.ab.gameType) || OWN_TEXTS.has(s.gameType))))
                 .map((l) => [l, { ...forGame(s.ab.gameType, l, base[l]), ...s.ab.strings[l] }]),
             ),
           }
@@ -195,6 +214,7 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         ...(s.nameField !== "required" ? { name: NAME_CODE[s.nameField] } : {}),
         autoApply: s.autoApply,
         gameType: s.gameType,
+        ...(s.gameType === "wheel" ? { wheel: wheelLabels(s) } : {}),
         difficulty: s.difficulty,
         trigger: s.trigger,
         frequency: s.frequency,

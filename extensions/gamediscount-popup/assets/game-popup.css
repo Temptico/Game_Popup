@@ -132,6 +132,10 @@
 .gd-g-pong .gd-canvas { cursor: none; margin: 0 auto; max-width: min(100%, 300px); }
 @media (min-width: 641px) { .gd-g-pong .gd-canvas { max-width: 100%; } }
 .gd-g-flipper .gd-canvas { cursor: pointer; }
+/* Spin wheel: no timer, transparent board, tap to spin */
+.gd-g-wheel { background: none; }
+.gd-g-wheel .gd-timer { display: none; }
+.gd-g-wheel .gd-canvas { cursor: pointer; margin: 0 auto; max-width: min(100%, 260px); }
 .gd-timer {
   position: absolute;
   top: 8px;

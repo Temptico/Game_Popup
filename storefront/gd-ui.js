@@ -60,7 +60,7 @@
     ]);
 
     // Screen 3: game
-    var gameType = /^(flipper|pong)$/.test(popup.gameType) ? popup.gameType : 'paddle';
+    var gameType = /^(flipper|pong|wheel)$/.test(popup.gameType) ? popup.gameType : 'paddle';
     var canvas = el('canvas', { class: 'gd-canvas', 'aria-label': t.playing });
     var timerEl = el('div', { class: 'gd-timer', text: Number(popup.surviveSec).toFixed(1) + 's' });
     var statusEl = el('p', { class: 'gd-status', 'aria-live': 'polite' });
@@ -116,7 +116,8 @@
     }
     function close() {
       // Closing mid-game counts as a lost attempt; the retry button waits on reopen.
-      if (running) { stopGame(); lose(); } else stopGame();
+      // The wheel can't be lost: closing it reveals the reward (shown on reopen).
+      if (running) { stopGame(); gameType == 'wheel' ? win() : lose(); } else stopGame();
       overlay.classList.remove('gd-open');
       overlay.hidden = true;
       document.documentElement.style.overflow = prevOverflow;
@@ -256,23 +257,28 @@
         if (!res || !res.ok || !res.code) {
           // Claim failed (network / server). Let them come back and try again;
           // the same email gets the same claim token, so no duplicate codes.
-          codeEl.textContent = '—';
+          codeEl.textContent = '—'; claimP = null;
           if (!testMode) local.set(KEY_ATTEMPTS, '0');
           return;
         }
         claimed = { code: res.code, value: res.value || null, expiresAt: res.expiresAt || null };
         renderReward();
         if (!testMode) local.set(KEY_CLAIMED, JSON.stringify(claimed));
+        if (overlay.hidden) showTeaser(); // closed before the reward arrived (wheel)
         if (popup.autoApply && !testMode) {
           // Sets the discount cookie so the code is pre-applied at checkout.
           fetch('/discount/' + encodeURIComponent(claimed.code), { redirect: 'manual', credentials: 'same-origin' }).catch(function () {});
         }
         copyBtn.focus({ preventScroll: true });
       };
-      // A slow /subscribe may still be in flight — wait for its token.
-      tokenPromise
-        .then(function (token) { return post('/claim', { test: testMode, token: token, tier: tier }); })
-        .then(reveal, function () { reveal(null); });
+      claim(tier).then(reveal, function () { reveal(null); });
+    }
+
+    // One claim per page: the wheel asks for it while spinning, win() reuses it.
+    // A slow /subscribe may still be in flight — wait for its token.
+    var claimP;
+    function claim(tier) {
+      return claimP = claimP || tokenPromise.then(function (token) { return post('/claim', { test: testMode, token: token, tier: tier }); });
     }
 
     // ---------- game (module loaded on demand from the theme extension assets) ----------
@@ -301,7 +307,9 @@
         engine.start({
           // Time left in ms, or a ready label (pong shows the score).
           tick: function (v) { timerEl.textContent = v.toFixed ? (v / 1000).toFixed(1) + 's' : v; },
-          end: function (won) { running = false; if (won) win(); else lose(); }
+          end: function (won) { running = false; if (won) win(); else lose(); },
+          // Wheel: the won value, so it stops on the matching segment.
+          prize: function () { return claim(1).then(function (r) { return r && r.value; }); }
         });
       }, function () { statusEl.textContent = '—'; });
     }

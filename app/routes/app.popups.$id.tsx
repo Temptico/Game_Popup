@@ -60,6 +60,10 @@ import { getAbResults, getDiscountUsage } from "../lib/analytics.server";
 import { previewFeatures } from "../lib/billing.server";
 import type { BrandColorsResult } from "../lib/brand-colors.server";
 
+// The spin wheel is tried on the store copies first.
+const gameOptions = (preview: boolean, current: string) =>
+  GAMES.filter((g) => preview || g.value !== "wheel" || g.value === current).map((g) => ({ ...g }));
+
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const { plan } = await getInstallation(admin);
@@ -247,17 +251,20 @@ export default function PopupEditor() {
                     {s.codeMode === "unique" && (
                       <BlockStack gap="300">
                         <Checkbox
-                          label="Reward by attempt: better discount for winning on the first try"
+                          label={s.gameType === "wheel" ? "Reward tiers: three rewards on the wheel" : "Reward by attempt: better discount for winning on the first try"}
                           checked={s.tiered}
                           onChange={set("tiered")}
                           helpText="Replaces the single value above. Makes replays more exciting."
                         />
                         {s.tiered && (
                           <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
-                            {(["1st attempt", "2nd attempt", "3rd attempt or later"] as const).map((label, i) => (
+                            {(s.gameType === "wheel"
+                              ? ["Top reward (1 in 6)", "Middle reward (2 in 6)", "Lowest reward (3 in 6)"]
+                              : ["Won on 1st attempt", "Won on 2nd attempt", "Won on 3rd attempt or later"]
+                            ).map((label, i) => (
                               <TextField
                                 key={label}
-                                label={`Won on ${label}`}
+                                label={label}
                                 type="number"
                                 min={0}
                                 suffix={s.discountType === "percentage" ? "%" : undefined}
@@ -351,7 +358,7 @@ export default function PopupEditor() {
                   <FormLayout>
                     <Select
                       label="Game"
-                      options={[...GAMES]}
+                      options={gameOptions(preview, s.gameType)}
                       value={s.gameType}
                       onChange={(v) => set("gameType")(v as PopupSettings["gameType"])}
                       error={errors.gameType}
@@ -360,7 +367,9 @@ export default function PopupEditor() {
                           ? "Keep the ball in play with two flippers (tap left/right side or arrow keys)."
                           : s.gameType === "pong"
                             ? "Play against the computer; first to 3 goals wins. Desktop: mouse or ↑↓. Phones: the field turns upright and a drag anywhere steers."
-                            : "Keep the ball bouncing with a paddle (mouse, finger or arrow keys)."
+                            : s.gameType === "wheel"
+                              ? "One spin, every segment is a reward. With reward tiers on (General tab), the top reward is on 1 of 6 segments, the middle on 2 and the lowest on 3, and those are the real odds. Without tiers every segment shows your discount."
+                              : "Keep the ball bouncing with a paddle (mouse, finger or arrow keys)."
                       }
                     />
                     {(s.gameType === "pong" || (s.abEnabled && s.ab.gameType === "pong")) && (
@@ -388,7 +397,8 @@ export default function PopupEditor() {
                     <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                       <TextField label="Popup delay (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />
                       <TextField label="Survive time to win (seconds)" type="number" min={3} value={String(s.surviveSec)} onChange={setNum("surviveSec")} autoComplete="off"
-                        disabled={s.gameType === "pong"} helpText={s.gameType === "pong" ? "Not used by Pong (first to 3 goals)." : undefined} />
+                        disabled={s.gameType === "pong" || s.gameType === "wheel"}
+                        helpText={s.gameType === "pong" ? "Not used by Pong (first to 3 goals)." : s.gameType === "wheel" ? "Not used by the spin wheel." : undefined} />
                     </InlineGrid>
                     {s.gameType === "paddle" && (
                       <Select
@@ -407,7 +417,8 @@ export default function PopupEditor() {
                         helpText="Slower ball = more winners = more orders. Faster ball = the discount feels earned."
                       />
                     )}
-                    <TextField label="Max attempts" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off" />
+                    <TextField label="Max attempts" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off"
+                      disabled={s.gameType === "wheel"} helpText={s.gameType === "wheel" ? "The wheel is spun once and always wins." : undefined} />
                     <Checkbox
                       label="Show a floating “Play for a discount” button after the popup is closed"
                       helpText="Visitors who close the popup too early can come back to it. After a win it reminds them of their code."
@@ -549,7 +560,12 @@ function ColorField({
 }
 
 function Preview({ settings: s, branding, device }: { settings: PopupSettings; branding: boolean; device: "desktop" | "phone" }) {
-  const t = { ...DEFAULT_STRINGS.en, ...s.strings.en };
+  const own = DEFAULT_STRINGS.en;
+  const t = {
+    ...own,
+    ...(s.gameType === "pong" ? { introDesc: own.pongDesc } : s.gameType === "wheel" ? { introDesc: own.wheelDesc } : {}),
+    ...s.strings.en,
+  };
   const phone = device === "phone";
   const scale = (phone ? s.sizeMobile : s.sizeDesktop) / 100;
   return (
@@ -662,7 +678,7 @@ function AbTab({
               switching the test off and on again starts new results.
             </Text>
             <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
-              <Select label="Game" options={GAMES.map((g) => ({ ...g }))} value={b.gameType}
+              <Select label="Game" options={gameOptions(preview, b.gameType)} value={b.gameType}
                 onChange={(v) => setB("gameType", v as AbVariant["gameType"])} />
               <Select label="When it opens" options={TRIGGERS.map((t) => ({ ...t }))} value={b.trigger}
                 onChange={(v) => setB("trigger", v as AbVariant["trigger"])} />

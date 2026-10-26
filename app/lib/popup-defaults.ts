@@ -806,6 +806,8 @@ export interface PopupSettings {
   frequency: "session" | "once" | "day" | "week" | "always";
   // Don't open by itself for shoppers with something in the cart
   noCart: boolean;
+  // Save each winner's code on the Shopify customer (for a reminder email)
+  saveCode: boolean;
   teaser: boolean;
   tiered: boolean;
   // Best → worst: won on 1st, 2nd, 3rd+ attempt
@@ -895,6 +897,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   frequency: "session",
   teaser: true,
   noCart: true,
+  saveCode: false,
   tiered: false,
   tierValues: [15, 10, 5],
   urgencyMinutes: 0,
@@ -1111,6 +1114,7 @@ export function parseSettings(input: Record<string, unknown>): {
         : "session",
       teaser: input.teaser !== false && input.teaser !== "false",
       noCart: input.noCart === true || input.noCart === "true",
+      saveCode: codeMode === "unique" && (input.saveCode === true || input.saveCode === "true"),
       tiered,
       tierValues,
       urgencyMinutes: Math.round(num(input.urgencyMinutes, 0, 0, 1440)),

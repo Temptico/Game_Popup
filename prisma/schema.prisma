@@ -89,6 +89,8 @@ model Popup {
   emailAfter       Boolean @default(false)
   // Don't open by itself for shoppers with something in the cart (on for new popups)
   noCart           Boolean @default(false)
+  // Save each winner's code on the Shopify customer (for a reminder email)
+  saveCode         Boolean @default(false)
   // JSON-encoded CustomStrings ({ sl: { introTitle: "..." }, ... })
   strings        String   @default("{}")
   createdAt      DateTime @default(now())
@@ -141,6 +143,8 @@ model Claim {
   // Device ("d"/"m") and storefront country at sign-up, carried to orders
   device     String    @default("")
   country    String    @default("")
+  // Shopify customer (gid) the code is saved on, for the code reminder
+  customerId String    @default("")
 
   @@unique([popupId, emailHash])
   @@index([shop, claimedAt])

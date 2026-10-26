@@ -5,6 +5,7 @@ import { readProxyRequest } from "../lib/proxy.server";
 import { rowToSettings } from "../lib/popups.server";
 import { SKILL_GAMES, type WheelSegment } from "../lib/popup-defaults";
 import { createUniqueDiscount, getShopCurrency } from "../lib/discounts.server";
+import { saveCodeOnCustomer } from "../lib/code-reminder.server";
 
 // Game time can only run slower than wall time, so a real win always takes at
 // least surviveSec since the token was issued. Allow a little clock slack.
@@ -130,6 +131,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (count === 0) {
     const existing = await db.claim.findUnique({ where: { id: claim.id } });
     return reply(existing?.code ?? code, existing?.valueLabel ?? null, existing?.expiresAt ?? null);
+  }
+
+  // Code reminder: the code goes on the customer, for the merchant's reminder email.
+  if (popup.saveCode && discountId && claim.customerId) {
+    await saveCodeOnCustomer(admin, shop, claim.customerId, { code, value: valueLabel, expiresAt }).catch((err) =>
+      console.error(`[reminder] ${shop}`, err),
+    );
   }
 
   // A consolation code isn't a win.

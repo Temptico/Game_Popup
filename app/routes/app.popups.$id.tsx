@@ -468,6 +468,14 @@ export default function PopupEditor() {
                         autoComplete="off"
                       />
                     )}
+                    {s.codeMode === "unique" && (
+                      <Checkbox
+                        label="Save each winner's code in Shopify, for a reminder email"
+                        helpText="The code, its value and end date go on the customer, with the tag “kodra-code” until it's used. Shopify Flow or your email app can then remind them before it expires."
+                        checked={s.saveCode}
+                        onChange={set("saveCode")}
+                      />
+                    )}
                     <TextField
                       label={s.codeMode === "unique" ? "Backup code (optional)" : "Your discount code"}
                       value={s.discountCode}

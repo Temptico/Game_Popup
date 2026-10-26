@@ -603,6 +603,75 @@ export const FREQUENCIES = [
   { label: "On every page until closed", value: "always" },
 ] as const;
 
+/** Spin wheel reward: the discount and its chance in % (all chances add up to 100). */
+export interface WheelSegment {
+  value: number;
+  chance: number;
+}
+export const WHEEL_MAX_SEGMENTS = 8;
+export const DEFAULT_WHEEL: WheelSegment[] = [
+  { value: 5, chance: 50 },
+  { value: 10, chance: 30 },
+  { value: 20, chance: 20 },
+];
+
+/**
+ * Texts a game words its own way: the shown key → the default it takes, unless
+ * the merchant wrote that text themselves. Keys used by no game are hidden in the editor.
+ */
+export const GAME_TEXTS: Record<GameType, Partial<Record<StringKey, StringKey>>> = {
+  paddle: {},
+  flipper: { playing: "flipperHelp" },
+  pong: { introDesc: "pongDesc", playing: "pongHelp", fail: "pongFail" },
+  wheel: { introDesc: "wheelDesc", playing: "wheelHelp" },
+  none: {
+    introTitle: "noneTitle",
+    introDesc: "noneDesc",
+    formTitle: "noneForm",
+    formSubmit: "noneSubmit",
+    teaser: "noneTeaser",
+    consentError: "noneConsent",
+  },
+};
+// Default-only keys (edited through the key they stand in for) and keys a game doesn't use.
+const SOURCE_KEYS = new Set<StringKey>(Object.values(GAME_TEXTS).flatMap((m) => Object.values(m)));
+const UNUSED: Partial<Record<GameType, StringKey[]>> = {
+  wheel: ["fail", "retriesLeft", "noAttempts"],
+  none: ["playing", "fail", "retriesLeft", "noAttempts"],
+};
+/** The text fields the editor shows for a game, with the default each one falls back to. */
+export function textFieldsFor(game: GameType): { key: StringKey; source: StringKey }[] {
+  return STRING_KEYS.filter((k) => !SOURCE_KEYS.has(k) && !UNUSED[game]?.includes(k)).map((key) => ({
+    key,
+    source: GAME_TEXTS[game][key] ?? key,
+  }));
+}
+
+/** Games where the visitor has to win (time, attempts, reward by attempt). */
+export const SKILL_GAMES: readonly GameType[] = ["paddle", "flipper", "pong"];
+
+/** Coerces stored or submitted wheel rewards; anything unreadable falls back. */
+export function parseWheelSegments(raw: unknown, fallback: WheelSegment[] = DEFAULT_WHEEL): WheelSegment[] {
+  if (!Array.isArray(raw) || !raw.length) return fallback.map((x) => ({ ...x }));
+  return raw.slice(0, WHEEL_MAX_SEGMENTS).map((x) => {
+    const o = (x && typeof x === "object" ? x : {}) as Record<string, unknown>;
+    return { value: num(o.value, 0, 0, 1_000_000), chance: Math.round(num(o.chance, 0, 0, 100)) };
+  });
+}
+
+/** What's wrong with a wheel's rewards, or null when it can be saved. */
+export function wheelError(segs: WheelSegment[], discountType: "percentage" | "fixed"): string | null {
+  if (!segs.length || segs.length > WHEEL_MAX_SEGMENTS) return `Add 1 to ${WHEEL_MAX_SEGMENTS} rewards.`;
+  if (segs.some((x) => x.value <= 0 || (discountType === "percentage" && x.value > 100))) {
+    return discountType === "percentage" ? "Each reward needs a percentage between 1 and 100." : "Each reward needs an amount greater than 0.";
+  }
+  if (new Set(segs.map((x) => x.value)).size !== segs.length) return "Each reward must be different.";
+  if (segs.some((x) => x.chance < 1)) return "Each reward needs a chance of at least 1%: the wheel only shows rewards that can be won.";
+  const total = segs.reduce((t, x) => t + x.chance, 0);
+  if (total !== 100) return `The chances must add up to 100% (now ${total}%).`;
+  return null;
+}
+
 export const DEFAULT_PRIMARY = "#830522";
 export const DEFAULT_ACCENT = "#d9caa0";
 
@@ -616,6 +685,8 @@ export interface AbVariant {
   tierValues: [number, number, number];
   // Shared-code mode: B's code (empty = same code as A)
   discountCode: string;
+  // Spin wheel rewards when B is the wheel
+  wheelSegments: WheelSegment[];
   nameField: NameField;
   // Headline/description per language (empty = same as A)
   strings: Partial<Record<Language, { introTitle?: string; introDesc?: string }>>;
@@ -657,6 +728,8 @@ export interface PopupSettings {
   tierValues: [number, number, number];
   // >0: unique codes expire this many minutes after winning (shown as a countdown)
   urgencyMinutes: number;
+  // Spin wheel rewards and their chances
+  wheelSegments: WheelSegment[];
   strings: CustomStrings;
   abEnabled: boolean;
   ab: AbVariant;
@@ -671,6 +744,7 @@ export function abFromSettings(s: PopupSettings): AbVariant {
     discountValue: s.discountValue,
     tierValues: [...s.tierValues],
     discountCode: s.discountCode,
+    wheelSegments: s.wheelSegments.map((x) => ({ ...x })),
     nameField: s.nameField,
     strings: {},
   };
@@ -692,6 +766,7 @@ export function applyVariantB(s: PopupSettings): PopupSettings {
     discountValue: b.discountValue,
     tierValues: [...b.tierValues],
     discountCode: b.discountCode || s.discountCode,
+    wheelSegments: b.wheelSegments.map((x) => ({ ...x })),
     nameField: b.nameField,
     strings,
     abEnabled: false,
@@ -729,6 +804,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   tiered: false,
   tierValues: [15, 10, 5],
   urgencyMinutes: 0,
+  wheelSegments: DEFAULT_WHEEL,
   strings: {},
   abEnabled: false,
   ab: {
@@ -738,6 +814,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
     discountValue: 10,
     tierValues: [15, 10, 5],
     discountCode: "",
+    wheelSegments: DEFAULT_WHEEL,
     nameField: "required",
     strings: {},
   },
@@ -773,6 +850,7 @@ export function parseAbVariant(input: unknown, fallback: AbVariant = DEFAULT_SET
     discountValue: num(o.discountValue, fallback.discountValue, 0.01, 100000),
     tierValues: [0, 1, 2].map((i) => num(tiers[i], fallback.tierValues[i], 0.01, 100000)) as [number, number, number],
     discountCode: String(o.discountCode ?? "").trim().slice(0, 255),
+    wheelSegments: parseWheelSegments(o.wheelSegments, fallback.wheelSegments),
     nameField: isNameField(o.nameField) ? o.nameField : fallback.nameField,
     strings,
   };
@@ -786,6 +864,7 @@ export const SIZE_LIMITS = {
 } as const;
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
+const WHEEL_NEEDS_UNIQUE = "The spin wheel gives each winner their own code: set the discount code type to unique codes.";
 const CODE = /^[A-Za-z0-9_-]{1,255}$/;
 
 function num(v: unknown, fallback: number, min: number, max: number) {
@@ -843,11 +922,21 @@ export function parseSettings(input: Record<string, unknown>): {
     errors.tierValues = "Each tier needs a value greater than 0 (percentages up to 100).";
   }
 
+  const gameType = isGameType(input.gameType) ? input.gameType : "paddle";
+  const wheelSegments = parseWheelSegments(input.wheelSegments);
+  if (gameType === "wheel") {
+    const err = codeMode !== "unique" ? WHEEL_NEEDS_UNIQUE : wheelError(wheelSegments, discountType);
+    if (err) errors.wheelSegments = err;
+  }
+
   const abEnabled = input.abEnabled === true || input.abEnabled === "true";
   const ab = parseAbVariant(input.ab);
   if (abEnabled) {
     const pct = (v: number) => discountType === "percentage" && v > 100;
-    if (codeMode === "unique" && (pct(ab.discountValue) || ab.tierValues.some(pct))) {
+    const wheelErr = ab.gameType === "wheel" && (codeMode !== "unique" ? WHEEL_NEEDS_UNIQUE : wheelError(ab.wheelSegments, discountType));
+    if (wheelErr) {
+      errors.ab = `Variant B: ${wheelErr}`;
+    } else if (codeMode === "unique" && (pct(ab.discountValue) || ab.tierValues.some(pct))) {
       errors.ab = "Variant B: percentages must be between 1 and 100.";
     } else if (ab.discountCode && !CODE.test(ab.discountCode)) {
       errors.ab = "Variant B: enter the discount code exactly as created in Shopify (letters, numbers, - and _).";
@@ -906,7 +995,7 @@ export function parseSettings(input: Record<string, unknown>): {
       discountValue,
       codePrefix,
       codeExpiryDays: Math.round(num(input.codeExpiryDays, d.codeExpiryDays, 0, 365)),
-      gameType: isGameType(input.gameType) ? input.gameType : "paddle",
+      gameType,
       difficulty: DIFFICULTIES.some((x) => x.value === input.difficulty)
         ? (input.difficulty as PopupSettings["difficulty"])
         : "medium",
@@ -918,6 +1007,7 @@ export function parseSettings(input: Record<string, unknown>): {
       tiered,
       tierValues,
       urgencyMinutes: Math.round(num(input.urgencyMinutes, 0, 0, 1440)),
+      wheelSegments,
       strings,
       abEnabled,
       ab,

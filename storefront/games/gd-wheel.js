@@ -12,10 +12,11 @@
     var c = canvas.getContext('2d');
     c.scale(dpr, dpr);
 
-    // Labels per tier, best first. Three tiers: the better the reward, the fewer
-    // segments (1, 2 and 3 of 6). One reward: six equal segments.
-    var labels = (o.wheel && o.wheel.length ? o.wheel : ['🎁']).slice(0, 3);
-    var segs = labels.length === 3 ? [0, 2, 1, 2, 1, 2] : [0, 0, 0, 0, 0, 0].map(function (_, i) { return i % labels.length; });
+    // The merchant's rewards, each repeated until there are at least 6 equal
+    // segments, in an even number so the two colors alternate all round.
+    var labels = (o.wheel && o.wheel.length ? o.wheel : ['🎁']).slice(0, 8);
+    var segs = [];
+    while (segs.length < 6 || segs.length % 2) segs = segs.concat(labels.map(function (_, i) { return i; }));
     var n = segs.length, seg = TAU / n;
     var rot = -Math.PI / 2 - seg / 2, cb = null, raf = 0, state = 'off';
 
@@ -33,7 +34,7 @@
         c.fillStyle = dark ? '#f5eeea' : '#11151c';
         c.font = 'bold 20px sans-serif';
         c.textAlign = 'center'; c.textBaseline = 'middle';
-        c.fillText(labels[segs[i]], 0, -R * 0.66, R * 0.62);
+        c.fillText(labels[segs[i]], 0, -R * 0.66, Math.min(R * 0.62, R * 0.6 * seg));
         c.restore();
       }
       c.lineWidth = 4; c.strokeStyle = '#fff';

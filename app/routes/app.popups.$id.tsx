@@ -38,9 +38,12 @@ import {
   type AbVariant,
   LANGUAGE_LABELS,
   LANGUAGES,
-  STRING_KEYS,
   STRING_LABELS,
   GAMES,
+  GAME_TEXTS,
+  SKILL_GAMES,
+  textFieldsFor,
+  type GameType,
   TARGETS,
   TRIGGERS,
   FREQUENCIES,
@@ -59,10 +62,12 @@ import {
 import { getAbResults, getDiscountUsage } from "../lib/analytics.server";
 import { previewFeatures } from "../lib/billing.server";
 import type { BrandColorsResult } from "../lib/brand-colors.server";
+import { GamePicker } from "../components/GamePicker";
+import { WheelEditor } from "../components/WheelEditor";
 
 // The spin wheel and the form-only popup are tried on the store copies first.
-const gameOptions = (preview: boolean, current: string) =>
-  GAMES.filter((g) => preview || (g.value !== "wheel" && g.value !== "none") || g.value === current).map((g) => ({ ...g }));
+const gamesFor = (preview: boolean, current: GameType) =>
+  GAMES.map((g) => g.value).filter((g) => preview || (g !== "wheel" && g !== "none") || g === current);
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -105,9 +110,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   return redirect(`/app?saved=${encodeURIComponent(row.name)}`);
 };
 
-const TABS = [
+// The second tab follows the game: settings and rewards for skill games, the
+// wheel's rewards, or just the discount for the form-only popup.
+const tabsFor = (game: GameType) => [
   { id: "general", content: "General" },
-  { id: "game", content: "Game" },
+  {
+    id: "game",
+    content: SKILL_GAMES.includes(game) ? "Game & rewards" : game === "wheel" ? "Wheel & rewards" : "Reward",
+  },
   { id: "design", content: "Design" },
   { id: "texts", content: "Texts (advanced)" },
   { id: "ab", content: "A/B test" },
@@ -162,6 +172,8 @@ export default function PopupEditor() {
 
   const branded = plan === "free";
   const saving = nav.state === "submitting";
+  const skill = SKILL_GAMES.includes(s.gameType);
+  const unit = s.discountType === "percentage" ? "%" : "";
 
   return (
     <Page>
@@ -185,144 +197,52 @@ export default function PopupEditor() {
         )}
         <Layout.Section>
           <Card>
-            <Tabs tabs={TABS} selected={tab} onSelect={setTab}>
+            <BlockStack gap="300">
+              <Text as="h2" variant="headingMd">Game</Text>
+              <GamePicker
+                value={s.gameType}
+                onChange={set("gameType")}
+                games={gamesFor(preview, s.gameType)}
+                primary={s.primaryColor}
+                accent={s.accentColor}
+              />
+              {errors.gameType && <Text as="p" tone="critical">{errors.gameType}</Text>}
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+        <Layout.Section>
+          <Card>
+            <Tabs tabs={tabsFor(s.gameType)} selected={tab} onSelect={setTab}>
               <Box paddingBlockStart="400">
                 {tab === 0 && (
                   <FormLayout>
                     <TextField label="Internal name" value={s.name} onChange={set("name")} autoComplete="off" />
-                    <Select
-                      label="Discount code type"
-                      options={[
-                        { label: "One shared code (you create it in Discounts)", value: "static" },
-                        { label: "Unique single-use code per winner", value: "unique" },
-                      ]}
-                      value={s.codeMode}
-                      onChange={(v) => set("codeMode")(v as PopupSettings["codeMode"])}
-                      error={errors.codeMode}
-                      helpText={
-                        s.codeMode === "unique"
-                          ? "Each winner gets their own code, valid for one order. Shared codes can't leak to coupon sites."
-                          : "Every winner sees the same code."
-                      }
-                    />
-                    {s.codeMode === "unique" && (
-                      <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
-                          <Select
-                            label="Discount"
-                            options={[
-                              { label: "Percentage off order", value: "percentage" },
-                              { label: "Fixed amount off order", value: "fixed" },
-                            ]}
-                            value={s.discountType}
-                            onChange={(v) => set("discountType")(v as PopupSettings["discountType"])}
-                          />
-                          <TextField
-                            label={s.discountType === "percentage" ? "Percentage" : "Amount (store currency)"}
-                            type="number"
-                            min={0}
-                            suffix={s.discountType === "percentage" ? "%" : undefined}
-                            value={String(s.discountValue)}
-                            onChange={(v) => setS((prev) => ({ ...prev, discountValue: v as unknown as number }))}
-                            error={errors.discountValue}
-                            disabled={s.tiered}
-                            helpText={s.tiered ? "Set per attempt below." : undefined}
-                            autoComplete="off"
-                          />
-                          <TextField
-                            label="Code prefix"
-                            value={s.codePrefix}
-                            onChange={(v) => set("codePrefix")(v.toUpperCase())}
-                            error={errors.codePrefix}
-                            helpText={`Example: ${s.codePrefix ? `${s.codePrefix}-` : ""}K7M2QX9A`}
-                            autoComplete="off"
-                          />
-                          <TextField
-                            label="Code valid for (days)"
-                            type="number"
-                            min={0}
-                            value={String(s.codeExpiryDays)}
-                            onChange={(v) => setS((prev) => ({ ...prev, codeExpiryDays: v as unknown as number }))}
-                            disabled={s.urgencyMinutes > 0}
-                            helpText={s.urgencyMinutes > 0 ? "Overridden by the urgency countdown below." : "0 = never expires. A short window pushes winners to buy now."}
-                            autoComplete="off"
-                          />
-                      </InlineGrid>
-                    )}
-                    {s.codeMode === "unique" && (
-                      <BlockStack gap="300">
-                        <Checkbox
-                          label={s.gameType === "wheel" ? "Reward tiers: three rewards on the wheel" : "Reward by attempt: better discount for winning on the first try"}
-                          checked={s.tiered}
-                          onChange={set("tiered")}
-                          helpText="Replaces the single value above. Makes replays more exciting."
-                        />
-                        {s.tiered && (
-                          <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
-                            {(s.gameType === "wheel"
-                              ? ["Top reward (1 in 6)", "Middle reward (2 in 6)", "Lowest reward (3 in 6)"]
-                              : ["Won on 1st attempt", "Won on 2nd attempt", "Won on 3rd attempt or later"]
-                            ).map((label, i) => (
-                              <TextField
-                                key={label}
-                                label={label}
-                                type="number"
-                                min={0}
-                                suffix={s.discountType === "percentage" ? "%" : undefined}
-                                value={String(s.tierValues[i])}
-                                onChange={(v) =>
-                                  setS((prev) => {
-                                    const next = [...prev.tierValues] as PopupSettings["tierValues"];
-                                    next[i] = v as unknown as number;
-                                    return { ...prev, tierValues: next };
-                                  })
-                                }
-                                error={i === 0 ? errors.tierValues : undefined}
-                                autoComplete="off"
-                              />
-                            ))}
-                          </InlineGrid>
-                        )}
-                        <TextField
-                          label="Urgency countdown (minutes)"
-                          type="number"
-                          min={0}
-                          value={String(s.urgencyMinutes)}
-                          onChange={(v) => setS((prev) => ({ ...prev, urgencyMinutes: v as unknown as number }))}
-                          helpText="0 = off. When set, each winner's code really expires after this many minutes and a live countdown is shown. (A fake countdown would be misleading under EU consumer law, so it's always real.)"
-                          autoComplete="off"
-                        />
-                      </BlockStack>
-                    )}
-                    <TextField
-                      label={s.codeMode === "unique" ? "Fallback shared code (optional)" : "Discount code shown on win"}
-                      value={s.discountCode}
-                      onChange={(v) => set("discountCode")(v.toUpperCase())}
-                      error={errors.discountCode}
-                      autoComplete="off"
-                      helpText={
-                        <>
-                          {s.codeMode === "unique"
-                            ? "Used only if a unique code can't be created (e.g. a temporary Shopify error). Create it in "
-                            : "Create the code first in "}
-                          <Link url="shopify:admin/discounts" target="_top">
-                            Discounts
-                          </Link>
-                          . Codes are only revealed after a win — never in the page source.
-                        </>
-                      }
-                    />
-                    {id && initial.discountCode && !codeExists && (
-                      <Banner tone="warning">
-                        “{initial.discountCode}” doesn’t exist in your Discounts yet — winners will get a code
-                        that doesn’t work at checkout.
-                      </Banner>
-                    )}
-                    <Select label="Show on" options={[...TARGETS]} value={s.target} onChange={set("target")} />
                     <Checkbox
                       label="Active"
                       checked={s.active}
                       onChange={set("active")}
                       error={errors.active}
+                    />
+                    <Select label="Show on" options={[...TARGETS]} value={s.target} onChange={set("target")} />
+                    <Select
+                      label="When to show the popup"
+                      options={[...TRIGGERS]}
+                      value={s.trigger}
+                      onChange={(v) => set("trigger")(v as PopupSettings["trigger"])}
+                    />
+                    <Select
+                      label="How often to show it automatically"
+                      options={[...FREQUENCIES]}
+                      value={s.frequency}
+                      onChange={(v) => set("frequency")(v as PopupSettings["frequency"])}
+                      helpText="Counted per visitor. After a win the popup never opens by itself again; the floating button stays available."
+                    />
+                    <TextField label="Popup delay (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />
+                    <Checkbox
+                      label={s.gameType === "none" ? "Show a floating “Get a discount” button after the popup is closed" : "Show a floating “Play for a discount” button after the popup is closed"}
+                      helpText="Visitors who close the popup too early can come back to it. After a win it reminds them of their code."
+                      checked={s.teaser}
+                      onChange={set("teaser")}
                     />
                     {preview && (
                       <Select
@@ -334,7 +254,7 @@ export default function PopupEditor() {
                       />
                     )}
                     <Checkbox
-                      label="Require marketing consent checkbox to play"
+                      label={s.gameType === "none" ? "Require marketing consent checkbox to get the code" : "Require marketing consent checkbox to play"}
                       helpText="Visitors who tick it are subscribed to email marketing. Recommended for GDPR (EU stores)."
                       checked={s.requireConsent}
                       onChange={set("requireConsent")}
@@ -355,80 +275,198 @@ export default function PopupEditor() {
                 )}
 
                 {tab === 1 && (
-                  <FormLayout>
-                    <Select
-                      label="Game"
-                      options={gameOptions(preview, s.gameType)}
-                      value={s.gameType}
-                      onChange={(v) => set("gameType")(v as PopupSettings["gameType"])}
-                      error={errors.gameType}
-                      helpText={
-                        s.gameType === "flipper"
-                          ? "Keep the ball in play with two flippers (tap left/right side or arrow keys)."
-                          : s.gameType === "pong"
-                            ? "Play against the computer; first to 3 goals wins. Desktop: mouse or ↑↓. Phones: the field turns upright and a drag anywhere steers."
-                            : s.gameType === "none"
-                              ? "No game: visitors sign up and get the code right away. Use it as variant B of an A/B test to see how many more emails the game brings. With reward tiers on, everyone gets the 1st-attempt value."
-                              : s.gameType === "wheel"
-                              ? "One spin, every segment is a reward. With reward tiers on (General tab), the top reward is on 1 of 6 segments, the middle on 2 and the lowest on 3, and those are the real odds. Without tiers every segment shows your discount."
-                              : "Keep the ball bouncing with a paddle (mouse, finger or arrow keys)."
-                      }
-                    />
-                    {(s.gameType === "pong" || (s.abEnabled && s.ab.gameType === "pong")) && (
-                      <Select
-                        label="Computer level (Pong)"
-                        options={[...DIFFICULTIES]}
-                        value={s.difficulty}
-                        onChange={(v) => set("difficulty")(v as PopupSettings["difficulty"])}
-                        helpText="Medium: most visitors win within a few attempts. Hard makes the discount feel earned but costs sign-ups."
-                      />
+                  <BlockStack gap="500">
+                    {skill && (
+                      <BlockStack gap="300">
+                        <Text as="h3" variant="headingSm">Game</Text>
+                        <FormLayout>
+                          {s.gameType === "pong" && (
+                            <Select
+                              label="Computer level"
+                              options={[...DIFFICULTIES]}
+                              value={s.difficulty}
+                              onChange={(v) => set("difficulty")(v as PopupSettings["difficulty"])}
+                              helpText="Medium: most visitors win within a few attempts. Hard makes the discount feel earned but costs sign-ups."
+                            />
+                          )}
+                          {s.gameType !== "pong" && (
+                            <TextField label="Survive time to win (seconds)" type="number" min={3} value={String(s.surviveSec)} onChange={setNum("surviveSec")} autoComplete="off" />
+                          )}
+                          {s.gameType === "paddle" && (
+                            <Select
+                              label="Ball speed"
+                              options={[
+                                ...BALL_SPEEDS.map(({ label, value }) => ({ label, value })),
+                                ...(ballSpeedOf(Number(s.vx), Number(s.vy)) === "custom"
+                                  ? [{ label: `Custom (${s.vx} / ${s.vy})`, value: "custom" }]
+                                  : []),
+                              ]}
+                              value={ballSpeedOf(Number(s.vx), Number(s.vy))}
+                              onChange={(v) => {
+                                const p = BALL_SPEEDS.find((b) => b.value === v);
+                                if (p) setS((prev) => ({ ...prev, vx: p.vx, vy: p.vy }));
+                              }}
+                              helpText="Slower ball = more winners = more orders. Faster ball = the discount feels earned."
+                            />
+                          )}
+                          <TextField label="Max attempts" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off" />
+                        </FormLayout>
+                      </BlockStack>
                     )}
-                    <Select
-                      label="When to show the popup"
-                      options={[...TRIGGERS]}
-                      value={s.trigger}
-                      onChange={(v) => set("trigger")(v as PopupSettings["trigger"])}
-                    />
-                    <Select
-                      label="How often to show it automatically"
-                      options={[...FREQUENCIES]}
-                      value={s.frequency}
-                      onChange={(v) => set("frequency")(v as PopupSettings["frequency"])}
-                      helpText="Counted per visitor. After a win the popup never opens by itself again; the floating button stays available."
-                    />
-                    <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
-                      <TextField label="Popup delay (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />
-                      <TextField label="Survive time to win (seconds)" type="number" min={3} value={String(s.surviveSec)} onChange={setNum("surviveSec")} autoComplete="off"
-                        disabled={s.gameType === "pong" || s.gameType === "wheel" || s.gameType === "none"}
-                        helpText={s.gameType === "pong" ? "Not used by Pong (first to 3 goals)." : s.gameType === "wheel" || s.gameType === "none" ? "Not used by this game." : undefined} />
-                    </InlineGrid>
-                    {s.gameType === "paddle" && (
-                      <Select
-                        label="Ball speed"
-                        options={[
-                          ...BALL_SPEEDS.map(({ label, value }) => ({ label, value })),
-                          ...(ballSpeedOf(Number(s.vx), Number(s.vy)) === "custom"
-                            ? [{ label: `Custom (${s.vx} / ${s.vy})`, value: "custom" }]
-                            : []),
-                        ]}
-                        value={ballSpeedOf(Number(s.vx), Number(s.vy))}
-                        onChange={(v) => {
-                          const p = BALL_SPEEDS.find((b) => b.value === v);
-                          if (p) setS((prev) => ({ ...prev, vx: p.vx, vy: p.vy }));
-                        }}
-                        helpText="Slower ball = more winners = more orders. Faster ball = the discount feels earned."
-                      />
-                    )}
-                    <TextField label="Max attempts" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off"
-                      disabled={s.gameType === "wheel" || s.gameType === "none"}
-                      helpText={s.gameType === "wheel" ? "The wheel is spun once and always wins." : s.gameType === "none" ? "No game: the code comes right after sign-up." : undefined} />
-                    <Checkbox
-                      label="Show a floating “Play for a discount” button after the popup is closed"
-                      helpText="Visitors who close the popup too early can come back to it. After a win it reminds them of their code."
-                      checked={s.teaser}
-                      onChange={set("teaser")}
-                    />
-                  </FormLayout>
+
+                    <BlockStack gap="300">
+                      <Text as="h3" variant="headingSm">{s.gameType === "wheel" ? "Rewards on the wheel" : "Discount"}</Text>
+                      <FormLayout>
+                        <Select
+                          label="Discount code type"
+                          options={[
+                            { label: "One shared code (you create it in Discounts)", value: "static" },
+                            { label: "Unique single-use code per winner", value: "unique" },
+                          ]}
+                          value={s.codeMode}
+                          onChange={(v) => set("codeMode")(v as PopupSettings["codeMode"])}
+                          error={errors.codeMode}
+                          helpText={
+                            s.codeMode === "unique"
+                              ? "Each winner gets their own code, valid for one order. Shared codes can't leak to coupon sites."
+                              : "Every winner sees the same code."
+                          }
+                        />
+                        {s.gameType === "wheel" && s.codeMode !== "unique" && (
+                          <Banner tone="warning">
+                            The spin wheel gives each winner their own code with the reward they won. Choose “Unique single-use code per winner”.
+                          </Banner>
+                        )}
+                        {s.codeMode === "unique" && (
+                          <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
+                            <Select
+                              label="Discount type"
+                              options={[
+                                { label: "Percentage off order", value: "percentage" },
+                                { label: "Fixed amount off order", value: "fixed" },
+                              ]}
+                              value={s.discountType}
+                              onChange={(v) => set("discountType")(v as PopupSettings["discountType"])}
+                            />
+                            {s.gameType !== "wheel" && (
+                              <TextField
+                                label={s.discountType === "percentage" ? "Percentage" : "Amount (store currency)"}
+                                type="number"
+                                min={0}
+                                suffix={unit || undefined}
+                                value={String(s.discountValue)}
+                                onChange={(v) => setS((prev) => ({ ...prev, discountValue: v as unknown as number }))}
+                                error={errors.discountValue}
+                                disabled={skill && s.tiered}
+                                helpText={skill && s.tiered ? "Set per attempt below." : undefined}
+                                autoComplete="off"
+                              />
+                            )}
+                          </InlineGrid>
+                        )}
+                        {s.codeMode === "unique" && s.gameType === "wheel" && (
+                          <WheelEditor
+                            segments={s.wheelSegments}
+                            onChange={set("wheelSegments")}
+                            unit={unit}
+                            primary={s.primaryColor}
+                            accent={s.accentColor}
+                            error={errors.wheelSegments}
+                          />
+                        )}
+                        {s.codeMode === "unique" && skill && (
+                          <BlockStack gap="300">
+                            <Checkbox
+                              label="Reward by attempt: better discount for winning on the first try"
+                              checked={s.tiered}
+                              onChange={set("tiered")}
+                              helpText="Replaces the single value above. Makes replays more exciting."
+                            />
+                            {s.tiered && (
+                              <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
+                                {["Won on 1st attempt", "Won on 2nd attempt", "Won on 3rd attempt or later"].map((label, i) => (
+                                  <TextField
+                                    key={label}
+                                    label={label}
+                                    type="number"
+                                    min={0}
+                                    suffix={unit || undefined}
+                                    value={String(s.tierValues[i])}
+                                    onChange={(v) =>
+                                      setS((prev) => {
+                                        const next = [...prev.tierValues] as PopupSettings["tierValues"];
+                                        next[i] = v as unknown as number;
+                                        return { ...prev, tierValues: next };
+                                      })
+                                    }
+                                    error={i === 0 ? errors.tierValues : undefined}
+                                    autoComplete="off"
+                                  />
+                                ))}
+                              </InlineGrid>
+                            )}
+                          </BlockStack>
+                        )}
+                        {s.codeMode === "unique" && (
+                          <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
+                            <TextField
+                              label="Code prefix"
+                              value={s.codePrefix}
+                              onChange={(v) => set("codePrefix")(v.toUpperCase())}
+                              error={errors.codePrefix}
+                              helpText={`Example: ${s.codePrefix ? `${s.codePrefix}-` : ""}K7M2QX9A`}
+                              autoComplete="off"
+                            />
+                            <TextField
+                              label="Code valid for (days)"
+                              type="number"
+                              min={0}
+                              value={String(s.codeExpiryDays)}
+                              onChange={(v) => setS((prev) => ({ ...prev, codeExpiryDays: v as unknown as number }))}
+                              disabled={s.urgencyMinutes > 0}
+                              helpText={s.urgencyMinutes > 0 ? "Overridden by the urgency countdown below." : "0 = never expires. A short window pushes winners to buy now."}
+                              autoComplete="off"
+                            />
+                          </InlineGrid>
+                        )}
+                        {s.codeMode === "unique" && (
+                          <TextField
+                            label="Urgency countdown (minutes)"
+                            type="number"
+                            min={0}
+                            value={String(s.urgencyMinutes)}
+                            onChange={(v) => setS((prev) => ({ ...prev, urgencyMinutes: v as unknown as number }))}
+                            helpText="0 = off. When set, each winner's code really expires after this many minutes and a live countdown is shown. (A fake countdown would be misleading under EU consumer law, so it's always real.)"
+                            autoComplete="off"
+                          />
+                        )}
+                        <TextField
+                          label={s.codeMode === "unique" ? "Fallback shared code (optional)" : "Discount code shown on win"}
+                          value={s.discountCode}
+                          onChange={(v) => set("discountCode")(v.toUpperCase())}
+                          error={errors.discountCode}
+                          autoComplete="off"
+                          helpText={
+                            <>
+                              {s.codeMode === "unique"
+                                ? "Used only if a unique code can't be created (e.g. a temporary Shopify error). Create it in "
+                                : "Create the code first in "}
+                              <Link url="shopify:admin/discounts" target="_top">
+                                Discounts
+                              </Link>
+                              . Codes are only revealed after a win — never in the page source.
+                            </>
+                          }
+                        />
+                        {id && initial.discountCode && !codeExists && (
+                          <Banner tone="warning">
+                            “{initial.discountCode}” doesn’t exist in your Discounts yet — winners will get a code
+                            that doesn’t work at checkout.
+                          </Banner>
+                        )}
+                      </FormLayout>
+                    </BlockStack>
+                  </BlockStack>
                 )}
 
                 {tab === 2 && (
@@ -490,12 +528,12 @@ export default function PopupEditor() {
                       onChange={(v) => setLang(v as Language)}
                     />
                     <FormLayout>
-                      {STRING_KEYS.map((key) => (
+                      {textFieldsFor(s.gameType).map(({ key, source }) => (
                         <TextField
                           key={`${lang}-${key}`}
                           label={STRING_LABELS[key]}
                           value={s.strings[lang]?.[key] ?? ""}
-                          placeholder={DEFAULT_STRINGS[lang][key]}
+                          placeholder={DEFAULT_STRINGS[lang][source]}
                           onChange={(v) => setString(key, v)}
                           autoComplete="off"
                         />
@@ -566,13 +604,7 @@ function Preview({ settings: s, branding, device }: { settings: PopupSettings; b
   const own = DEFAULT_STRINGS.en;
   const t = {
     ...own,
-    ...(s.gameType === "pong"
-      ? { introDesc: own.pongDesc }
-      : s.gameType === "wheel"
-        ? { introDesc: own.wheelDesc }
-        : s.gameType === "none"
-          ? { introTitle: own.noneTitle, introDesc: own.noneDesc }
-          : {}),
+    ...Object.fromEntries(Object.entries(GAME_TEXTS[s.gameType]).map(([key, src]) => [key, own[src]])),
     ...s.strings.en,
   };
   const phone = device === "phone";
@@ -664,8 +696,21 @@ function AbTab({
       ...prev,
       ab: { ...prev.ab, strings: { ...prev.ab.strings, [lang]: { ...prev.ab.strings[lang], [key]: value } } },
     }));
-  const aText = { ...DEFAULT_STRINGS[lang], ...s.strings[lang] };
+  // Placeholders: what each variant shows when its text is left empty.
+  const textOf = (game: GameType, key: "introTitle" | "introDesc") =>
+    s.strings[lang]?.[key] ?? DEFAULT_STRINGS[lang][GAME_TEXTS[game][key] ?? key];
   const unit = s.discountType === "percentage" ? "%" : "";
+  const bSkill = SKILL_GAMES.includes(b.gameType);
+  const aDiscount =
+    s.gameType === "wheel"
+      ? "the wheel's rewards"
+      : s.tiered && SKILL_GAMES.includes(s.gameType)
+        ? `${s.tierValues.join(" / ")}${unit} by attempt`
+        : `${s.discountValue}${unit}`;
+  const timed = (g: GameType) => g === "paddle" || g === "flipper";
+  const needsLevel = b.gameType === "pong" && s.gameType !== "pong";
+  const needsTime = timed(b.gameType) && !timed(s.gameType);
+  const needsAttempts = bSkill && !SKILL_GAMES.includes(s.gameType);
 
   return (
     <BlockStack gap="400">
@@ -686,9 +731,12 @@ function AbTab({
               Change one thing at a time to learn what works (for example only the discount). Saving restarts nothing;
               switching the test off and on again starts new results.
             </Text>
-            <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
-              <Select label="Game" options={gameOptions(preview, b.gameType)} value={b.gameType}
-                onChange={(v) => setB("gameType", v as AbVariant["gameType"])} />
+            <BlockStack gap="200">
+              <Text as="p" variant="bodyMd">Game for B (A: {GAMES.find((g) => g.value === s.gameType)?.label})</Text>
+              <GamePicker value={b.gameType} onChange={(g) => setB("gameType", g)} games={gamesFor(preview, b.gameType)}
+                primary={s.primaryColor} accent={s.accentColor} compact />
+            </BlockStack>
+            <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
               <Select label="When it opens" options={TRIGGERS.map((t) => ({ ...t }))} value={b.trigger}
                 onChange={(v) => setB("trigger", v as AbVariant["trigger"])} />
               <TextField label="Delay (seconds)" type="number" autoComplete="off" value={String(b.delaySec)}
@@ -699,11 +747,38 @@ function AbTab({
                 value={b.nameField} onChange={(v) => setB("nameField", v as AbVariant["nameField"])} />
             )}
 
-            {s.codeMode === "unique" && !s.tiered && (
-              <TextField label={`Discount for B (A: ${s.discountValue}${unit})`} type="number" autoComplete="off"
+            {/* B's game settings that A's game doesn't show (they are shared with A). */}
+            {(needsLevel || needsTime || needsAttempts) && (
+              <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
+                {needsLevel && (
+                  <Select label="Computer level (Pong)" options={[...DIFFICULTIES]} value={s.difficulty}
+                    onChange={(v) => setS((prev) => ({ ...prev, difficulty: v as PopupSettings["difficulty"] }))} />
+                )}
+                {needsTime && (
+                  <TextField label="Survive time to win (seconds)" type="number" min={3} autoComplete="off" value={String(s.surviveSec)}
+                    onChange={(v) => setS((prev) => ({ ...prev, surviveSec: v as unknown as number }))} />
+                )}
+                {needsAttempts && (
+                  <TextField label="Max attempts" type="number" min={1} autoComplete="off" value={String(s.maxAttempts)}
+                    onChange={(v) => setS((prev) => ({ ...prev, maxAttempts: v as unknown as number }))} />
+                )}
+              </InlineGrid>
+            )}
+            {s.codeMode === "unique" && b.gameType === "wheel" && (
+              <BlockStack gap="200">
+                <Text as="p" variant="bodyMd">Rewards on B&apos;s wheel</Text>
+                <WheelEditor segments={b.wheelSegments} onChange={(next) => setB("wheelSegments", next)} unit={unit}
+                  primary={s.primaryColor} accent={s.accentColor} />
+              </BlockStack>
+            )}
+            {s.codeMode === "static" && b.gameType === "wheel" && (
+              <Banner tone="warning">The spin wheel needs unique codes (Game tab → Discount code type).</Banner>
+            )}
+            {s.codeMode === "unique" && b.gameType !== "wheel" && !(bSkill && s.tiered) && (
+              <TextField label={`Discount for B (A: ${aDiscount})`} type="number" autoComplete="off"
                 suffix={unit} value={String(b.discountValue)} onChange={(v) => setB("discountValue", Number(v))} />
             )}
-            {s.codeMode === "unique" && s.tiered && (
+            {s.codeMode === "unique" && bSkill && s.tiered && (
               <InlineGrid columns={3} gap="400">
                 {(["1st", "2nd", "3rd+"] as const).map((label, i) => (
                   <TextField key={label} label={`B: won on ${label} attempt (A: ${s.tierValues[i]}${unit})`} type="number"
@@ -727,9 +802,9 @@ function AbTab({
               value={lang} onChange={(v) => setLang(v as Language)}
               helpText="Set B's texts for every language your store uses. Empty = same text as A." />
             <TextField label="Headline for B" autoComplete="off" value={b.strings[lang]?.introTitle ?? ""}
-              placeholder={aText.introTitle} onChange={(v) => setBString("introTitle", v)} />
+              placeholder={textOf(b.gameType, "introTitle")} onChange={(v) => setBString("introTitle", v)} />
             <TextField label="Description for B" autoComplete="off" value={b.strings[lang]?.introDesc ?? ""}
-              placeholder={aText.introDesc} onChange={(v) => setBString("introDesc", v)} />
+              placeholder={textOf(b.gameType, "introDesc").replace("{seconds}", String(s.surviveSec))} onChange={(v) => setBString("introDesc", v)} />
           </BlockStack>
         </Card>
       )}

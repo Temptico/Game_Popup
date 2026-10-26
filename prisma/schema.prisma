@@ -78,6 +78,8 @@ model Popup {
   tiered         Boolean  @default(false)
   tierValues     String   @default("15,10,5") // best → worst attempt
   urgencyMinutes Int      @default(0)
+  // Spin wheel rewards: JSON [{ value, chance }] ("" = derived from the tiers)
+  wheelSegments  String   @default("")
   // JSON-encoded CustomStrings ({ sl: { introTitle: "..." }, ... })
   strings        String   @default("{}")
   createdAt      DateTime @default(now())

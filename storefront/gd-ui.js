@@ -301,7 +301,7 @@
       attemptsUsed += 1;
       if (!testMode) local.set(KEY_ATTEMPTS, String(attemptsUsed));
       track('play');
-      statusEl.textContent = gameType === 'flipper' ? t.flipperHelp : t.playing;
+      statusEl.textContent = t.playing; // per game (flipper, pong, wheel) from the app
       timerEl.textContent = (surviveMs / 1000).toFixed(1) + 's';
       loadGame().then(function () {
         running = true;

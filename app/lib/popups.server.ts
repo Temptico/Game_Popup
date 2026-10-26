@@ -5,7 +5,13 @@ import {
   DEFAULT_STRINGS,
   LANGUAGES,
   parseAbJson,
+  parseWheelSegments,
   isGameType,
+  GAME_TEXTS,
+  type GameType,
+  type StringKey,
+  type AbVariant,
+  type WheelSegment,
   type CustomStrings,
   type Language,
   type PopupSettings,
@@ -26,8 +32,8 @@ interface AdminApi {
 }
 
 const NAME_CODE = { required: "", optional: "o", hidden: "h" } as const;
-// Games with their own intro and status texts.
-const OWN_TEXTS = new Set(["pong", "wheel", "none"]);
+// Games with their own texts (see GAME_TEXTS).
+const OWN_TEXTS = new Set(["flipper", "pong", "wheel", "none"]);
 
 export function rowToSettings(row: Popup): PopupSettings {
   let strings: CustomStrings = {};
@@ -67,10 +73,40 @@ export function rowToSettings(row: Popup): PopupSettings {
     tiered: row.tiered,
     tierValues: parseTierValues(row.tierValues),
     urgencyMinutes: row.urgencyMinutes,
+    wheelSegments: readWheel(row.wheelSegments, row.tiered, parseTierValues(row.tierValues), row.discountValue),
     strings,
     abEnabled: row.abEnabled,
-    ab: parseAbJson(row.abVariant),
+    ab: readAb(row),
   };
+}
+
+// Wheels saved before rewards had their own chances: the tiers become 1, 2 and
+// 3 of 6 segments (the odds those wheels showed), a single discount 100%.
+const LEGACY_CHANCES = [17, 33, 50];
+function readWheel(raw: string, tiered: boolean, tiers: number[], value: number): WheelSegment[] {
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(raw || "null");
+  } catch {
+    parsed = null;
+  }
+  if (Array.isArray(parsed) && parsed.length) return parseWheelSegments(parsed);
+  return tiered ? tiers.map((v, i) => ({ value: v, chance: LEGACY_CHANCES[i] })) : [{ value, chance: 100 }];
+}
+function readAb(row: Popup): AbVariant {
+  const ab = parseAbJson(row.abVariant);
+  let stored = false;
+  try {
+    stored = Array.isArray(JSON.parse(row.abVariant || "{}").wheelSegments);
+  } catch {
+    stored = false;
+  }
+  if (!stored && ab.gameType === "wheel") {
+    ab.wheelSegments = row.tiered
+      ? ab.tierValues.map((v, i) => ({ value: v, chance: LEGACY_CHANCES[i] }))
+      : [{ value: ab.discountValue, chance: 100 }];
+  }
+  return ab;
 }
 
 export { parseAbJson };
@@ -86,6 +122,7 @@ export function settingsToRow(s: PopupSettings) {
     ...rest,
     strings: JSON.stringify(s.strings),
     tierValues: s.tierValues.join(","),
+    wheelSegments: JSON.stringify(s.wheelSegments),
     abVariant: JSON.stringify(ab),
   };
 }
@@ -154,9 +191,7 @@ export async function publishConfig(admin: AdminApi, shop: string) {
   const wheelLabels = (s: PopupSettings, b?: PopupSettings["ab"]) =>
     s.codeMode !== "unique"
       ? undefined
-      : (s.tiered ? (b ?? s).tierValues : [(b ?? s).discountValue]).map((v) =>
-          s.discountType === "percentage" ? `${v}%` : `${v} ${currency}`.trim(),
-        );
+      : (b ?? s).wheelSegments.map(({ value }) => (s.discountType === "percentage" ? `${value}%` : `${value} ${currency}`.trim()));
 
   const config = {
     v: 1,
@@ -164,28 +199,17 @@ export async function publishConfig(admin: AdminApi, shop: string) {
     branding: limits.branding,
     popups: (billing.paused ? [] : livePopups(popups)).map((p) => {
       const s = rowToSettings(p);
-      // Pong and the wheel have their own intro/status/lose texts unless the merchant wrote their own.
-      const forGame = (game: string, l: Language, base: Strings) =>
-        game === "pong"
-          ? {
-              ...base,
-              introDesc: s.strings[l]?.introDesc ?? base.pongDesc,
-              playing: s.strings[l]?.playing ?? base.pongHelp,
-              fail: s.strings[l]?.fail ?? base.pongFail,
-            }
-          : game === "wheel"
-            ? { ...base, introDesc: s.strings[l]?.introDesc ?? base.wheelDesc, playing: s.strings[l]?.playing ?? base.wheelHelp }
-            : game === "none"
-              ? {
-                  ...base,
-                  introTitle: s.strings[l]?.introTitle ?? base.noneTitle,
-                  introDesc: s.strings[l]?.introDesc ?? base.noneDesc,
-                  formTitle: s.strings[l]?.formTitle ?? base.noneForm,
-                  formSubmit: s.strings[l]?.formSubmit ?? base.noneSubmit,
-                  teaser: s.strings[l]?.teaser ?? base.noneTeaser,
-                  consentError: s.strings[l]?.consentError ?? base.noneConsent,
-                }
-              : base;
+      // Some games word texts their own way unless the merchant wrote their own
+      // (for A's game: a text written for A doesn't fit B's other game).
+      const forGame = (game: GameType, l: Language, base: Strings) => ({
+        ...base,
+        ...Object.fromEntries(
+          Object.entries(GAME_TEXTS[game]).map(([key, src]) => [
+            key,
+            (game === s.gameType ? s.strings[l]?.[key as StringKey] : undefined) ?? base[src],
+          ]),
+        ),
+      });
       const base = Object.fromEntries(LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }])) as Record<Language, Strings>;
       const strings = Object.fromEntries(LANGUAGES.map((l) => [l, forGame(s.gameType, l, base[l])]));
       // A/B test: the storefront picks a variant per visitor and overlays `ab`

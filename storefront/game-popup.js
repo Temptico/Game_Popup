@@ -148,7 +148,7 @@
       fired = true;
       if (!cartCheck) return show();
       // The cart may have changed since the page loaded (cart drawers add without a reload).
-      fetch(((window.Shopify && Shopify.routes && Shopify.routes.root) || '/') + 'cart.js', { credentials: 'same-origin' })
+      fetch(((window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || '/') + 'cart.js', { credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
         .then(function (c) { if (!c.item_count) show(); }, show);
     }

@@ -375,8 +375,8 @@ export default function PopupEditor() {
                         )}
                         {s.codeMode === "unique" && (
                           <Checkbox
-                            label="Show the reward in the headline, e.g. “Win up to 20% off”"
-                            helpText="A concrete reward gets more visitors to start than a mystery discount. Your own intro title (Texts tab) replaces it."
+                            label="Show the discount in the title, e.g. “Win up to 20% off”"
+                            helpText="More people play when they know what they can win."
                             checked={s.showValue}
                             onChange={set("showValue")}
                           />
@@ -393,12 +393,14 @@ export default function PopupEditor() {
                         )}
                         {s.codeMode === "unique" && skill && (
                           <BlockStack gap="300">
-                            <Checkbox
-                              label="Reward by attempt: better discount for winning on the first try"
-                              checked={s.tiered}
-                              onChange={set("tiered")}
-                              helpText="Replaces the single value above. Makes replays more exciting."
-                            />
+                            {/* Kept for popups that already use it; not offered to new ones. */}
+                            {initial.tiered && (
+                              <Checkbox
+                                label="Bigger discount for winning on the first try"
+                                checked={s.tiered}
+                                onChange={set("tiered")}
+                              />
+                            )}
                             {s.tiered && (
                               <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
                                 {["Won on 1st attempt", "Won on 2nd attempt", "Won on 3rd attempt or later"].map((label, i) => (
@@ -423,14 +425,14 @@ export default function PopupEditor() {
                               </InlineGrid>
                             )}
                             <Checkbox
-                              label="Consolation reward when all attempts are lost"
-                              helpText="Everyone who leaves an email gets something; winners still get more. Not counted as a win in analytics."
+                              label="Give a small discount to players who lose"
+                              helpText="Everyone who leaves their email gets a code. Winners still get the bigger discount."
                               checked={s.consolation}
                               onChange={set("consolation")}
                             />
                             {s.consolation && (
                               <TextField
-                                label="Consolation reward"
+                                label="Discount for players who lose"
                                 type="number"
                                 min={0}
                                 suffix={unit || undefined}

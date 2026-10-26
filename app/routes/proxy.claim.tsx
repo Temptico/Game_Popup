@@ -50,7 +50,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Theme-editor test mode: show a placeholder, never a real code, and don't
   // touch analytics. (A real code here would let anyone skip the game.)
   if (body.test === true) {
-    if (gameOf(String(body.v ?? "")) === "wheel") tier = draw();
+    const g = gameOf(String(body.v ?? ""));
+    if (g === "wheel") tier = draw();
+    if (g === "none") tier = 1;
     const { amount } = reward(String(body.v ?? ""));
     const unique = popup.codeMode === "unique";
     return reply(
@@ -67,13 +69,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (claim.code) return reply(claim.code, claim.valueLabel, claim.expiresAt);
 
   // Pong ends when someone reaches 3 goals, which takes at least a few seconds
-  // (serve pauses + ball travel); the wheel asks while it spins; the other games last surviveSec.
+  // (serve pauses + ball travel); the wheel asks while it spins, the form-only popup at once;
+  // the other games last surviveSec.
   const game = gameOf(claim.variant);
-  const minMs = game === "pong" ? PONG_MIN_MS : game === "wheel" ? 0 : popup.surviveSec * 1000;
+  const minMs = game === "pong" ? PONG_MIN_MS : game === "wheel" || game === "none" ? 0 : popup.surviveSec * 1000;
   if (Date.now() - claim.issuedAt.getTime() < minMs - SLACK_MS) {
     return fail("too_fast", 403);
   }
   if (game === "wheel") tier = draw();
+  // No game: everyone gets the first reward.
+  if (game === "none") tier = 1;
 
   const { amount, sharedCode } = reward(claim.variant);
   let code: string | null = null;

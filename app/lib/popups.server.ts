@@ -27,7 +27,7 @@ interface AdminApi {
 
 const NAME_CODE = { required: "", optional: "o", hidden: "h" } as const;
 // Games with their own intro and status texts.
-const OWN_TEXTS = new Set(["pong", "wheel"]);
+const OWN_TEXTS = new Set(["pong", "wheel", "none"]);
 
 export function rowToSettings(row: Popup): PopupSettings {
   let strings: CustomStrings = {};
@@ -175,7 +175,17 @@ export async function publishConfig(admin: AdminApi, shop: string) {
             }
           : game === "wheel"
             ? { ...base, introDesc: s.strings[l]?.introDesc ?? base.wheelDesc, playing: s.strings[l]?.playing ?? base.wheelHelp }
-            : base;
+            : game === "none"
+              ? {
+                  ...base,
+                  introTitle: s.strings[l]?.introTitle ?? base.noneTitle,
+                  introDesc: s.strings[l]?.introDesc ?? base.noneDesc,
+                  formTitle: s.strings[l]?.formTitle ?? base.noneForm,
+                  formSubmit: s.strings[l]?.formSubmit ?? base.noneSubmit,
+                  teaser: s.strings[l]?.teaser ?? base.noneTeaser,
+                  consentError: s.strings[l]?.consentError ?? base.noneConsent,
+                }
+              : base;
       const base = Object.fromEntries(LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }])) as Record<Language, Strings>;
       const strings = Object.fromEntries(LANGUAGES.map((l) => [l, forGame(s.gameType, l, base[l])]));
       // A/B test: the storefront picks a variant per visitor and overlays `ab`

@@ -60,7 +60,7 @@
     ]);
 
     // Screen 3: game
-    var gameType = /^(flipper|pong|wheel)$/.test(popup.gameType) ? popup.gameType : 'paddle';
+    var gameType = /^(flipper|pong|wheel|none)$/.test(popup.gameType) ? popup.gameType : 'paddle';
     var canvas = el('canvas', { class: 'gd-canvas', 'aria-label': t.playing });
     var timerEl = el('div', { class: 'gd-timer', text: Number(popup.surviveSec).toFixed(1) + 's' });
     var statusEl = el('p', { class: 'gd-status', 'aria-live': 'polite' });
@@ -207,7 +207,8 @@
 
       var consent = consentInput.checked;
       doiEl.hidden = !(popup.doi && consent && t.doiNote);
-      var proceed = function () { submitBtn.disabled = false; show(game); startGame(); };
+      // No game (A/B baseline): the code comes right after sign-up.
+      var proceed = function () { submitBtn.disabled = false; if (gameType == 'none') return win(); show(game); startGame(); };
       if (testMode) return proceed();
       // Don't make the visitor wait on the network for more than ~2.5s.
       var done = false;
@@ -285,7 +286,7 @@
     var surviveMs = Math.max(3, Number(popup.surviveSec) || 15) * 1000;
     var running = false, engine = null, gameReady = null;
     function loadGame() {
-      if (gameReady) return gameReady;
+      if (gameReady || gameType == 'none') return gameReady;
       var assets = ctx.assets || {};
       if (!window.GameDiscountFx && assets.fx) script(assets.fx).catch(function () {}); // confetti is optional
       gameReady = ((window.GameDiscountGames || {})[gameType] ? Promise.resolve() : script(assets[gameType])).then(function () {

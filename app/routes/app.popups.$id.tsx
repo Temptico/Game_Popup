@@ -60,9 +60,9 @@ import { getAbResults, getDiscountUsage } from "../lib/analytics.server";
 import { previewFeatures } from "../lib/billing.server";
 import type { BrandColorsResult } from "../lib/brand-colors.server";
 
-// The spin wheel is tried on the store copies first.
+// The spin wheel and the form-only popup are tried on the store copies first.
 const gameOptions = (preview: boolean, current: string) =>
-  GAMES.filter((g) => preview || g.value !== "wheel" || g.value === current).map((g) => ({ ...g }));
+  GAMES.filter((g) => preview || (g.value !== "wheel" && g.value !== "none") || g.value === current).map((g) => ({ ...g }));
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -367,7 +367,9 @@ export default function PopupEditor() {
                           ? "Keep the ball in play with two flippers (tap left/right side or arrow keys)."
                           : s.gameType === "pong"
                             ? "Play against the computer; first to 3 goals wins. Desktop: mouse or ↑↓. Phones: the field turns upright and a drag anywhere steers."
-                            : s.gameType === "wheel"
+                            : s.gameType === "none"
+                              ? "No game: visitors sign up and get the code right away. Use it as variant B of an A/B test to see how many more emails the game brings. With reward tiers on, everyone gets the 1st-attempt value."
+                              : s.gameType === "wheel"
                               ? "One spin, every segment is a reward. With reward tiers on (General tab), the top reward is on 1 of 6 segments, the middle on 2 and the lowest on 3, and those are the real odds. Without tiers every segment shows your discount."
                               : "Keep the ball bouncing with a paddle (mouse, finger or arrow keys)."
                       }
@@ -397,8 +399,8 @@ export default function PopupEditor() {
                     <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                       <TextField label="Popup delay (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />
                       <TextField label="Survive time to win (seconds)" type="number" min={3} value={String(s.surviveSec)} onChange={setNum("surviveSec")} autoComplete="off"
-                        disabled={s.gameType === "pong" || s.gameType === "wheel"}
-                        helpText={s.gameType === "pong" ? "Not used by Pong (first to 3 goals)." : s.gameType === "wheel" ? "Not used by the spin wheel." : undefined} />
+                        disabled={s.gameType === "pong" || s.gameType === "wheel" || s.gameType === "none"}
+                        helpText={s.gameType === "pong" ? "Not used by Pong (first to 3 goals)." : s.gameType === "wheel" || s.gameType === "none" ? "Not used by this game." : undefined} />
                     </InlineGrid>
                     {s.gameType === "paddle" && (
                       <Select
@@ -418,7 +420,8 @@ export default function PopupEditor() {
                       />
                     )}
                     <TextField label="Max attempts" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off"
-                      disabled={s.gameType === "wheel"} helpText={s.gameType === "wheel" ? "The wheel is spun once and always wins." : undefined} />
+                      disabled={s.gameType === "wheel" || s.gameType === "none"}
+                      helpText={s.gameType === "wheel" ? "The wheel is spun once and always wins." : s.gameType === "none" ? "No game: the code comes right after sign-up." : undefined} />
                     <Checkbox
                       label="Show a floating “Play for a discount” button after the popup is closed"
                       helpText="Visitors who close the popup too early can come back to it. After a win it reminds them of their code."
@@ -563,7 +566,13 @@ function Preview({ settings: s, branding, device }: { settings: PopupSettings; b
   const own = DEFAULT_STRINGS.en;
   const t = {
     ...own,
-    ...(s.gameType === "pong" ? { introDesc: own.pongDesc } : s.gameType === "wheel" ? { introDesc: own.wheelDesc } : {}),
+    ...(s.gameType === "pong"
+      ? { introDesc: own.pongDesc }
+      : s.gameType === "wheel"
+        ? { introDesc: own.wheelDesc }
+        : s.gameType === "none"
+          ? { introTitle: own.noneTitle, introDesc: own.noneDesc }
+          : {}),
     ...s.strings.en,
   };
   const phone = device === "phone";

@@ -12,6 +12,9 @@
   var cfg;
   try { cfg = JSON.parse(cfgEl.textContent); } catch (e) { return; }
   var ctx = window.GameDiscountContext || {};
+  // Texts for the visitor's language, per popup ("<id>", "<id>:b" for variant B).
+  var texts = null;
+  try { texts = JSON.parse(document.getElementById('gd-strings').textContent); } catch (e) { /* older config: texts inside */ }
   // "Preview on store" from the app: shows that popup (drafts too) in test mode.
   var preview = (location.search.match(/[?&]gd_preview=([\w-]+)/) || [])[1];
   var testMode = !!ctx.alwaysShow || !!preview;
@@ -44,6 +47,10 @@
     var local = store('localStorage');
     var session = store('sessionStorage');
 
+    if (!popup.strings && texts) {
+      popup.strings = {}; popup.strings[ctx.lang] = texts[popup.id];
+      if (popup.ab && texts[popup.id + ':b']) { popup.ab.strings = {}; popup.ab.strings[ctx.lang] = texts[popup.id + ':b']; }
+    }
     // A/B test: each visitor keeps one variant; B overlays its own settings.
     var ab = popup.ab;
     if (ab) {
@@ -79,7 +86,7 @@
     var locale = ctx.locale || document.documentElement.lang || (window.Shopify && window.Shopify.locale) || 'en';
     var htmlLang = locale.toLowerCase();
     var lang = Object.keys(all).filter(function (k) { return htmlLang.indexOf(k) === 0; })[0] || 'en';
-    var t = all[lang] || all.en;
+    var t = all[lang] || all.en || all[ctx.lang];
     if (!t) return;
 
 

@@ -284,12 +284,18 @@ export async function publishConfig(admin: AdminApi, shop: string) {
   // Over the plan's revenue cap past the grace period → pause the storefront popup.
   const billing = await getBillingStatus(shop, plan);
 
-  const config = {
-    v: 1,
-    plan,
-    branding: limits.branding,
-    popups: billing.paused ? [] : await storefrontPopups(admin, livePopups(popups)),
-  };
+  const live = billing.paused ? [] : await storefrontPopups(admin, livePopups(popups));
+  // Texts go into one metafield per language: a page loads only its visitor's
+  // language ("<popup id>" for A, "<popup id>:b" for variant B of an A/B test).
+  const texts = Object.fromEntries(LANGUAGES.map((l) => [l, {} as Record<string, Strings>]));
+  const popupsOut = live.map(({ strings, ...p }) => {
+    for (const l of LANGUAGES) texts[l][p.id] = strings[l] as Strings;
+    if (!p.ab) return p;
+    const { strings: bStrings, ...ab } = p.ab;
+    for (const l of LANGUAGES) if (bStrings[l]) texts[l][`${p.id}:b`] = bStrings[l] as Strings;
+    return { ...p, ab };
+  });
+  const config = { v: 2, plan, branding: limits.branding, popups: popupsOut };
 
   const res = await admin.graphql(
     `#graphql
@@ -301,13 +307,14 @@ export async function publishConfig(admin: AdminApi, shop: string) {
     {
       variables: {
         metafields: [
-          {
+          { ownerId, namespace: METAFIELD_NAMESPACE, key: METAFIELD_KEY, type: "json", value: JSON.stringify(config) },
+          ...LANGUAGES.map((l) => ({
             ownerId,
             namespace: METAFIELD_NAMESPACE,
-            key: METAFIELD_KEY,
+            key: `strings_${l}`,
             type: "json",
-            value: JSON.stringify(config),
-          },
+            value: JSON.stringify(texts[l]),
+          })),
         ],
       },
     },

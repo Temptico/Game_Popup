@@ -218,6 +218,12 @@ export default function PopupEditor() {
                 <TextField label="Wait before it opens (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />
                 <Checkbox
                   label="Don't show it to people who already have something in the cart"
+                  helpText="They're about to buy anyway. The popup would only interrupt them and give away a discount."
+                  checked={s.noCart}
+                  onChange={set("noCart")}
+                />
+                <Checkbox
+                  label="Don't show it to people who already have something in the cart"
                   helpText="They're about to buy anyway, so the popup would only interrupt them (and give away a discount)."
                   checked={s.noCart}
                   onChange={set("noCart")}

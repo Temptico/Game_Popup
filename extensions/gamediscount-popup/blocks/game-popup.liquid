@@ -11,11 +11,21 @@
 {%- assign gd_config = app.metafields.gamediscount.config -%}
 {%- comment -%} Also with no live popup: "Preview on store" (?gd_preview=…) shows a draft. {%- endcomment -%}
 {%- if gd_config != blank -%}
+  {%- comment -%} Only the visitor's language: texts are published per language (English as fallback). {%- endcomment -%}
+  {%- assign gd_lang = request.locale.iso_code | slice: 0, 2 | downcase -%}
+  {%- assign gd_key = 'strings_' | append: gd_lang -%}
+  {%- assign gd_strings = app.metafields.gamediscount[gd_key] -%}
+  {%- if gd_strings == blank -%}
+    {%- assign gd_lang = 'en' -%}
+    {%- assign gd_strings = app.metafields.gamediscount.strings_en -%}
+  {%- endif -%}
   <script type="application/json" id="gd-config">{{ gd_config.value | json }}</script>
+  <script type="application/json" id="gd-strings">{{ gd_strings.value | json }}</script>
   <script>
     window.GameDiscountContext = {
       template: {{ template.name | json }},
       locale: {{ request.locale.iso_code | json }},
+      lang: {{ gd_lang | json }},
       privacy: {{ shop.privacy_policy.url | json }},
       country: {{ localization.country.iso_code | json }},
       cart: {{ cart.item_count | json }},

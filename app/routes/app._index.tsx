@@ -3,6 +3,7 @@ import { billingEnabled } from "../lib/billing.server";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Link as RemixLink, useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
 import {
+  ActionList,
   Badge,
   Banner,
   BlockStack,
@@ -14,6 +15,7 @@ import {
   Link,
   Modal,
   Page,
+  Popover,
   Text,
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
@@ -21,6 +23,7 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { livePopups, publishConfig } from "../lib/popups.server";
 import { getCounts } from "../lib/analytics.server";
+import { getRevenue } from "../lib/revenue.server";
 import { PLAN_LABELS, getPlan } from "../lib/plans";
 import { TARGETS } from "../lib/popup-defaults";
 import { APP_VERSION, LISTING_URL } from "../lib/version";
@@ -38,7 +41,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const popups = await db.popup.findMany({ where: { shop }, orderBy: { createdAt: "asc" } });
   const live = new Set(billing.paused ? [] : livePopups(popups).map((p) => p.id));
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
-  const { byPopup } = await getCounts(shop, since);
+  const [{ byPopup }, revenue, lastView] = await Promise.all([
+    getCounts(shop, since),
+    getRevenue(shop, since),
+    // The app embed works if the storefront reported a view recently.
+    db.event.findFirst({ where: { shop, type: "view" }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+  ]);
   // Ask for a review once the popup has brought the first order, or (stores
   // with little traffic) collected its first 50 emails.
   const [orders, state] = await Promise.all([
@@ -53,6 +61,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     billing,
     showPlans: billingEnabled(),
     apiKey: process.env.SHOPIFY_API_KEY || "",
+    sales: { amount: revenue.amount, currency: revenue.currency, usd: revenue.usd },
+    lastSeen: lastView?.createdAt.toISOString() ?? null,
     review: {
       ask: goodMoment && !state?.reviewAskedAt,
       banner: goodMoment && !state?.reviewHidden,
@@ -67,6 +77,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       discountCode: p.codeMode === "unique" ? "Unique per winner" : p.discountCode,
       target: p.target,
       counts: byPopup[p.id] ?? { view: 0, submit: 0, play: 0, win: 0 },
+      sales: revenue.byPopup[p.id] ?? { amount: 0, orders: 0 },
     })),
   };
 };
@@ -109,12 +120,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
-const rate = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "–");
+const rate = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(1)}%` : "–");
 const targetLabel = (v: string) => TARGETS.find((t) => t.value === v)?.label ?? v;
 const EMBED_HINT_KEY = "gd_embed_hint_dismissed";
 
 export default function Index() {
-  const { popups, plan, billing, apiKey, showPlans, review } = useLoaderData<typeof loader>();
+  const { popups, plan, billing, apiKey, showPlans, review, sales, lastSeen } = useLoaderData<typeof loader>();
+  // Revenue in the store's currency; plan limits stay in USD.
+  const money = (n: number) =>
+    sales.currency
+      ? new Intl.NumberFormat(undefined, { style: "currency", currency: sales.currency, maximumFractionDigits: 0 }).format(n)
+      : usd(n);
+  const revenueNow = sales.currency ? sales.amount : sales.usd;
+  const seenDaysAgo = lastSeen ? (Date.now() - new Date(lastSeen).getTime()) / 86_400_000 : null;
   const totals = popups.reduce(
     (t, p) => ({ view: t.view + p.counts.view, submit: t.submit + p.counts.submit, win: t.win + p.counts.win }),
     { view: 0, submit: 0, win: 0 },
@@ -206,18 +224,17 @@ export default function Index() {
         <BrandHero
           title="Turn visitors into buyers"
           subtitle="Visitors play a quick game, leave their email and win a discount. Here's how your popups did in the last 30 days."
-          action={{ label: "+ Create popup", to: "/app/popups/new" }}
           stats={[
             { label: "Popup views", value: totals.view.toLocaleString() },
             { label: "Emails collected", value: totals.submit.toLocaleString() },
             { label: "Wins", value: totals.win.toLocaleString() },
-            { label: "Revenue from popup", value: usd(billing.revenueUsd) },
+            { label: "Revenue from popup", value: money(revenueNow) },
           ]}
           footer={
             showPlans && <>
               Plan: <b>{PLAN_LABELS[plan]}</b> ·{" "}
               {Number.isFinite(billing.cap)
-                ? `${usd(billing.revenueUsd)} of ${usd(billing.cap)} included`
+                ? `${usd(billing.revenueUsd)} of ${usd(billing.cap)} included (plan limits in USD)`
                 : "unlimited popup revenue"}{" "}
               · <RemixLink to="/app/plans">See plans</RemixLink>
             </>
@@ -229,7 +246,7 @@ export default function Index() {
             title={
               billing.paused
                 ? "Your popup is paused"
-                : `Kodra Play made you ${usd(billing.revenueUsd)} in the last 30 days 🎉`
+                : `Kodra Play made you ${money(revenueNow)} in the last 30 days 🎉`
             }
             action={{ content: `Upgrade to ${PLAN_LABELS[billing.required]} — $${getPlan(billing.required).price}/month`, url: "/app/plans" }}
           >
@@ -251,7 +268,24 @@ export default function Index() {
             <p>Is Kodra Play working for you? A short review helps other stores find it and keeps the app improving.</p>
           </Banner>
         )}
-        {showEmbedHint && (
+        {seenDaysAgo !== null && seenDaysAgo <= 7 && popups.some((p) => p.live) && (
+          <InlineStack gap="200" blockAlign="center">
+            <Badge tone="success">✓ Live on your store</Badge>
+            <Text as="span" variant="bodySm" tone="subdued">
+              The popup was last shown to a visitor {ago(seenDaysAgo)}.
+            </Text>
+          </InlineStack>
+        )}
+        {seenDaysAgo !== null && seenDaysAgo > 7 && popups.some((p) => p.live) && (
+          <Banner
+            title={`No visitor has seen the popup for ${Math.floor(seenDaysAgo)} days`}
+            tone="warning"
+            action={{ content: "Check the theme editor", url: embedUrl, target: "_top" }}
+          >
+            <p>Make sure “Kodra Play popup” is switched on under App embeds in your current theme (a new theme needs it switched on again).</p>
+          </Banner>
+        )}
+        {seenDaysAgo === null && showEmbedHint && (
           <Banner
             title="Step 1: turn on the popup in your theme"
             tone="info"
@@ -284,6 +318,8 @@ export default function Index() {
                 { title: "Views", alignment: "end" },
                 { title: "Emails", alignment: "end" },
                 { title: "Wins", alignment: "end" },
+                { title: "Orders", alignment: "end" },
+                { title: "Revenue", alignment: "end" },
                 { title: "Actions", alignment: "end" },
               ]}
             >
@@ -331,19 +367,26 @@ export default function Index() {
                     <Stat value={p.counts.win} pct={rate(p.counts.win, p.counts.submit)} />
                   </IndexTable.Cell>
                   <IndexTable.Cell>
+                    <Text as="span" alignment="end" numeric>
+                      {p.sales.orders}
+                    </Text>
+                  </IndexTable.Cell>
+                  <IndexTable.Cell>
+                    <Text as="span" alignment="end" numeric>
+                      {money(p.sales.amount)}
+                    </Text>
+                  </IndexTable.Cell>
+                  <IndexTable.Cell>
                     {/* stopPropagation: these buttons shouldn't open the editor */}
                     <div onClick={(e) => e.stopPropagation()}>
                       <InlineStack gap="200" align="end" wrap={false}>
                         <Button size="slim" onClick={() => submit("toggle", p.id)}>
                           {p.active ? "Pause" : "Activate"}
                         </Button>
-                        <Button
-                          size="slim"
-                          tone="critical"
-                          onClick={() => setToDelete({ id: p.id, name: p.name })}
-                        >
-                          Delete
-                        </Button>
+                        <RowMenu
+                          onEdit={() => navigate(`/app/popups/${p.id}`)}
+                          onDelete={() => setToDelete({ id: p.id, name: p.name })}
+                        />
                       </InlineStack>
                     </div>
                   </IndexTable.Cell>
@@ -355,6 +398,8 @@ export default function Index() {
         {popups.length > 0 && (
           <Text as="p" variant="bodySm" tone="subdued">
             Last 30 days. Emails = share of views that entered an email; Wins = share of emails that won.
+            Collected emails are saved as customers in Shopify (tag “gamediscount”), where your email marketing app picks them up.{" "}
+            <Link url="shopify:admin/customers" target="_top">Open customers</Link>
           </Text>
         )}
         <Text as="p" variant="bodySm" tone="subdued" alignment="center">
@@ -382,6 +427,29 @@ export default function Index() {
     </Page>
   );
 }
+
+/** "…" menu with the rarely used, destructive actions out of the way. */
+function RowMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover
+      active={open}
+      onClose={() => setOpen(false)}
+      activator={<Button size="slim" onClick={() => setOpen((o) => !o)} accessibilityLabel="More actions">…</Button>}
+    >
+      <ActionList
+        onActionAnyItem={() => setOpen(false)}
+        items={[
+          { content: "Edit", onAction: onEdit },
+          { content: "Delete", destructive: true, onAction: onDelete },
+        ]}
+      />
+    </Popover>
+  );
+}
+
+const ago = (days: number) =>
+  days < 1 / 24 ? "less than an hour ago" : days < 1 ? `${Math.round(days * 24)} h ago` : `${Math.round(days)} day${Math.round(days) === 1 ? "" : "s"} ago`;
 
 function Stat({ value, pct }: { value: number; pct: string }) {
   return (

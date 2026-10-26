@@ -12,9 +12,8 @@ import {
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { getBreakdown, getCounts, getDiscountUsage, type BreakdownRow } from "../lib/analytics.server";
+import { getBreakdown, getCounts, type BreakdownRow } from "../lib/analytics.server";
 import { SOURCE_LABELS } from "../lib/traffic-sources";
-import { getUniqueCodeUsage } from "../lib/discounts.server";
 import { getRevenue } from "../lib/revenue.server";
 
 const RANGES = [
@@ -25,74 +24,56 @@ const RANGES = [
 ];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
   const range = new URL(request.url).searchParams.get("range") ?? "30";
   const days = parseInt(range, 10);
   const since = Number.isFinite(days) ? new Date(Date.now() - days * 86400_000) : null;
 
-  const [popups, { total, byPopup }, revenue, byDevice, byCountry, bySource] = await Promise.all([
+  // When the later-added data started: "Started" clicks, and device/country/traffic source.
+  const firstOf = (where: Record<string, unknown>) =>
+    db.event.findFirst({ where: { shop, ...where }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }).then((e) => e?.createdAt ?? null);
+  const [popups, { total, byPopup }, revenue, byDevice, byCountry, bySource, startSince, visitorSince] = await Promise.all([
     db.popup.findMany({ where: { shop }, orderBy: { createdAt: "asc" } }),
     getCounts(shop, since),
     getRevenue(shop, since),
     getBreakdown(shop, since, "device"),
     getBreakdown(shop, since, "country"),
     getBreakdown(shop, since, "source"),
+    firstOf({ type: "start" }),
+    firstOf({ device: { not: "" } }),
   ]);
+  // "Started" only compares with views from when it was recorded.
+  const startLate = !!startSince && (!since || startSince > since);
+  const viewsForStart = startLate
+    ? await db.event.count({ where: { shop, type: "view", createdAt: { gte: startSince } } })
+    : total.view;
 
-  // Code usage comes from Shopify and is lifetime (not range-filtered).
-  const codes = [...new Set(popups.map((p) => p.discountCode).filter(Boolean))];
-  const usageEntries = await Promise.all(
-    codes.map(async (c) => [c, await getDiscountUsage(admin, c)] as const),
-  );
-  const usage = Object.fromEntries(usageEntries);
+  const rows = popups.map((p) => ({
+    name: p.name,
+    code: p.codeMode === "unique" ? `Unique (${p.codePrefix || "no prefix"}-…)` : p.discountCode,
+    counts: byPopup[p.id] ?? { view: 0, start: 0, submit: 0, play: 0, win: 0 },
+    revenue: revenue.byPopup[p.id] ?? { amount: 0, orders: 0 },
+  }));
 
-  // Generated single-use codes: sum redemptions of the most recent 1,000 per popup.
-  const uniqueUsage = Object.fromEntries(
-    await Promise.all(
-      popups.map(async (p) => {
-        const claims = await db.claim.findMany({
-          where: { popupId: p.id, discountId: { not: null } },
-          select: { discountId: true },
-          orderBy: { claimedAt: "desc" },
-          take: 1000,
-        });
-        const ids = claims.map((c) => c.discountId!);
-        return [p.id, ids.length ? await getUniqueCodeUsage(admin, ids) : 0] as const;
-      }),
-    ),
-  );
-
-  const rows = popups.map((p) => {
-    const shared = p.discountCode ? usage[p.discountCode] : 0;
-    return {
-      name: p.name,
-      code: p.codeMode === "unique" ? `Unique (${p.codePrefix || "no prefix"}-…)` : p.discountCode,
-      counts: byPopup[p.id] ?? { view: 0, start: 0, submit: 0, play: 0, win: 0 },
-      revenue: revenue.byPopup[p.id] ?? { amount: 0, orders: 0 },
-      // null = the shared code doesn't exist in Shopify
-      uses: shared === null && p.codeMode === "static" ? null : (shared ?? 0) + uniqueUsage[p.id],
-    };
-  });
-  const totalUses =
-    usageEntries.reduce((sum, [, n]) => sum + (n ?? 0), 0) +
-    Object.values(uniqueUsage).reduce((a, b) => a + b, 0);
-
+  // Rows without device/country/source are visits from before it was recorded: left out.
+  const known = (list: BreakdownRow[]) => list.filter((r) => r.key !== "");
   return {
     range,
     revenue: { amount: revenue.amount, currency: revenue.currency, usd: revenue.usd, orders: revenue.orders },
     total,
-    totalUses,
     rows,
-    byDevice,
-    byCountry: byCountry.slice(0, 12),
-    bySource: bySource.filter((r) => r.orders > 0).sort((a, b) => b.amount - a.amount),
+    start: { since: startLate ? startSince!.toISOString() : null, views: viewsForStart, tracked: !!startSince },
+    visitorSince: visitorSince && (!since || visitorSince > since) ? visitorSince.toISOString() : null,
+    byDevice: known(byDevice),
+    byCountry: known(byCountry).slice(0, 12),
+    bySource: known(bySource).filter((r) => r.orders > 0).sort((a, b) => b.amount - a.amount),
   };
 };
 
 const DEVICE_LABELS: Record<string, string> = { d: "Desktop", m: "Phone / tablet" };
-const UNKNOWN = "Not recorded (older data)";
+const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(1)}%` : "–");
 
@@ -100,7 +81,8 @@ export default function Analytics() {
   const data = useLoaderData<typeof loader>();
   const [params, setParams] = useSearchParams();
 
-  const { total, totalUses, rows, range, revenue, byDevice, byCountry, bySource } = data;
+  const { total, rows, range, revenue, byDevice, byCountry, bySource, start, visitorSince } = data;
+  const sinceNote = visitorSince ? ` Recorded since ${day(visitorSince)}.` : "";
   const countryName = (code: string) => {
     try {
       return new Intl.DisplayNames(["en"], { type: "region" }).of(code) ?? code;
@@ -111,7 +93,7 @@ export default function Analytics() {
   // Funnel per segment: views → emails (share of views) → wins (share of emails) → orders and revenue.
   const segmentRows = (list: BreakdownRow[], label: (k: string) => string) =>
     list.map((r) => [
-      r.key ? label(r.key) : UNKNOWN,
+      label(r.key),
       r.counts.view.toLocaleString(),
       `${r.counts.submit.toLocaleString()} (${pct(r.counts.submit, r.counts.view)})`,
       `${r.counts.win.toLocaleString()} (${pct(r.counts.win, r.counts.submit)})`,
@@ -125,11 +107,19 @@ export default function Analytics() {
   // Funnel: each step shows how many of the previous step made it through.
   const funnel = [
     { label: "Popup views", value: total.view, sub: "saw the popup" },
-    { label: "Started", value: total.start, sub: `${pct(total.start, total.view)} clicked Start` },
+    {
+      label: "Started",
+      value: total.start,
+      sub: !start.tracked
+        ? "not recorded yet"
+        : start.since
+          ? `${pct(total.start, start.views)} of views since ${day(start.since)}`
+          : `${pct(total.start, total.view)} clicked Start`,
+    },
     { label: "Emails", value: total.submit, sub: `${pct(total.submit, total.view)} of views` },
     { label: "Games played", value: total.play, sub: "incl. retries" },
     { label: "Wins", value: total.win, sub: `${pct(total.win, total.submit)} of emails` },
-    { label: "Code uses", value: totalUses, sub: `${pct(totalUses, total.win)} of wins · lifetime` },
+    { label: "Orders", value: revenue.orders, sub: `${pct(revenue.orders, total.win)} of wins` },
   ];
 
   return (
@@ -155,7 +145,9 @@ export default function Analytics() {
             </div>
             <div className="gd-revenue-meta">
               <span><b>{revenue.orders.toLocaleString()}</b> orders with a Kodra Play code</span>
-              <span><b>{totalUses.toLocaleString()}</b> code uses (lifetime)</span>
+              {revenue.orders > 0 && (
+                <span><b>{money((revenue.currency ? revenue.amount : revenue.usd) / revenue.orders)}</b> average order</span>
+              )}
             </div>
           </div>
         </Layout.Section>
@@ -174,7 +166,7 @@ export default function Analytics() {
           <Card padding="0">
             <DataTable
               columnContentTypes={["text", "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"]}
-              headings={["Popup", "Code", "Views", "Started", "Emails", "Games", "Wins", "Code uses", "Revenue"]}
+              headings={["Popup", "Code", "Views", "Started", "Emails", "Games", "Wins", "Orders", "Revenue"]}
               rows={rows.map((r) => [
                 r.name,
                 r.code,
@@ -183,8 +175,8 @@ export default function Analytics() {
                 r.counts.submit,
                 r.counts.play,
                 r.counts.win,
-                r.uses === null ? "code not found" : r.uses,
-                `${money(r.revenue.amount)} (${r.revenue.orders})`,
+                r.revenue.orders,
+                money(r.revenue.amount),
               ])}
             />
           </Card>
@@ -194,6 +186,7 @@ export default function Analytics() {
             <BlockStack gap="0">
               <div style={{ padding: "16px 16px 0" }}>
                 <Text as="h2" variant="headingMd">Desktop vs phone</Text>
+                {sinceNote && <Text as="p" variant="bodySm" tone="subdued">{sinceNote.trim()}</Text>}
               </div>
               <DataTable
                 columnContentTypes={["text", "numeric", "numeric", "numeric", "numeric", "numeric"]}
@@ -208,13 +201,13 @@ export default function Analytics() {
             <BlockStack gap="0">
               <div style={{ padding: "16px 16px 0" }}>
                 <Text as="h2" variant="headingMd">Orders by traffic source</Text>
-                <Text as="p" variant="bodySm" tone="subdued">Where shoppers who used a Kodra Play code came from (utm tags, ad click ids, referrer).</Text>
+                <Text as="p" variant="bodySm" tone="subdued">Where shoppers who used a Kodra Play code came from (utm tags, ad click ids, referrer).{sinceNote}</Text>
               </div>
               <DataTable
                 columnContentTypes={["text", "numeric", "numeric", "numeric"]}
                 headings={["Source", "Orders", "Revenue", "Share of popup revenue"]}
                 rows={bySource.map((r) => [
-                  r.key ? SOURCE_LABELS[r.key] ?? r.key : UNKNOWN,
+                  SOURCE_LABELS[r.key] ?? r.key,
                   r.orders.toLocaleString(),
                   money(revenue.currency ? r.amount : r.amountUsd),
                   pct(revenue.currency ? r.amount : r.amountUsd, revenue.currency ? revenue.amount : revenue.usd),
@@ -228,7 +221,7 @@ export default function Analytics() {
             <BlockStack gap="0">
               <div style={{ padding: "16px 16px 0" }}>
                 <Text as="h2" variant="headingMd">By country</Text>
-                <Text as="p" variant="bodySm" tone="subdued">The storefront country (Shopify market) the visitor shopped in.</Text>
+                <Text as="p" variant="bodySm" tone="subdued">The storefront country (Shopify market) the visitor shopped in.{sinceNote}</Text>
               </div>
               <DataTable
                 columnContentTypes={["text", "numeric", "numeric", "numeric", "numeric", "numeric"]}
@@ -237,11 +230,6 @@ export default function Analytics() {
               />
             </BlockStack>
           </Card>
-        </Layout.Section>
-        <Layout.Section>
-          <Text as="p" variant="bodySm" tone="subdued">
-            Device, country and traffic source are recorded from version 0.16 on; earlier data shows as “{UNKNOWN}”.
-          </Text>
         </Layout.Section>
       </Layout>
     </Page>

@@ -253,7 +253,7 @@ export default function PopupEditor() {
                     )}
                     <Checkbox
                       label={s.gameType === "none" ? "Require marketing consent checkbox to get the code" : "Require marketing consent checkbox to play"}
-                      helpText="Visitors who tick it are subscribed to email marketing. Recommended for GDPR (EU stores)."
+                      helpText="Every email is saved as a customer in Shopify (tag “gamediscount”), where your email marketing app picks it up. Visitors who tick the box are subscribed to email marketing. Recommended for GDPR (EU stores)."
                       checked={s.requireConsent}
                       onChange={set("requireConsent")}
                     />

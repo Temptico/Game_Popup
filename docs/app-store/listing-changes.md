@@ -1,41 +1,38 @@
-# App Store listing: rename to Kodra Play (done 24 Oct 2026)
+# App Store listing: spin wheel update (0.23.0)
 
 Partner Dashboard → Distribution → Manage listing → English → Edit.
-Only these fields change. The app URL (apps.shopify.com/game-discount), reviews and installs stay.
+Only these fields change. Name, subtitle, search terms, pricing and links stay.
 
-## App name
+## App introduction (91/100)
 ```
-Kodra Play: Email Popup Game
-```
-
-## App details
-```
-Instead of another spin wheel, Kodra Play shows a short paddle, flipper or pong game. Visitors enter their email, play a quick round and win a unique discount code that is auto-applied at checkout. Codes are single-use, so a code shared online works only once. Every email is saved to your Shopify customers, with marketing consent when they opt in, ready for your email marketing tool. Track views, emails, wins and revenue per popup. Free until the popup brings you $500 in sales a month.
+Spin wheel, paddle, flipper or pong popup. Visitors win a unique code, you get their email.
 ```
 
-## Pricing: Free plan description
+## App details (493/500)
 ```
-Up to $500 popup revenue / 30 days · All games & features · Small Kodra Play icon in the popup
-```
-
-## SEO title
-```
-Kodra Play: Email Popup Game with Unique Discount Codes
+Kodra Play turns your email popup into a short game: a spin wheel, paddle, flipper or pong. Visitors enter their email, play and win a unique discount code that is auto-applied at checkout. On the wheel you set the rewards and the chance to win each one. Codes are single-use, so a shared code works only once. Every email is saved to your Shopify customers, with consent when they opt in. Track views, emails, wins and revenue per popup. Free until the popup brings you $500 in sales a month.
 ```
 
-## Screenshots
-Replace only screenshot 5 with the new `screenshots/05-analytics.png` (caption unchanged:
-"Track emails, wins and revenue per popup"). The others don't show the app name.
-
-## Save and submit
-Save the listing. If Shopify offers "Submit for review", submit it.
-
----
-
-# YouTube video
-YouTube Studio → Content → the demo video → Details. Change the title to:
+## Features: replace #1 and #5 only
+#1 (63/80)
 ```
-Kodra Play: Email Popup Game for Shopify - demo
+Spin wheel, paddle, flipper and pong games in your brand colors
 ```
-and in the description replace "Enigma Play" with "Kodra Play" (first line). Save.
-The analytics screen in the video still shows the old name in small text; it can stay until you record a new video.
+#5 (61/80)
+```
+Your own wheel rewards and odds, plus a real expiry countdown
+```
+
+## SEO meta description (153/160)
+```
+Grow your email list with a spin wheel or game popup. Visitors win a unique, single-use discount code, auto-applied at checkout. Free up to $500 a month.
+```
+
+## Screenshot: add the wheel as the first screenshot
+File `screenshots/07-spin-wheel.png`, caption:
+```
+Spin the wheel: you set the rewards and odds
+```
+Move it to position 1 (drag), the others move one down. Then Save.
+
+Search terms "spin wheel" and "spin to win" are now accurate (the app has a wheel).

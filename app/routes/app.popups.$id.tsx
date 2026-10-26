@@ -65,9 +65,7 @@ import type { BrandColorsResult } from "../lib/brand-colors.server";
 import { GamePicker } from "../components/GamePicker";
 import { WheelEditor } from "../components/WheelEditor";
 
-// The spin wheel and the form-only popup are tried on the store copies first.
-const gamesFor = (preview: boolean, current: GameType) =>
-  GAMES.map((g) => g.value).filter((g) => preview || (g !== "wheel" && g !== "none") || g === current);
+const ALL_GAMES = GAMES.map((g) => g.value);
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -202,7 +200,7 @@ export default function PopupEditor() {
               <GamePicker
                 value={s.gameType}
                 onChange={set("gameType")}
-                games={gamesFor(preview, s.gameType)}
+                games={ALL_GAMES}
                 primary={s.primaryColor}
                 accent={s.accentColor}
               />
@@ -517,10 +515,13 @@ export default function PopupEditor() {
 
                 {tab === 3 && (
                   <BlockStack gap="400">
-                    <Text as="p" tone="subdued">
-                      Language is detected from the storefront (&lt;html lang&gt;). Leave a field empty to
-                      use the default text shown as placeholder.
-                    </Text>
+                    <Banner tone="info" title="The popup speaks your customer's language">
+                      <p>
+                        If your store has several languages, each visitor sees the popup in the language they shop in.
+                        All texts are already translated into 10 languages. Change a text only if you want your own
+                        wording; empty fields keep the text shown in grey.
+                      </p>
+                    </Banner>
                     <Select
                       label="Language"
                       options={LANGUAGES.map((l) => ({ label: LANGUAGE_LABELS[l], value: l }))}
@@ -733,7 +734,7 @@ function AbTab({
             </Text>
             <BlockStack gap="200">
               <Text as="p" variant="bodyMd">Game for B (A: {GAMES.find((g) => g.value === s.gameType)?.label})</Text>
-              <GamePicker value={b.gameType} onChange={(g) => setB("gameType", g)} games={gamesFor(preview, b.gameType)}
+              <GamePicker value={b.gameType} onChange={(g) => setB("gameType", g)} games={ALL_GAMES}
                 primary={s.primaryColor} accent={s.accentColor} compact />
             </BlockStack>
             <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">

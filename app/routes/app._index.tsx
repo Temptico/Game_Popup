@@ -171,15 +171,17 @@ export default function Index() {
 
   // Returning from the editor after a save.
   const saved = params.get("saved");
+  const savedDraft = params.get("live") === "0";
   useEffect(() => {
     if (saved) {
-      shopify.toast.show(`“${saved}” saved — live on your storefront`);
+      shopify.toast.show(savedDraft ? `“${saved}” saved as a draft` : `“${saved}” saved — live on your storefront`);
       setParams((p) => {
         p.delete("saved");
+        p.delete("live");
         return p;
       }, { replace: true });
     }
-  }, [saved, shopify, setParams]);
+  }, [saved, savedDraft, shopify, setParams]);
 
   // Shopify's own review modal, shown a moment after the page opens. Shopify
   // rate-limits it; codes that may pass later (app just installed, mobile app,

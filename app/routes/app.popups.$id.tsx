@@ -113,7 +113,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   await publishConfig(admin, shop);
   // A new draft opens in the editor, where it can be previewed on the store.
   if (isNew && !row.active) return redirect(`/app/popups/${row.id}`);
-  return redirect(`/app?saved=${encodeURIComponent(row.name)}`);
+  return redirect(`/app?saved=${encodeURIComponent(row.name)}&live=${row.active ? 1 : 0}`);
 };
 
 // The second tab follows the game: settings and rewards for skill games, the
@@ -182,8 +182,16 @@ export default function PopupEditor() {
       strings: { ...prev.strings, [lang]: { ...prev.strings[lang], [key]: value } },
     }));
 
-  const save = (over: Partial<PopupSettings> = {}) =>
+  // The save bar stays on screen across navigation unless it's hidden first.
+  const save = (over: Partial<PopupSettings> = {}) => {
+    shopify.saveBar.hide("popup-save-bar").catch(() => {});
     submit({ ...s, ...over } as unknown as Record<string, string>, { method: "POST", encType: "application/json" });
+  };
+  useEffect(() => () => void shopify.saveBar.hide("popup-save-bar").catch(() => {}), [shopify]);
+  // Saving failed (fields to fix): bring the save bar back, the changes are still unsaved.
+  useEffect(() => {
+    if (actionData?.errors) shopify.saveBar.show("popup-save-bar").catch(() => {});
+  }, [actionData, shopify]);
   // New popups are set up step by step; saved ones are edited in tabs with the save bar.
   const wizard = !id;
   const [step, setStep] = useState(0);

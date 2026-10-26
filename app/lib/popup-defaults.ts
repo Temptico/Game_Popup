@@ -670,6 +670,7 @@ export const TRIGGERS = [
 
 export const FREQUENCIES = [
   { label: "Once per visit (recommended)", value: "session" },
+  { label: "Only once per visitor", value: "once" },
   { label: "Once per day", value: "day" },
   { label: "Once per week", value: "week" },
   { label: "On every page until they close it", value: "always" },
@@ -802,7 +803,9 @@ export interface PopupSettings {
   difficulty: "easy" | "medium" | "hard";
   trigger: "both" | "delay" | "exit";
   // How often the popup may open by itself; the floating button always works.
-  frequency: "session" | "day" | "week" | "always";
+  frequency: "session" | "once" | "day" | "week" | "always";
+  // Don't open by itself for shoppers with something in the cart
+  noCart: boolean;
   teaser: boolean;
   tiered: boolean;
   // Best → worst: won on 1st, 2nd, 3rd+ attempt
@@ -891,6 +894,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   trigger: "both",
   frequency: "session",
   teaser: true,
+  noCart: true,
   tiered: false,
   tierValues: [15, 10, 5],
   urgencyMinutes: 0,
@@ -1106,6 +1110,7 @@ export function parseSettings(input: Record<string, unknown>): {
         ? (input.frequency as PopupSettings["frequency"])
         : "session",
       teaser: input.teaser !== false && input.teaser !== "false",
+      noCart: input.noCart === true || input.noCart === "true",
       tiered,
       tierValues,
       urgencyMinutes: Math.round(num(input.urgencyMinutes, 0, 0, 1440)),

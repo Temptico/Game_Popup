@@ -6,48 +6,60 @@ import {
   DataTable,
   Layout,
   Page,
+  InlineStack,
   Select,
   Text,
+  TextField,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { getBreakdown, getCounts, type BreakdownRow } from "../lib/analytics.server";
 import { SOURCE_LABELS } from "../lib/traffic-sources";
-import { getRevenue } from "../lib/revenue.server";
+import { getRevenue, period } from "../lib/revenue.server";
 
 const RANGES = [
   { label: "Last 7 days", value: "7" },
   { label: "Last 30 days", value: "30" },
   { label: "Last 90 days", value: "90" },
   { label: "All time", value: "all" },
+  { label: "Custom dates", value: "custom" },
 ];
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  const range = new URL(request.url).searchParams.get("range") ?? "30";
+  const params = new URL(request.url).searchParams;
+  const range = params.get("range") ?? "30";
   const days = parseInt(range, 10);
-  const since = Number.isFinite(days) ? new Date(Date.now() - days * 86400_000) : null;
+  // Custom dates: from the start of "from" to the end of "to" (UTC days).
+  const from = DAY.test(params.get("from") ?? "") ? params.get("from")! : iso(new Date(Date.now() - 30 * 86400_000));
+  const to = DAY.test(params.get("to") ?? "") ? params.get("to")! : iso(new Date());
+  const custom = range === "custom";
+  const since = custom ? new Date(`${from}T00:00:00Z`) : Number.isFinite(days) ? new Date(Date.now() - days * 86400_000) : null;
+  const until = custom ? new Date(new Date(`${to}T00:00:00Z`).getTime() + 86400_000) : null;
 
   // When the later-added data started: "Started" clicks, and device/country/traffic source.
   const firstOf = (where: Record<string, unknown>) =>
     db.event.findFirst({ where: { shop, ...where }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }).then((e) => e?.createdAt ?? null);
   const [popups, { total, byPopup }, revenue, byDevice, byCountry, bySource, startSince, visitorSince] = await Promise.all([
     db.popup.findMany({ where: { shop }, orderBy: { createdAt: "asc" } }),
-    getCounts(shop, since),
-    getRevenue(shop, since),
-    getBreakdown(shop, since, "device"),
-    getBreakdown(shop, since, "country"),
-    getBreakdown(shop, since, "source"),
+    getCounts(shop, since, until),
+    getRevenue(shop, since, until),
+    getBreakdown(shop, since, "device", until),
+    getBreakdown(shop, since, "country", until),
+    getBreakdown(shop, since, "source", until),
     firstOf({ type: "start" }),
     firstOf({ device: { not: "" } }),
   ]);
   // "Started" only compares with views from when it was recorded.
   const startLate = !!startSince && (!since || startSince > since);
   const viewsForStart = startLate
-    ? await db.event.count({ where: { shop, type: "view", createdAt: { gte: startSince } } })
+    ? await db.event.count({ where: { shop, type: "view", ...period(startSince, until) } })
     : total.view;
 
   const rows = popups.map((p) => ({
@@ -61,6 +73,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const known = (list: BreakdownRow[]) => list.filter((r) => r.key !== "");
   return {
     range,
+    from,
+    to,
     revenue: { amount: revenue.amount, currency: revenue.currency, usd: revenue.usd, orders: revenue.orders },
     total,
     rows,
@@ -81,7 +95,7 @@ export default function Analytics() {
   const data = useLoaderData<typeof loader>();
   const [params, setParams] = useSearchParams();
 
-  const { total, rows, range, revenue, byDevice, byCountry, bySource, start, visitorSince } = data;
+  const { total, rows, range, revenue, byDevice, byCountry, bySource, start, visitorSince, from, to } = data;
   const sinceNote = visitorSince ? ` Recorded since ${day(visitorSince)}.` : "";
   const countryName = (code: string) => {
     try {
@@ -127,15 +141,25 @@ export default function Analytics() {
       <TitleBar title="Analytics" />
       <Layout>
         <Layout.Section>
-          <div style={{ maxWidth: 220 }}>
-            <Select
-              label="Date range"
-              labelInline
-              options={RANGES}
-              value={params.get("range") ?? range}
-              onChange={(v) => setParams({ range: v })}
-            />
-          </div>
+          <InlineStack gap="300" blockAlign="end">
+            <div style={{ minWidth: 220 }}>
+              <Select
+                label="Date range"
+                labelInline
+                options={RANGES}
+                value={params.get("range") ?? range}
+                onChange={(v) => setParams(v === "custom" ? { range: v, from, to } : { range: v })}
+              />
+            </div>
+            {range === "custom" && (
+              <>
+                <TextField label="From" type="date" autoComplete="off" value={from} max={to}
+                  onChange={(v) => v && setParams({ range: "custom", from: v, to })} />
+                <TextField label="To" type="date" autoComplete="off" value={to} min={from}
+                  onChange={(v) => v && setParams({ range: "custom", from, to: v })} />
+              </>
+            )}
+          </InlineStack>
         </Layout.Section>
         <Layout.Section>
           <div className="gd-revenue">

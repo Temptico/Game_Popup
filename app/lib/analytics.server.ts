@@ -1,5 +1,6 @@
 import type { Visitor } from "./visitor.server";
 import db from "../db.server";
+import { period } from "./revenue.server";
 
 interface AdminApi {
   graphql: (
@@ -27,10 +28,10 @@ export async function recordEvent(shop: string, popupId: string, type: EventType
   return { variant: v };
 }
 
-export async function getCounts(shop: string, since: Date | null) {
+export async function getCounts(shop: string, since: Date | null, until: Date | null = null) {
   const rows = await db.event.groupBy({
     by: ["popupId", "type"],
-    where: { shop, ...(since ? { createdAt: { gte: since } } : {}) },
+    where: { shop, ...period(since, until) },
     _count: { _all: true },
   });
   const total = emptyCounts();
@@ -152,8 +153,8 @@ export interface BreakdownRow {
 }
 
 /** Funnel and popup revenue split by device, country or (orders only) traffic source. */
-export async function getBreakdown(shop: string, since: Date | null, by: "device" | "country" | "source") {
-  const where = { shop, ...(since ? { createdAt: { gte: since } } : {}) };
+export async function getBreakdown(shop: string, since: Date | null, by: "device" | "country" | "source", until: Date | null = null) {
+  const where = { shop, ...period(since, until) };
   const [events, orders] = await Promise.all([
     by === "source"
       ? Promise.resolve([] as { key: string; type: string; n: number }[])

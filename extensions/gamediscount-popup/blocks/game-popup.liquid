@@ -18,6 +18,7 @@
       locale: {{ request.locale.iso_code | json }},
       privacy: {{ shop.privacy_policy.url | json }},
       country: {{ localization.country.iso_code | json }},
+      cart: {{ cart.item_count | json }},
       designMode: {{ request.design_mode | json }},
       alwaysShow: {{ block.settings.always_show | json }},
       proxy: "/apps/gamediscount",

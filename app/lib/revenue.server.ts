@@ -14,6 +14,10 @@ const USD_PER_UNIT: Record<string, number> = {
 
 export const toUsd = (amount: number, currency: string) => amount * (USD_PER_UNIT[currency] ?? 1);
 
+/** createdAt filter for a period; open ends are left out. */
+export const period = (since: Date | null, until: Date | null = null) =>
+  since || until ? { createdAt: { ...(since ? { gte: since } : {}), ...(until ? { lt: until } : {}) } } : {};
+
 const WINDOW_DAYS = 30;
 const windowStart = () => new Date(Date.now() - WINDOW_DAYS * 86400_000);
 
@@ -79,10 +83,10 @@ export async function recordOrder(shop: string, order: OrderPayload) {
 }
 
 /** Popup-generated revenue for a period, total and per popup (shop currency). */
-export async function getRevenue(shop: string, since: Date | null = windowStart()) {
+export async function getRevenue(shop: string, since: Date | null = windowStart(), until: Date | null = null) {
   const rows = await db.attributedOrder.groupBy({
     by: ["popupId", "currency"],
-    where: { shop, ...(since ? { createdAt: { gte: since } } : {}) },
+    where: { shop, ...period(since, until) },
     _sum: { amount: true, amountUsd: true },
     _count: { _all: true },
   });

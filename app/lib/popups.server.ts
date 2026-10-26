@@ -69,7 +69,8 @@ export function rowToSettings(row: Popup): PopupSettings {
     gameType: isGameType(row.gameType) ? row.gameType : "paddle",
     difficulty: row.difficulty === "easy" || row.difficulty === "hard" ? row.difficulty : "medium",
     trigger: row.trigger === "delay" || row.trigger === "exit" ? row.trigger : "both",
-    frequency: (["session", "day", "week", "always"] as const).find((f) => f === row.frequency) ?? "session",
+    frequency: (["session", "once", "day", "week", "always"] as const).find((f) => f === row.frequency) ?? "session",
+    noCart: row.noCart,
     teaser: row.teaser,
     tiered: row.tiered,
     tierValues: parseTierValues(row.tierValues),
@@ -260,6 +261,7 @@ export async function storefrontPopups(admin: AdminApi, rows: Popup[]) {
       difficulty: s.difficulty,
       trigger: s.trigger,
       frequency: s.frequency,
+      ...(s.noCart ? { nc: 1 } : {}),
       teaser: s.teaser,
       // Resolved per language so the storefront script carries no translations.
       strings,

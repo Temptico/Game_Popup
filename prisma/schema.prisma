@@ -87,6 +87,8 @@ model Popup {
   consolationValue Float   @default(5)
   // Skill games: email asked after a win instead of before the game
   emailAfter       Boolean @default(false)
+  // Don't open by itself for shoppers with something in the cart (on for new popups)
+  noCart           Boolean @default(false)
   // JSON-encoded CustomStrings ({ sl: { introTitle: "..." }, ... })
   strings        String   @default("{}")
   createdAt      DateTime @default(now())

@@ -134,13 +134,25 @@
     var freq = popup.frequency || 'session';
     var capped = !testMode && (freq === 'session'
       ? session.get(KEY_SHOWN)
-      : freq !== 'always' && Date.now() - (Number(local.get(KEY_SHOWN)) || 0) < (freq === 'day' ? 864e5 : 6048e5));
+      : freq === 'once'
+        ? local.get(KEY_SHOWN)
+        : freq !== 'always' && Date.now() - (Number(local.get(KEY_SHOWN)) || 0) < (freq === 'day' ? 864e5 : 6048e5));
     if (capped) return teaserOnly();
+    // Shoppers with something in the cart are about to buy: don't interrupt them.
+    var cartCheck = popup.nc && !testMode;
+    if (cartCheck && ctx.cart > 0) return teaserOnly();
 
     var fired = false;
     function fire() {
       if (fired) return;
       fired = true;
+      if (!cartCheck) return show();
+      // The cart may have changed since the page loaded (cart drawers add without a reload).
+      fetch(((window.Shopify && Shopify.routes && Shopify.routes.root) || '/') + 'cart.js', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (c) { if (!c.item_count) show(); }, show);
+    }
+    function show() {
       session.set(KEY_SHOWN, '1');
       local.set(KEY_SHOWN, String(Date.now()));
       withUI(function (u) { u.open(); });

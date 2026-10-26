@@ -882,7 +882,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   target: "all",
   requireConsent: true,
   doubleOptIn: false,
-  nameField: "required",
+  nameField: "hidden",
   autoApply: true,
   codeMode: "unique",
   discountType: "percentage",
@@ -914,7 +914,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
     discountCode: "",
     wheelSegments: DEFAULT_WHEEL,
     emailAfter: false,
-    nameField: "required",
+    nameField: "hidden",
     strings: {},
   },
 };

@@ -1,7 +1,6 @@
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { allow, clientIp } from "./rate-limit.server";
-import { previewFeatures } from "./billing.server";
 
 /**
  * Verifies an app proxy request (HMAC signature added by Shopify) and parses
@@ -16,16 +15,11 @@ export async function readProxyRequest(request: Request, limit?: { name: string;
   if (!session || !admin) {
     throw json({ ok: false, error: "not_installed" }, { status: 401 });
   }
+  // Per shopper IP (Shopify's proxy forwards it in X-Forwarded-For).
   const ip = limit && clientIp(request);
   if (limit && ip && !allow(`${limit.name}:${session.shop}:${ip}`, limit.perHour)) {
-    // Enforced on store copies first. The public app only logs until we know
-    // Shopify always forwards the shopper's IP (else every shopper would share one counter).
-    if (!previewFeatures()) {
-      console.warn(`[${limit.name}] would rate limit (log only)`);
-    } else {
-      console.warn(`[${limit.name}] rate limited`);
-      throw json({ ok: false, error: "rate_limited" }, { status: 429 });
-    }
+    console.warn(`[${limit.name}] rate limited`);
+    throw json({ ok: false, error: "rate_limited" }, { status: 429 });
   }
   let body: Record<string, unknown> = {};
   try {

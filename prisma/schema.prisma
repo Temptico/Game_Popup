@@ -184,4 +184,7 @@ model ShopState {
   uninstalledAt  DateTime?
   // The merchant hid the setup guide on the dashboard
   guideHidden    Boolean   @default(false)
+  // Whether the published storefront config has the popups paused (over the plan cap)
+  publishedPaused Boolean  @default(false)
+  publishedPlan   String   @default("")
 }

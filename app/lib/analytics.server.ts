@@ -19,12 +19,19 @@ const emptyCounts = (): Counts => ({ view: 0, start: 0, submit: 0, play: 0, win:
 export const readVariant = (v: unknown, abEnabled: boolean) =>
   abEnabled && (v === "a" || v === "b") ? v : "";
 
-export async function recordEvent(shop: string, popupId: string, type: EventType, variant: unknown = "", visitor: Visitor = { device: "", country: "" }) {
+export async function recordEvent(
+  shop: string,
+  popupId: string,
+  type: EventType,
+  variant: unknown = "",
+  visitor: Visitor = { device: "", country: "" },
+  count = true,
+) {
   // Only count events for popups that belong to this shop.
   const popup = await db.popup.findFirst({ where: { id: popupId, shop }, select: { id: true, abEnabled: true } });
   if (!popup) return null;
   const v = readVariant(variant, popup.abEnabled);
-  await db.event.create({ data: { shop, popupId, type, variant: v, ...visitor } });
+  if (count) await db.event.create({ data: { shop, popupId, type, variant: v, ...visitor } });
   return { variant: v };
 }
 

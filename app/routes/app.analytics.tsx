@@ -75,6 +75,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     range,
     from,
     to,
+    hasShared: popups.some((p) => p.codeMode !== "unique"),
     revenue: { amount: revenue.amount, currency: revenue.currency, usd: revenue.usd, orders: revenue.orders },
     total,
     rows,
@@ -95,7 +96,7 @@ export default function Analytics() {
   const data = useLoaderData<typeof loader>();
   const [params, setParams] = useSearchParams();
 
-  const { total, rows, range, revenue, byDevice, byCountry, bySource, start, visitorSince, from, to } = data;
+  const { total, rows, range, revenue, byDevice, byCountry, bySource, start, visitorSince, from, to, hasShared } = data;
   const sinceNote = visitorSince ? ` Recorded since ${day(visitorSince)}.` : "";
   const countryName = (code: string) => {
     try {
@@ -133,7 +134,7 @@ export default function Analytics() {
     { label: "Emails", value: total.submit, sub: `${pct(total.submit, total.view)} of views` },
     { label: "Games played", value: total.play, sub: "incl. retries" },
     { label: "Wins", value: total.win, sub: `${pct(total.win, total.submit)} of emails` },
-    { label: "Orders", value: revenue.orders, sub: `${pct(revenue.orders, total.win)} of wins` },
+    { label: "Orders", value: revenue.orders, sub: hasShared ? "with a Kodra Play code" : `${pct(revenue.orders, total.win)} of wins` },
   ];
 
   return (

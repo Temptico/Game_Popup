@@ -4,6 +4,8 @@ import { Link } from "@remix-run/react";
 export interface HeroStat {
   label: string;
   value: ReactNode;
+  /** Change against the previous period, e.g. "+12%" */
+  delta?: ReactNode;
 }
 
 /** Violet gradient header used at the top of every app page. */
@@ -14,6 +16,7 @@ export function BrandHero({
   action,
   stats,
   footer,
+  compact = false,
 }: {
   eyebrow?: string;
   title: ReactNode;
@@ -21,9 +24,10 @@ export function BrandHero({
   action?: { label: string; to: string };
   stats?: HeroStat[];
   footer?: ReactNode;
+  compact?: boolean;
 }) {
   return (
-    <div className="gd-hero">
+    <div className={compact ? "gd-hero gd-hero--compact" : "gd-hero"}>
       <div className="gd-hero-top">
         <div>
           <p className="gd-hero-eyebrow">{eyebrow}</p>
@@ -42,6 +46,7 @@ export function BrandHero({
             <div className="gd-hero-stat" key={s.label}>
               <div className="gd-hero-stat-value">{s.value}</div>
               <div className="gd-hero-stat-label">{s.label}</div>
+              {s.delta !== undefined && <div className="gd-hero-stat-delta">{s.delta}</div>}
             </div>
           ))}
         </div>

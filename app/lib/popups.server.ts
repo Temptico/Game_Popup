@@ -324,5 +324,22 @@ export async function publishConfig(admin: AdminApi, shop: string) {
   if (errors.length) {
     throw new Error(`metafieldsSet failed: ${JSON.stringify(errors)}`);
   }
+  await db.shopState.upsert({
+    where: { shop },
+    create: { shop, publishedPaused: billing.paused, publishedPlan: plan },
+    update: { publishedPaused: billing.paused, publishedPlan: plan },
+  });
   return { plan, config, billing };
+}
+
+/**
+ * Plan and billing status, republishing the storefront only when the plan or
+ * the paused state changed (an upgrade, the grace period ending). Cheaper than
+ * publishing on every dashboard visit or order.
+ */
+export async function syncPublish(admin: AdminApi, shop: string) {
+  const { plan } = await getInstallation(admin);
+  const [billing, state] = await Promise.all([getBillingStatus(shop, plan), db.shopState.findUnique({ where: { shop } })]);
+  if ((state?.publishedPaused ?? false) !== billing.paused || state?.publishedPlan !== plan) return publishConfig(admin, shop);
+  return { plan, billing };
 }

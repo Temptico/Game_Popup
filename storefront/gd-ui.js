@@ -143,13 +143,15 @@
     });
     function showTeaser() {
       if (!popup.teaser || session.get(KEY_TEASER_OFF)) return;
-      if (!claimed && attemptsUsed >= maxAttempts) return;
+      if (!claimed && !pending && attemptsUsed >= maxAttempts) return;
       if (!teaser.parentNode) document.body.appendChild(teaser);
       teaser.hidden = false;
       renderTeaser();
     }
     function renderTeaser() {
-      teaserLabel.textContent = claimed ? '🎁 ' + claimed.code + (claimed.expiresAt ? ' · ' + remaining(claimed.expiresAt) : '') : t.teaser;
+      teaserLabel.textContent = claimed
+        ? '🎁 ' + claimed.code + (claimed.expiresAt ? ' · ' + remaining(claimed.expiresAt) : '')
+        : pending ? t.noneTeaser : t.teaser;
     }
 
     // ---------- countdown ----------
@@ -203,6 +205,8 @@
       formTitle.textContent = kind == 'cons' ? t.formConsTitle : t.formWinTitle;
       submitBtn.textContent = t.noneSubmit;
       show(form);
+      // Closed meanwhile: the floating button now offers the code.
+      if (overlay.hidden) { showTeaser(); return; }
       (nameInput.hidden ? emailInput : nameInput).focus();
     }
 

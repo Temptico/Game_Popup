@@ -30,14 +30,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   const visitor = visitorOf(body);
-  const known = await recordEvent(shop, popupId, "submit", body.v, visitor);
+  // A returning winner typing their email again isn't a new sign-up.
+  const emailHash = hashEmail(shop, email);
+  const earlier = await db.claim.findUnique({ where: { popupId_emailHash: { popupId, emailHash } }, select: { code: true } });
+  const known = await recordEvent(shop, popupId, "submit", body.v, visitor, !earlier?.code);
   if (!known) {
     return json({ ok: false, error: "unknown_popup" }, { status: 404 });
   }
 
   // One claim per (popup, email). Re-submitting the same email returns the
   // same token, so the visitor gets back their existing code instead of a new one.
-  const emailHash = hashEmail(shop, email);
   const claim = await db.claim.upsert({
     where: { popupId_emailHash: { popupId, emailHash } },
     // The variant is fixed at the first sign-up (it decides B's discount in /claim).

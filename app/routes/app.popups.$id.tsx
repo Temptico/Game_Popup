@@ -130,9 +130,9 @@ const tabsFor = (game: GameType) => [
 ];
 
 // New popup, step by step: each step shows one of the editor's sections (tab index).
-const WIZARD_STEPS: { title: string; section?: number }[] = [
+const wizardSteps = (game: GameType): { title: string; section?: number }[] => [
   { title: "Choose a game" },
-  { title: "Set the discount", section: 1 },
+  { title: SKILL_GAMES.includes(game) ? "Game and discount" : game === "wheel" ? "Wheel and rewards" : "Set the discount", section: 1 },
   { title: "Match your store", section: 2 },
   { title: "When and where it shows", section: 0 },
   { title: "Check and publish" },
@@ -184,17 +184,18 @@ export default function PopupEditor() {
 
   // The save bar stays on screen across navigation unless it's hidden first.
   const save = (over: Partial<PopupSettings> = {}) => {
-    shopify.saveBar.hide("popup-save-bar").catch(() => {});
+    shopify.saveBar?.hide("popup-save-bar").catch(() => {});
     submit({ ...s, ...over } as unknown as Record<string, string>, { method: "POST", encType: "application/json" });
   };
-  useEffect(() => () => void shopify.saveBar.hide("popup-save-bar").catch(() => {}), [shopify]);
+  useEffect(() => () => void shopify.saveBar?.hide("popup-save-bar").catch(() => {}), [shopify]);
   // Saving failed (fields to fix): bring the save bar back, the changes are still unsaved.
   useEffect(() => {
-    if (actionData?.errors) shopify.saveBar.show("popup-save-bar").catch(() => {});
+    if (actionData?.errors) shopify.saveBar?.show("popup-save-bar").catch(() => {});
   }, [actionData, shopify]);
   // New popups are set up step by step; saved ones are edited in tabs with the save bar.
   const wizard = !id;
   const [step, setStep] = useState(0);
+  const WIZARD_STEPS = wizardSteps(s.gameType);
   const at = (section: number) => (wizard ? WIZARD_STEPS[step].section === section : tab === section);
   const dirty = !wizard && JSON.stringify(s) !== JSON.stringify(initial);
   const previewUrl = `https://${shop}/?gd_preview=${id}`;
@@ -245,15 +246,13 @@ export default function PopupEditor() {
                     helpText="After a win: winners want their code, but people who lose leave no email. Try both with an A/B test."
                   />
                 )}
-                {preview && (
-                  <Select
-                    label="Name field"
-                    options={[...NAME_FIELDS]}
-                    value={s.nameField}
-                    onChange={(v) => set("nameField")(v as PopupSettings["nameField"])}
-                    helpText="Fewer fields = more sign-ups. Hidden: visitors only enter their email."
-                  />
-                )}
+                <Select
+                  label="Name field"
+                  options={[...NAME_FIELDS]}
+                  value={s.nameField}
+                  onChange={(v) => set("nameField")(v as PopupSettings["nameField"])}
+                  helpText="Fewer fields = more sign-ups. Hidden: visitors only enter their email."
+                />
                 <Checkbox
                   label={s.gameType === "none" ? "Require marketing consent checkbox to get the code" : "Require marketing consent checkbox to play"}
                   helpText="Emails are saved as customers in Shopify. People who tick the box can get your marketing emails. Recommended in the EU."
@@ -996,10 +995,8 @@ function AbTab({
               <TextField label="Delay (seconds)" type="number" autoComplete="off" value={String(b.delaySec)}
                 onChange={(v) => setB("delaySec", Number(v))} />
             </InlineGrid>
-            {preview && (
-              <Select label={`Name field (A: ${NAME_FIELDS.find((f) => f.value === s.nameField)?.label})`} options={[...NAME_FIELDS]}
-                value={b.nameField} onChange={(v) => setB("nameField", v as AbVariant["nameField"])} />
-            )}
+            <Select label={`Name field (A: ${NAME_FIELDS.find((f) => f.value === s.nameField)?.label})`} options={[...NAME_FIELDS]}
+              value={b.nameField} onChange={(v) => setB("nameField", v as AbVariant["nameField"])} />
 
             {bSkill && (
               <Select label={`When B asks for the email (A: ${SKILL_GAMES.includes(s.gameType) && s.emailAfter ? "after a win" : "before the game"})`}
@@ -1093,9 +1090,18 @@ function AbReport({ results: r, running, saving, onKeepA, onUseB }: {
   ];
   const conf = Math.round(r.confidence * 100);
   const winner = r.leader === "b" ? "B" : "A";
+  // How far the test is from a result, at the pace so far.
+  const viewsNeeded = Math.max(0, 100 - r.a.views) + Math.max(0, 100 - r.b.views);
+  const signupsNeeded = Math.max(0, 20 - r.a.submits - r.b.submits);
+  const days = Math.max(1, (Date.now() - new Date(r.startedAt).getTime()) / 86_400_000);
+  const viewsPerDay = (r.a.views + r.b.views) / days;
+  const daysLeft = viewsPerDay > 0 ? Math.ceil(viewsNeeded / viewsPerDay) : null;
+  const needed = [viewsNeeded ? `about ${viewsNeeded.toLocaleString()} more views` : "", signupsNeeded ? `${signupsNeeded} more sign-ups` : ""]
+    .filter(Boolean)
+    .join(" and ");
   const verdict = !r.enoughData
     ? { tone: "info" as const, title: "Not enough data yet",
-        text: "Each variant needs at least 100 views and together 20 sign-ups before the result means anything. Keep the test running." }
+        text: `Each version needs 100 views and together 20 sign-ups. Still ${needed || "a little more data"}${daysLeft && viewsNeeded ? `, about ${daysLeft} day${daysLeft === 1 ? "" : "s"} at the current pace` : ""}.` }
     : r.confidence >= 0.95 && r.leader
       ? { tone: "success" as const, title: `Variant ${winner} wins (${conf}% confidence)`,
           text: `${winner} collects more emails per view, and the difference is very unlikely to be chance.` }

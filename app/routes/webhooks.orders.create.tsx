@@ -1,15 +1,15 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { recordOrder } from "../lib/revenue.server";
-import { publishConfig } from "../lib/popups.server";
+import { syncPublish } from "../lib/popups.server";
 
 // Attributes orders that used a Kodra Play code; this revenue drives the
-// plans. Republishing re-evaluates the plan cap / grace period.
+// plans. The storefront is republished only if the plan cap pauses or unpauses it.
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, payload, admin } = await authenticate.webhook(request);
   try {
     const attributed = await recordOrder(shop, payload as Parameters<typeof recordOrder>[1]);
-    if (attributed && admin) await publishConfig(admin, shop);
+    if (attributed && admin) await syncPublish(admin, shop);
   } catch (err) {
     console.error(`[orders/create] ${shop}`, err);
   }

@@ -48,6 +48,13 @@
   background: radial-gradient(circle at 35% 35%, rgba(232, 236, 241, 0.35), rgba(232, 236, 241, 0) 65%);
   pointer-events: none;
 }
+.gd-hero--compact { padding: 16px 20px; }
+.gd-hero--compact .gd-hero-title { font-size: 18px; }
+.gd-hero--compact .gd-hero-stats { margin-top: 14px; }
+.gd-hero-stat-delta { font-size: 12px; margin-top: 2px; font-weight: 600; }
+.gd-hero-stat-delta.up { color: #9ff0b5; }
+.gd-hero-stat-delta.down { color: #ffb4b4; }
+.gd-hero-stat-delta.flat { opacity: 0.7; }
 .gd-hero-top { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; position: relative; z-index: 1; }
 .gd-hero-eyebrow { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.75; margin: 0 0 6px; font-weight: 600; }
 .gd-hero-title { font-size: 26px; line-height: 1.2; font-weight: 700; margin: 0; letter-spacing: -0.01em; }

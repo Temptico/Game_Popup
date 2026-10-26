@@ -137,12 +137,12 @@
     if (dismissed) return teaserOnly();
 
     // Frequency cap for automatic opening (the floating button still works).
-    var KEY_SHOWN = 'gd_shown_' + popup.id;
+    var KEY_SHOWN = 'gd_shown_' + popup.id, KEY_ONCE = 'gd_once_' + popup.id;
     var freq = popup.frequency || 'session';
     var capped = !testMode && (freq === 'session'
       ? session.get(KEY_SHOWN)
       : freq === 'once'
-        ? local.get(KEY_SHOWN)
+        ? local.get(KEY_ONCE)
         : freq !== 'always' && Date.now() - (Number(local.get(KEY_SHOWN)) || 0) < (freq === 'day' ? 864e5 : 6048e5));
     if (capped) return teaserOnly();
     // Shoppers with something in the cart are about to buy: don't interrupt them.
@@ -162,6 +162,7 @@
     function show() {
       session.set(KEY_SHOWN, '1');
       local.set(KEY_SHOWN, String(Date.now()));
+      local.set(KEY_ONCE, '1');
       withUI(function (u) { u.open(); });
     }
     var mode = testMode ? 'delay' : popup.trigger || 'both';

@@ -21,7 +21,7 @@ import {
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { livePopups, publishConfig } from "../lib/popups.server";
+import { livePopups, publishConfig, syncPublish } from "../lib/popups.server";
 import { getCounts } from "../lib/analytics.server";
 import { getRevenue } from "../lib/revenue.server";
 import { PLAN_LABELS, getPlan } from "../lib/plans";
@@ -36,18 +36,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Republishing here keeps the storefront in sync after plan changes
-  // (e.g. returning from the billing approval screen).
-  const { plan, billing } = await publishConfig(admin, shop);
+  // Republishes only if the plan or the paused state changed (e.g. returning
+  // from the billing approval screen).
+  const { plan, billing } = await syncPublish(admin, shop);
   const popups = await db.popup.findMany({ where: { shop }, orderBy: { createdAt: "asc" } });
   const live = new Set(billing.paused ? [] : livePopups(popups).map((p) => p.id));
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
-  const [{ byPopup }, revenue, lastView] = await Promise.all([
+  // Previous 30 days, for the change shown under each number.
+  const before = new Date(since.getTime() - 30 * 24 * 3600 * 1000);
+  const [{ byPopup }, revenue, lastView, prevCounts, prevRevenue] = await Promise.all([
     getCounts(shop, since),
     getRevenue(shop, since),
-    // The app embed works if the storefront reported a view recently.
     db.event.findFirst({ where: { shop, type: "view" }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+    getCounts(shop, before, since),
+    getRevenue(shop, before, since),
   ]);
+  const prev = { ...prevCounts.total, revenue: prevRevenue.currency ? prevRevenue.amount : prevRevenue.usd };
   // Ask for a review once the popup has brought the first order, or (stores
   // with little traffic) collected its first 50 emails.
   const [orders, state] = await Promise.all([
@@ -63,6 +67,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     showPlans: billingEnabled(),
     apiKey: process.env.SHOPIFY_API_KEY || "",
     sales: { amount: revenue.amount, currency: revenue.currency, usd: revenue.usd },
+    prev,
     lastSeen: lastView?.createdAt.toISOString() ?? null,
     review: {
       ask: goodMoment && !state?.reviewAskedAt,
@@ -135,7 +140,7 @@ const targetLabel = (v: string) => TARGETS.find((t) => t.value === v)?.label ?? 
 const EMBED_HINT_KEY = "gd_embed_hint_dismissed";
 
 export default function Index() {
-  const { popups, plan, billing, apiKey, showPlans, review, sales, lastSeen, guideHidden } = useLoaderData<typeof loader>();
+  const { popups, plan, billing, apiKey, showPlans, review, sales, lastSeen, guideHidden, prev } = useLoaderData<typeof loader>();
   // Revenue in the store's currency; plan limits stay in USD.
   const money = (n: number) =>
     sales.currency
@@ -241,13 +246,13 @@ export default function Index() {
       </TitleBar>
       <BlockStack gap="400">
         <BrandHero
-          title="Turn visitors into buyers"
-          subtitle="Visitors play a quick game, leave their email and win a discount. Here's how your popups did in the last 30 days."
+          compact
+          title="Last 30 days"
           stats={[
-            { label: "Popup views", value: totals.view.toLocaleString() },
-            { label: "Emails collected", value: totals.submit.toLocaleString() },
-            { label: "Wins", value: totals.win.toLocaleString() },
-            { label: "Revenue from popup", value: money(revenueNow) },
+            { label: "Popup views", value: totals.view.toLocaleString(), delta: delta(totals.view, prev.view) },
+            { label: "Emails collected", value: totals.submit.toLocaleString(), delta: delta(totals.submit, prev.submit) },
+            { label: "Wins", value: totals.win.toLocaleString(), delta: delta(totals.win, prev.win) },
+            { label: "Revenue from popup", value: money(revenueNow), delta: delta(revenueNow, prev.revenue) },
           ]}
           footer={
             showPlans && <>
@@ -503,6 +508,15 @@ function RowMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => voi
       />
     </Popover>
   );
+}
+
+/** Change against the previous 30 days, as a colored "+12%" / "-5%". */
+function delta(now: number, before: number) {
+  if (!before && !now) return <span className="gd-hero-stat-delta flat">no change</span>;
+  if (!before) return <span className="gd-hero-stat-delta up">new</span>;
+  const pct = Math.round(((now - before) / before) * 100);
+  const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+  return <span className={`gd-hero-stat-delta ${cls}`}>{`${pct > 0 ? "+" : ""}${pct}% vs. previous 30 days`}</span>;
 }
 
 const ago = (days: number) =>

@@ -8,6 +8,7 @@ import {
   parseWheelSegments,
   isGameType,
   GAME_TEXTS,
+  SKILL_GAMES,
   type GameType,
   type StringKey,
   type AbVariant,
@@ -74,6 +75,10 @@ export function rowToSettings(row: Popup): PopupSettings {
     tierValues: parseTierValues(row.tierValues),
     urgencyMinutes: row.urgencyMinutes,
     wheelSegments: readWheel(row.wheelSegments, row.tiered, parseTierValues(row.tierValues), row.discountValue),
+    showValue: row.showValue,
+    consolation: row.consolation,
+    consolationValue: row.consolationValue,
+    emailAfter: row.emailAfter,
     strings,
     abEnabled: row.abEnabled,
     ab: readAb(row),
@@ -182,16 +187,25 @@ export async function publishConfig(admin: AdminApi, shop: string) {
   // Over the plan's revenue cap past the grace period → pause the storefront popup.
   const billing = await getBillingStatus(shop, plan);
 
-  // Spin wheel segments show the real rewards, labelled exactly like the won
-  // value (so the wheel can stop on it). Shared codes have no known value: gifts.
-  const wheelPopups = popups.map(rowToSettings).filter((s) => s.gameType === "wheel" || (s.abEnabled && s.ab.gameType === "wheel"));
-  const currency = wheelPopups.some((s) => s.codeMode === "unique" && s.discountType !== "percentage")
+  // Reward labels are written exactly like the won value: the wheel stops on it.
+  // Shared codes have no known value (gifts on the wheel, no value in the headline).
+  const all = popups.map(rowToSettings);
+  const currency = all.some(
+    (s) => s.codeMode === "unique" && s.discountType !== "percentage" && (s.showValue || s.gameType === "wheel" || (s.abEnabled && s.ab.gameType === "wheel")),
+  )
     ? await getShopCurrency(admin).catch(() => "")
     : "";
+  const label = (s: PopupSettings, value: number) => (s.discountType === "percentage" ? `${value}%` : `${value} ${currency}`.trim());
   const wheelLabels = (s: PopupSettings, b?: PopupSettings["ab"]) =>
-    s.codeMode !== "unique"
-      ? undefined
-      : (b ?? s).wheelSegments.map(({ value }) => (s.discountType === "percentage" ? `${value}%` : `${value} ${currency}`.trim()));
+    s.codeMode !== "unique" ? undefined : (b ?? s).wheelSegments.map(({ value }) => label(s, value));
+  // "Win up to 20% off": the best reward a variant can give, and whether there are several.
+  const bestReward = (s: PopupSettings, v: PopupSettings | PopupSettings["ab"], game: GameType) => {
+    const values =
+      game === "wheel" ? v.wheelSegments.map((x) => x.value) : s.tiered && SKILL_GAMES.includes(game) ? v.tierValues : [v.discountValue];
+    return { value: label(s, Math.max(...values)), several: new Set(values).size > 1 };
+  };
+  const rewardTitle = (s: PopupSettings, game: GameType, best: ReturnType<typeof bestReward>, t: Strings) =>
+    (game === "none" ? t.noneTitleValue : best.several ? t.titleUpTo : t.titleWin).replace("{value}", best.value);
 
   const config = {
     v: 1,
@@ -211,7 +225,11 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         ),
       });
       const base = Object.fromEntries(LANGUAGES.map((l) => [l, { ...DEFAULT_STRINGS[l], ...s.strings[l] }])) as Record<Language, Strings>;
-      const strings = Object.fromEntries(LANGUAGES.map((l) => [l, forGame(s.gameType, l, base[l])]));
+      // Headline with the reward, unless the merchant wrote their own title.
+      const named = s.showValue && s.codeMode === "unique";
+      const titled = (game: GameType, v: PopupSettings | PopupSettings["ab"], l: Language, t: Strings) =>
+        named && !s.strings[l]?.introTitle ? { ...t, introTitle: rewardTitle(s, game, bestReward(s, v, game), t) } : t;
+      const strings = Object.fromEntries(LANGUAGES.map((l) => [l, titled(s.gameType, s, l, forGame(s.gameType, l, base[l]))]));
       // A/B test: the storefront picks a variant per visitor and overlays `ab`
       // (B's strings only for languages where B changes the texts).
       const ab = s.abEnabled
@@ -222,10 +240,11 @@ export async function publishConfig(admin: AdminApi, shop: string) {
             trigger: s.ab.trigger,
             delaySec: s.ab.delaySec,
             name: NAME_CODE[s.ab.nameField],
-            // B's texts for every language when its game changes the wording, else only where B overrides.
+            after: s.ab.emailAfter ? 1 : 0,
+            // B's texts for every language when its game or reward changes the wording, else only where B overrides.
             strings: Object.fromEntries(
-              LANGUAGES.filter((l) => s.ab.strings[l] || (s.ab.gameType !== s.gameType && (OWN_TEXTS.has(s.ab.gameType) || OWN_TEXTS.has(s.gameType))))
-                .map((l) => [l, { ...forGame(s.ab.gameType, l, base[l]), ...s.ab.strings[l] }]),
+              LANGUAGES.filter((l) => named || s.ab.strings[l] || (s.ab.gameType !== s.gameType && (OWN_TEXTS.has(s.ab.gameType) || OWN_TEXTS.has(s.gameType))))
+                .map((l) => [l, { ...titled(s.ab.gameType, s.ab, l, forGame(s.ab.gameType, l, base[l])), ...s.ab.strings[l] }]),
             ),
           }
         : undefined;
@@ -247,6 +266,9 @@ export async function publishConfig(admin: AdminApi, shop: string) {
         // Name field: omitted = required, "o" optional, "h" hidden.
         ...(s.nameField !== "required" ? { name: NAME_CODE[s.nameField] } : {}),
         autoApply: s.autoApply,
+        // Skill games: consolation code when all attempts are lost; email asked after a win.
+        ...(s.consolation && s.codeMode === "unique" ? { cons: 1 } : {}),
+        ...(s.emailAfter ? { after: 1 } : {}),
         gameType: s.gameType,
         ...(s.gameType === "wheel" ? { wheel: wheelLabels(s) } : {}),
         difficulty: s.difficulty,

@@ -9,6 +9,8 @@
     var KEY_CLAIMED = S.keys.claimed, KEY_ATTEMPTS = S.keys.attempts, KEY_DISMISSED = S.keys.dismissed, KEY_TEASER_OFF = S.keys.teaserOff;
 
     function fmt(str, vars) {
+      // No name (name field hidden): "Well done, {name}!" reads "Well done!".
+      if (vars.name === '') str = String(str).replace(/,? ?\{name\}/, '');
       return String(str).replace(/\{(\w+)\}/g, function (m, k) { return vars[k] != null ? vars[k] : m; });
     }
 
@@ -53,9 +55,9 @@
     if (t.consentNote && t.privacyLink && ctx.privacy) consentText.appendChild(el('a', { href: ctx.privacy, target: '_blank', rel: 'noopener', text: t.privacyLink }));
     var consentLabel = el('label', { class: 'gd-consent' }, [consentInput, consentText]);
     var formError = el('p', { class: 'gd-error', role: 'alert' });
-    var submitBtn = el('button', { class: 'gd-btn', type: 'submit', text: t.formSubmit });
+    var submitBtn = el('button', { class: 'gd-btn', type: 'submit', text: t.formSubmit }), formTitle;
     var form = el('form', { class: 'gd-screen', novalidate: '', hidden: '' }, [
-      el('h3', { class: 'gd-subtitle', text: t.formTitle }),
+      formTitle = el('h3', { class: 'gd-subtitle', text: t.formTitle }),
       nameInput, emailInput, consentLabel, formError, submitBtn
     ]);
 
@@ -187,11 +189,22 @@
     nameInput.hidden = nameMode == 'h';
     // "start" (first click per page) shows where visitors drop off: before or in the form.
     var started;
+    // Email after the game (skill games): play first, the form unlocks the code.
+    var after = popup.after && /^(paddle|flipper|pong)$/.test(gameType), pending = '';
     startBtn.addEventListener('click', function () {
+      if (!started) { started = 1; track('start'); }
+      if (after) { show(game); return startGame(); }
       show(form);
       (nameInput.hidden ? emailInput : nameInput).focus();
-      if (!started) { started = 1; track('start'); }
     });
+    // After a win (or the consolation): ask for the email, then hand out the code.
+    function askEmail(kind) {
+      pending = kind;
+      formTitle.textContent = kind == 'cons' ? t.formConsTitle : t.formWinTitle;
+      submitBtn.textContent = t.noneSubmit;
+      show(form);
+      (nameInput.hidden ? emailInput : nameInput).focus();
+    }
 
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -199,7 +212,7 @@
       var email = emailInput.value.trim();
       if (!name && !nameMode) { formError.textContent = t.nameError; nameInput.focus(); return; }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { formError.textContent = t.emailError; emailInput.focus(); return; }
-      if (popup.requireConsent && !consentInput.checked) { formError.textContent = t.consentError; return; }
+      if (popup.requireConsent && !consentInput.checked) { formError.textContent = after ? t.noneConsent : t.consentError; return; }
       formError.textContent = '';
       player.name = name;
       player.email = email;
@@ -208,7 +221,12 @@
       var consent = consentInput.checked;
       doiEl.hidden = !(popup.doi && consent && t.doiNote);
       // No game (A/B baseline): the code comes right after sign-up.
-      var proceed = function () { submitBtn.disabled = false; if (gameType == 'none') return win(); show(game); startGame(); };
+      var proceed = function () {
+        submitBtn.disabled = false;
+        if (pending) return giveCode(pending == 'cons');
+        if (gameType == 'none') return win();
+        show(game); startGame();
+      };
       if (testMode) return proceed();
       // Don't make the visitor wait on the network for more than ~2.5s.
       var done = false;
@@ -250,10 +268,15 @@
 
     function win() {
       local.set(KEY_ATTEMPTS, String(maxAttempts)); // no replays after a win
+      if (after && !player.email) return askEmail('win');
+      giveCode(false);
+    }
+    // The code for a win, or the smaller consolation code after the last lost attempt.
+    function giveCode(cons) {
       var tier = Math.min(3, attemptsUsed);          // 1 = won on the first attempt
-      rewardIntro.textContent = fmt(t.rewardIntro, { name: player.name });
+      rewardIntro.textContent = fmt(cons ? t.consolationIntro : t.rewardIntro, { name: player.name });
       show(reward);
-      if (window.GameDiscountFx) window.GameDiscountFx.confetti(overlay, [popup.accentColor, popup.primaryColor, '#fff', '#f5b400']);
+      if (!cons && window.GameDiscountFx) window.GameDiscountFx.confetti(overlay, [popup.accentColor, popup.primaryColor, '#fff', '#f5b400']);
       var reveal = function (res) {
         if (!res || !res.ok || !res.code) {
           // Claim failed (network / server). Let them come back and try again;
@@ -272,14 +295,14 @@
         }
         copyBtn.focus({ preventScroll: true });
       };
-      claim(tier).then(reveal, function () { reveal(null); });
+      claim(tier, cons).then(reveal, function () { reveal(null); });
     }
 
     // One claim per page: the wheel asks for it while spinning, win() reuses it.
     // A slow /subscribe may still be in flight — wait for its token.
     var claimP;
-    function claim(tier) {
-      return claimP = claimP || tokenPromise.then(function (token) { return post('/claim', { test: testMode, token: token, tier: tier }); });
+    function claim(tier, cons) {
+      return claimP = claimP || tokenPromise.then(function (token) { return post('/claim', { test: testMode, token: token, tier: tier, consolation: !!cons }); });
     }
 
     // ---------- game (module loaded on demand from the theme extension assets) ----------
@@ -325,6 +348,8 @@
         retryBtn.focus({ preventScroll: true });
       } else {
         statusEl.textContent = t.fail + ' ' + t.noAttempts;
+        // Consolation code (unique codes): after a moment to read the result.
+        if (popup.cons) setTimeout(function () { after && !player.email ? askEmail('cons') : giveCode(true); }, 1200);
       }
     }
 

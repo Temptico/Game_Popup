@@ -54,6 +54,12 @@ export const STRING_KEYS = [
   "noneSubmit",
   "noneTeaser",
   "noneConsent",
+  "titleUpTo",
+  "titleWin",
+  "noneTitleValue",
+  "consolationIntro",
+  "formWinTitle",
+  "formConsTitle",
   "consentNote",
   "privacyLink",
   "doiNote",
@@ -101,6 +107,12 @@ export const STRING_LABELS: Record<StringKey, string> = {
   noneSubmit: "No game: form button",
   noneTeaser: "No game: floating button",
   noneConsent: "No game: missing consent error",
+  titleUpTo: "Headline with the best reward ({value})",
+  titleWin: "Headline with the reward ({value})",
+  noneTitleValue: "No game: headline with the reward ({value})",
+  consolationIntro: "Consolation reward intro ({name})",
+  formWinTitle: "Email after the game: form title after a win",
+  formConsTitle: "Email after the game: form title for the consolation reward",
   consentNote: "Under the consent checkbox (unsubscribe note)",
   privacyLink: "Privacy policy link text",
   doiNote: "Double opt-in: check your inbox note",
@@ -146,6 +158,12 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     noneSubmit: "Code holen",
     noneTeaser: "🎁 Rabatt holen",
     noneConsent: "Bitte bestätige die Einwilligung, um deinen Code zu erhalten.",
+    titleUpTo: "Gewinne bis zu {value} Rabatt",
+    titleWin: "Spiel und gewinne {value} Rabatt",
+    noneTitleValue: "Hol dir {value} Rabatt",
+    consolationIntro: "Diesmal nicht, {name}, aber hier ist ein Dankeschön-Code:",
+    formWinTitle: "Gewonnen! Gib deine E-Mail ein, um deinen Code zu erhalten",
+    formConsTitle: "Gib deine E-Mail ein und erhalte deinen Dankeschön-Code",
     consentNote: "Abmeldung jederzeit möglich.",
     privacyLink: "Datenschutzerklärung",
     doiNote: "Bitte bestätige deine Anmeldung in der E-Mail, die wir dir gerade geschickt haben.",
@@ -181,14 +199,20 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     pongDesc: "Marquez 3 buts avant l'ordinateur et débloquez une remise mystère.",
     pongHelp: "Le premier à 3 buts gagne !",
     pongFail: "L'ordinateur a gagné cette manche !",
-    wheelDesc: "Fais tourner la roue et gagne une réduction. Chaque case est gagnante !",
-    wheelHelp: "Touche la roue pour la faire tourner !",
-    noneTitle: "Débloque une réduction mystère",
-    noneDesc: "Inscris-toi et reçois tout de suite ton code de réduction.",
-    noneForm: "Entre tes coordonnées pour recevoir ton code",
+    wheelDesc: "Faites tourner la roue et gagnez une réduction. Chaque case est gagnante !",
+    wheelHelp: "Touchez la roue pour la faire tourner !",
+    noneTitle: "Débloquez une réduction mystère",
+    noneDesc: "Inscrivez-vous et recevez tout de suite votre code de réduction.",
+    noneForm: "Entrez vos coordonnées pour recevoir votre code",
     noneSubmit: "Obtenir mon code",
     noneTeaser: "🎁 Obtenir une réduction",
-    noneConsent: "Merci de confirmer ton consentement pour recevoir ton code.",
+    noneConsent: "Merci de confirmer votre consentement pour recevoir votre code.",
+    titleUpTo: "Gagnez jusqu'à {value} de réduction",
+    titleWin: "Jouez et gagnez {value} de réduction",
+    noneTitleValue: "Obtenez {value} de réduction",
+    consolationIntro: "Pas cette fois, {name}, mais voici un code de remerciement :",
+    formWinTitle: "Gagné ! Entrez votre e-mail pour recevoir votre code",
+    formConsTitle: "Entrez votre e-mail pour recevoir votre code de remerciement",
     consentNote: "Désinscription possible à tout moment.",
     privacyLink: "Politique de confidentialité",
     doiNote: "Confirmez votre inscription dans l'e-mail que nous venons de vous envoyer.",
@@ -232,6 +256,12 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     noneSubmit: "Obtener mi código",
     noneTeaser: "🎁 Consigue un descuento",
     noneConsent: "Confirma tu consentimiento para recibir tu código.",
+    titleUpTo: "Gana hasta {value} de descuento",
+    titleWin: "Juega y gana {value} de descuento",
+    noneTitleValue: "Consigue {value} de descuento",
+    consolationIntro: "Esta vez no, {name}, pero aquí tienes un código de agradecimiento:",
+    formWinTitle: "¡Has ganado! Introduce tu email para recibir tu código",
+    formConsTitle: "Introduce tu email para recibir tu código de agradecimiento",
     consentNote: "Puedes darte de baja en cualquier momento.",
     privacyLink: "Política de privacidad",
     doiNote: "Confirma tu suscripción en el email que te acabamos de enviar.",
@@ -275,6 +305,12 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     noneSubmit: "Ricevi il codice",
     noneTeaser: "🎁 Ottieni uno sconto",
     noneConsent: "Conferma il consenso per ricevere il codice.",
+    titleUpTo: "Vinci fino a {value} di sconto",
+    titleWin: "Gioca e vinci {value} di sconto",
+    noneTitleValue: "Ottieni {value} di sconto",
+    consolationIntro: "Non questa volta, {name}, ma ecco un codice di ringraziamento:",
+    formWinTitle: "Hai vinto! Inserisci la tua email per ricevere il codice",
+    formConsTitle: "Inserisci la tua email per ricevere il codice di ringraziamento",
     consentNote: "Puoi annullare l'iscrizione in qualsiasi momento.",
     privacyLink: "Informativa sulla privacy",
     doiNote: "Conferma l'iscrizione nell'email che ti abbiamo appena inviato.",
@@ -318,6 +354,12 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     noneSubmit: "Code ontvangen",
     noneTeaser: "🎁 Krijg korting",
     noneConsent: "Bevestig je toestemming om je code te ontvangen.",
+    titleUpTo: "Win tot {value} korting",
+    titleWin: "Speel en win {value} korting",
+    noneTitleValue: "Krijg {value} korting",
+    consolationIntro: "Deze keer niet, {name}, maar hier is een bedankcode:",
+    formWinTitle: "Gewonnen! Vul je e-mail in om je code te ontvangen",
+    formConsTitle: "Vul je e-mail in om je bedankcode te ontvangen",
     consentNote: "Je kunt je op elk moment afmelden.",
     privacyLink: "Privacybeleid",
     doiNote: "Bevestig je inschrijving in de e-mail die we je net hebben gestuurd.",
@@ -361,6 +403,12 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     noneSubmit: "Odbierz kod",
     noneTeaser: "🎁 Odbierz rabat",
     noneConsent: "Potwierdź zgodę, aby otrzymać kod.",
+    titleUpTo: "Wygraj do {value} rabatu",
+    titleWin: "Zagraj i wygraj {value} rabatu",
+    noneTitleValue: "Odbierz {value} rabatu",
+    consolationIntro: "Tym razem się nie udało, {name}, ale oto kod w podziękowaniu:",
+    formWinTitle: "Wygrana! Podaj e-mail, aby otrzymać kod",
+    formConsTitle: "Podaj e-mail, aby otrzymać kod w podziękowaniu",
     consentNote: "Możesz w każdej chwili zrezygnować z subskrypcji.",
     privacyLink: "Polityka prywatności",
     doiNote: "Potwierdź subskrypcję w e-mailu, który właśnie wysłaliśmy.",
@@ -404,6 +452,12 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     noneSubmit: "Prejmi kodo",
     noneTeaser: "🎁 Prejmi popust",
     noneConsent: "Potrdi soglasje, da prejmeš kodo.",
+    titleUpTo: "Zadeni do {value} popusta",
+    titleWin: "Igraj in osvoji {value} popusta",
+    noneTitleValue: "Prejmi {value} popusta",
+    consolationIntro: "Tokrat ne, {name}, a tukaj je koda v zahvalo:",
+    formWinTitle: "Zmaga! Vpiši e-naslov in prejmi kodo",
+    formConsTitle: "Vpiši e-naslov in prejmi kodo v zahvalo",
     consentNote: "Odjaviš se lahko kadar koli.",
     privacyLink: "Politika zasebnosti",
     doiNote: "Potrdi prijavo v e-poštnem sporočilu, ki smo ti ga pravkar poslali.",
@@ -447,6 +501,12 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     noneSubmit: "Preuzmi kod",
     noneTeaser: "🎁 Preuzmi popust",
     noneConsent: "Potvrdi privolu da primiš kod.",
+    titleUpTo: "Osvoji do {value} popusta",
+    titleWin: "Igraj i osvoji {value} popusta",
+    noneTitleValue: "Preuzmi {value} popusta",
+    consolationIntro: "Ovaj put ne, {name}, ali evo koda kao zahvala:",
+    formWinTitle: "Pobjeda! Upiši e-mail i primi kod",
+    formConsTitle: "Upiši e-mail i primi kod kao zahvalu",
     consentNote: "Možeš se odjaviti u bilo kojem trenutku.",
     privacyLink: "Pravila privatnosti",
     doiNote: "Potvrdi prijavu u e-poruci koju smo ti upravo poslali.",
@@ -490,6 +550,12 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     noneSubmit: "Primește codul",
     noneTeaser: "🎁 Primește o reducere",
     noneConsent: "Confirmă acordul pentru a primi codul.",
+    titleUpTo: "Câștigă până la {value} reducere",
+    titleWin: "Joacă și câștigă {value} reducere",
+    noneTitleValue: "Primește {value} reducere",
+    consolationIntro: "Nu de data asta, {name}, dar iată un cod de mulțumire:",
+    formWinTitle: "Ai câștigat! Introdu e-mailul pentru a primi codul",
+    formConsTitle: "Introdu e-mailul pentru a primi codul de mulțumire",
     consentNote: "Te poți dezabona oricând.",
     privacyLink: "Politica de confidențialitate",
     doiNote: "Confirmă abonarea din e-mailul pe care tocmai ți l-am trimis.",
@@ -533,6 +599,12 @@ export const DEFAULT_STRINGS: Record<Language, Strings> = {
     noneSubmit: "Get my code",
     noneTeaser: "🎁 Get a discount",
     noneConsent: "Please confirm consent to get your code.",
+    titleUpTo: "Win up to {value} off",
+    titleWin: "Play and win {value} off",
+    noneTitleValue: "Get {value} off",
+    consolationIntro: "Not this time, {name}, but here's a thank-you code:",
+    formWinTitle: "You won! Enter your email to get your code",
+    formConsTitle: "Enter your email to get your thank-you code",
     consentNote: "You can unsubscribe at any time.",
     privacyLink: "Privacy policy",
     doiNote: "Check your inbox to confirm your subscription.",
@@ -634,10 +706,17 @@ export const GAME_TEXTS: Record<GameType, Partial<Record<StringKey, StringKey>>>
   },
 };
 // Default-only keys (edited through the key they stand in for) and keys a game doesn't use.
-const SOURCE_KEYS = new Set<StringKey>(Object.values(GAME_TEXTS).flatMap((m) => Object.values(m)));
+// The reward headlines are templates for "Intro title" (edited through it).
+const SOURCE_KEYS = new Set<StringKey>([
+  ...Object.values(GAME_TEXTS).flatMap((m) => Object.values(m)),
+  "titleUpTo",
+  "titleWin",
+  "noneTitleValue",
+]);
+const SKILL_ONLY: StringKey[] = ["fail", "retriesLeft", "noAttempts", "consolationIntro", "formWinTitle", "formConsTitle"];
 const UNUSED: Partial<Record<GameType, StringKey[]>> = {
-  wheel: ["fail", "retriesLeft", "noAttempts"],
-  none: ["playing", "fail", "retriesLeft", "noAttempts"],
+  wheel: SKILL_ONLY,
+  none: ["playing", ...SKILL_ONLY],
 };
 /** The text fields the editor shows for a game, with the default each one falls back to. */
 export function textFieldsFor(game: GameType): { key: StringKey; source: StringKey }[] {
@@ -687,6 +766,8 @@ export interface AbVariant {
   discountCode: string;
   // Spin wheel rewards when B is the wheel
   wheelSegments: WheelSegment[];
+  // Skill games: ask for the email after a win instead of before the game
+  emailAfter: boolean;
   nameField: NameField;
   // Headline/description per language (empty = same as A)
   strings: Partial<Record<Language, { introTitle?: string; introDesc?: string }>>;
@@ -730,6 +811,13 @@ export interface PopupSettings {
   urgencyMinutes: number;
   // Spin wheel rewards and their chances
   wheelSegments: WheelSegment[];
+  // Headline names the reward ("Win up to 20% off") unless the merchant wrote their own
+  showValue: boolean;
+  // Skill games: a smaller code when all attempts are lost
+  consolation: boolean;
+  consolationValue: number;
+  // Skill games: ask for the email after a win instead of before the game
+  emailAfter: boolean;
   strings: CustomStrings;
   abEnabled: boolean;
   ab: AbVariant;
@@ -745,6 +833,7 @@ export function abFromSettings(s: PopupSettings): AbVariant {
     tierValues: [...s.tierValues],
     discountCode: s.discountCode,
     wheelSegments: s.wheelSegments.map((x) => ({ ...x })),
+    emailAfter: s.emailAfter,
     nameField: s.nameField,
     strings: {},
   };
@@ -767,6 +856,7 @@ export function applyVariantB(s: PopupSettings): PopupSettings {
     tierValues: [...b.tierValues],
     discountCode: b.discountCode || s.discountCode,
     wheelSegments: b.wheelSegments.map((x) => ({ ...x })),
+    emailAfter: b.emailAfter,
     nameField: b.nameField,
     strings,
     abEnabled: false,
@@ -791,7 +881,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   doubleOptIn: false,
   nameField: "required",
   autoApply: true,
-  codeMode: "static",
+  codeMode: "unique",
   discountType: "percentage",
   discountValue: 10,
   codePrefix: "WIN",
@@ -805,6 +895,10 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   tierValues: [15, 10, 5],
   urgencyMinutes: 0,
   wheelSegments: DEFAULT_WHEEL,
+  showValue: true,
+  consolation: false,
+  consolationValue: 5,
+  emailAfter: false,
   strings: {},
   abEnabled: false,
   ab: {
@@ -815,6 +909,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
     tierValues: [15, 10, 5],
     discountCode: "",
     wheelSegments: DEFAULT_WHEEL,
+    emailAfter: false,
     nameField: "required",
     strings: {},
   },
@@ -851,6 +946,7 @@ export function parseAbVariant(input: unknown, fallback: AbVariant = DEFAULT_SET
     tierValues: [0, 1, 2].map((i) => num(tiers[i], fallback.tierValues[i], 0.01, 100000)) as [number, number, number],
     discountCode: String(o.discountCode ?? "").trim().slice(0, 255),
     wheelSegments: parseWheelSegments(o.wheelSegments, fallback.wheelSegments),
+    emailAfter: o.emailAfter === true || o.emailAfter === "true",
     nameField: isNameField(o.nameField) ? o.nameField : fallback.nameField,
     strings,
   };
@@ -927,6 +1023,12 @@ export function parseSettings(input: Record<string, unknown>): {
   if (gameType === "wheel") {
     const err = codeMode !== "unique" ? WHEEL_NEEDS_UNIQUE : wheelError(wheelSegments, discountType);
     if (err) errors.wheelSegments = err;
+  }
+
+  const consolation = codeMode === "unique" && (input.consolation === true || input.consolation === "true");
+  const consolationValue = num(input.consolationValue, d.consolationValue, 0, 1_000_000);
+  if (consolation && (consolationValue <= 0 || (discountType === "percentage" && consolationValue > 100))) {
+    errors.consolationValue = "The consolation reward needs a value greater than 0 (percentages up to 100).";
   }
 
   const abEnabled = input.abEnabled === true || input.abEnabled === "true";
@@ -1008,6 +1110,10 @@ export function parseSettings(input: Record<string, unknown>): {
       tierValues,
       urgencyMinutes: Math.round(num(input.urgencyMinutes, 0, 0, 1440)),
       wheelSegments,
+      showValue: input.showValue === true || input.showValue === "true",
+      consolation,
+      consolationValue,
+      emailAfter: input.emailAfter === true || input.emailAfter === "true",
       strings,
       abEnabled,
       ab,

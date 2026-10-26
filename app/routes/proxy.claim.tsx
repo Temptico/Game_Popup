@@ -38,6 +38,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // between tiers is small and each code is single-use anyway.
   const tier = Math.min(3, Math.max(1, Math.round(Number(body.tier) || 3)));
   const settings = rowToSettings(popup);
+  // Consolation code after all attempts are lost (skill games, unique codes, when switched on).
+  const cons = body.consolation === true;
   // Variant B of an A/B test has its own game and discount. The variant comes from
   // the claim (fixed at sign-up), or from the request in theme-editor test mode.
   const reward = (variant: string) => {
@@ -45,10 +47,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const game = (b ?? settings).gameType;
     return {
       game,
+      allowed: !cons || (settings.consolation && settings.codeMode === "unique" && SKILL_GAMES.includes(game)),
+      emailAfter: (b ?? settings).emailAfter && SKILL_GAMES.includes(game),
       // Spin wheel: the server draws the reward with the chances the merchant set.
       // Reward by attempt applies to the skill games only.
-      amount:
-        game === "wheel"
+      amount: cons
+        ? settings.consolationValue
+        : game === "wheel"
           ? drawWheel((b ?? settings).wheelSegments)
           : settings.tiered && SKILL_GAMES.includes(game)
             ? (b ?? settings).tierValues[tier - 1]
@@ -60,7 +65,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Theme-editor test mode: show a placeholder, never a real code, and don't
   // touch analytics. (A real code here would let anyone skip the game.)
   if (body.test === true) {
-    const { amount } = reward(String(body.v ?? ""));
+    const { amount, allowed } = reward(String(body.v ?? ""));
+    if (!allowed) return fail("no_consolation", 403);
     const unique = popup.codeMode === "unique";
     return reply(
       `${popup.codePrefix || "TEST"}-PREVIEW`,
@@ -78,8 +84,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Pong ends when someone reaches 3 goals, which takes at least a few seconds
   // (serve pauses + ball travel); the wheel asks while it spins, the form-only popup at once;
   // the other games last surviveSec.
-  const { game, amount, sharedCode } = reward(claim.variant);
-  const minMs = game === "pong" ? PONG_MIN_MS : game === "wheel" || game === "none" ? 0 : popup.surviveSec * 1000;
+  // A consolation code or an email asked after the game: the game time isn't known here.
+  const { game, amount, sharedCode, allowed, emailAfter } = reward(claim.variant);
+  if (!allowed) return fail("no_consolation", 403);
+  const minMs =
+    cons || emailAfter || game === "wheel" || game === "none" ? 0 : game === "pong" ? PONG_MIN_MS : popup.surviveSec * 1000;
   if (Date.now() - claim.issuedAt.getTime() < minMs - SLACK_MS) {
     return fail("too_fast", 403);
   }
@@ -122,6 +131,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return reply(existing?.code ?? code, existing?.valueLabel ?? null, existing?.expiresAt ?? null);
   }
 
-  await db.event.create({ data: { shop, popupId: popup.id, type: "win", variant: popup.abEnabled ? claim.variant : "", device: claim.device, country: claim.country } });
+  // A consolation code isn't a win.
+  if (!cons) await db.event.create({ data: { shop, popupId: popup.id, type: "win", variant: popup.abEnabled ? claim.variant : "", device: claim.device, country: claim.country } });
   return reply(code, valueLabel, expiresAt);
 };

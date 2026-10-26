@@ -66,6 +66,10 @@ import { GamePicker } from "../components/GamePicker";
 import { WheelEditor } from "../components/WheelEditor";
 
 const ALL_GAMES = GAMES.map((g) => g.value);
+const EMAIL_TIMING = [
+  { label: "Before the game (default)", value: "before" },
+  { label: "After a win, to unlock the code", value: "after" },
+];
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -308,6 +312,13 @@ export default function PopupEditor() {
                             />
                           )}
                           <TextField label="Max attempts" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off" />
+                          <Select
+                            label="When to ask for the email"
+                            options={EMAIL_TIMING}
+                            value={s.emailAfter ? "after" : "before"}
+                            onChange={(v) => set("emailAfter")(v === "after")}
+                            helpText="After a win, visitors have already played and want their code, so more of them may leave an email; but those who lose leave none. Test both with an A/B test."
+                          />
                         </FormLayout>
                       </BlockStack>
                     )}
@@ -362,6 +373,14 @@ export default function PopupEditor() {
                             )}
                           </InlineGrid>
                         )}
+                        {s.codeMode === "unique" && (
+                          <Checkbox
+                            label="Show the reward in the headline, e.g. “Win up to 20% off”"
+                            helpText="A concrete reward gets more visitors to start than a mystery discount. Your own intro title (Texts tab) replaces it."
+                            checked={s.showValue}
+                            onChange={set("showValue")}
+                          />
+                        )}
                         {s.codeMode === "unique" && s.gameType === "wheel" && (
                           <WheelEditor
                             segments={s.wheelSegments}
@@ -402,6 +421,24 @@ export default function PopupEditor() {
                                   />
                                 ))}
                               </InlineGrid>
+                            )}
+                            <Checkbox
+                              label="Consolation reward when all attempts are lost"
+                              helpText="Everyone who leaves an email gets something; winners still get more. Not counted as a win in analytics."
+                              checked={s.consolation}
+                              onChange={set("consolation")}
+                            />
+                            {s.consolation && (
+                              <TextField
+                                label="Consolation reward"
+                                type="number"
+                                min={0}
+                                suffix={unit || undefined}
+                                value={String(s.consolationValue)}
+                                onChange={(v) => setS((prev) => ({ ...prev, consolationValue: v as unknown as number }))}
+                                error={errors.consolationValue}
+                                autoComplete="off"
+                              />
                             )}
                           </BlockStack>
                         )}
@@ -603,9 +640,18 @@ function ColorField({
 
 function Preview({ settings: s, branding, device }: { settings: PopupSettings; branding: boolean; device: "desktop" | "phone" }) {
   const own = DEFAULT_STRINGS.en;
+  const unit = s.discountType === "percentage" ? "%" : "";
+  const values =
+    s.gameType === "wheel" ? s.wheelSegments.map((x) => Number(x.value)) : s.tiered && SKILL_GAMES.includes(s.gameType) ? s.tierValues.map(Number) : [Number(s.discountValue)];
+  const best = `${Math.max(...values)}${unit}`;
+  const named =
+    s.showValue && s.codeMode === "unique"
+      ? { introTitle: (s.gameType === "none" ? own.noneTitleValue : new Set(values).size > 1 ? own.titleUpTo : own.titleWin).replace("{value}", best) }
+      : {};
   const t = {
     ...own,
     ...Object.fromEntries(Object.entries(GAME_TEXTS[s.gameType]).map(([key, src]) => [key, own[src]])),
+    ...named,
     ...s.strings.en,
   };
   const phone = device === "phone";
@@ -748,6 +794,10 @@ function AbTab({
                 value={b.nameField} onChange={(v) => setB("nameField", v as AbVariant["nameField"])} />
             )}
 
+            {bSkill && (
+              <Select label={`When B asks for the email (A: ${SKILL_GAMES.includes(s.gameType) && s.emailAfter ? "after a win" : "before the game"})`}
+                options={EMAIL_TIMING} value={b.emailAfter ? "after" : "before"} onChange={(v) => setB("emailAfter", v === "after")} />
+            )}
             {/* B's game settings that A's game doesn't show (they are shared with A). */}
             {(needsLevel || needsTime || needsAttempts) && (
               <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">

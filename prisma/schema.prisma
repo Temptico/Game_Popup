@@ -80,6 +80,13 @@ model Popup {
   urgencyMinutes Int      @default(0)
   // Spin wheel rewards: JSON [{ value, chance }] ("" = derived from the tiers)
   wheelSegments  String   @default("")
+  // Headline names the reward ("Win up to 20% off"); off for popups made before it existed
+  showValue        Boolean @default(false)
+  // Skill games: smaller code when all attempts are lost
+  consolation      Boolean @default(false)
+  consolationValue Float   @default(5)
+  // Skill games: email asked after a win instead of before the game
+  emailAfter       Boolean @default(false)
   // JSON-encoded CustomStrings ({ sl: { introTitle: "..." }, ... })
   strings        String   @default("{}")
   createdAt      DateTime @default(now())

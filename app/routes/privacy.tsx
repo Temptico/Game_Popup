@@ -47,7 +47,7 @@ export default function Privacy() {
             <tr><td style={S.td}><b>Email hash</b></td><td style={S.td}>A salted SHA-256 hash of the email, to make sure each email receives at most one discount code per popup. The hash cannot be turned back into the email.</td></tr>
             <tr><td style={S.td}><b>Popup statistics</b></td><td style={S.td}>Anonymous counts of popup views, form submissions, games played and wins, split by device type (desktop or phone/tablet) and the store&rsquo;s storefront country. No IP addresses, device fingerprints or cookies are used for statistics. To stop abuse, the visitor&rsquo;s IP address is used briefly in memory to limit repeated requests; it is never stored.</td></tr>
             <tr><td style={S.td}><b>Orders using a {c.appName} code</b></td><td style={S.td}>Order ID, order total, currency, the discount code used, the device type and the traffic source (for example the campaign tag of the page the shopper landed on) — to show the merchant the revenue the popup generated and to determine the plan. No customer names, addresses or payment data are stored.</td></tr>
-            <tr><td style={S.td}><b>Discount codes</b></td><td style={S.td}>Codes the App creates in the merchant&rsquo;s store for winners, and their usage counts. If the merchant turns on the code reminder, the code, its value and end date are also saved on the customer in the merchant&rsquo;s Shopify store, so the merchant&rsquo;s own email tool can remind them.</td></tr>
+            <tr><td style={S.td}><b>Discount codes</b></td><td style={S.td}>Codes the App creates in the merchant&rsquo;s store for winners, and their usage counts.</td></tr>
           </tbody>
         </table>
 

@@ -56,9 +56,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const doi = (await db.popup.findFirst({ where: { id: popupId, shop }, select: { doubleOptIn: true } }))?.doubleOptIn;
     const result = await upsertCustomer(admin, { email, firstName, consent: consent && !doi, locale });
     customerOk = result.ok;
-    if (result.id && result.id !== claim.customerId) {
-      await db.claim.update({ where: { id: claim.id }, data: { customerId: result.id } });
-    }
     if (!result.ok) console.error(`[subscribe] ${shop}: ${result.error}`);
   } catch (err) {
     console.error(`[subscribe] ${shop}`, err);

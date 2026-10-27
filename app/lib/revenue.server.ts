@@ -41,12 +41,12 @@ export async function recordOrder(shop: string, order: OrderPayload) {
   const codes = (order.discount_codes ?? [])
     .map((d) => (d.code ?? "").trim())
     .filter(Boolean);
-  if (!codes.length) return null;
+  if (!codes.length) return false;
   const upper = codes.map((c) => c.toUpperCase());
 
   const [claim, popups] = await Promise.all([
     // Shopify codes are case-insensitive; ours are stored upper-case.
-    db.claim.findFirst({ where: { shop, code: { in: [...new Set([...codes, ...upper])] } }, select: { popupId: true, code: true, variant: true, device: true, country: true, customerId: true } }),
+    db.claim.findFirst({ where: { shop, code: { in: [...new Set([...codes, ...upper])] } }, select: { popupId: true, code: true, variant: true, device: true, country: true } }),
     db.popup.findMany({ where: { shop }, select: { id: true, discountCode: true, abEnabled: true, abVariant: true } }),
   ]);
   const has = (code: string | null | undefined) => !!code && upper.includes(code.toUpperCase());
@@ -63,7 +63,7 @@ export async function recordOrder(shop: string, order: OrderPayload) {
     }
     if (match) break;
   }
-  if (!match) return null;
+  if (!match) return false;
 
   const amount = parseFloat(order.total_price ?? "0") || 0;
   const currency = order.currency ?? "USD";
@@ -80,8 +80,7 @@ export async function recordOrder(shop: string, order: OrderPayload) {
     },
     update: {},
   });
-  // The customer whose saved code was just used (for the code reminder), if any.
-  return { customerId: claim?.code === match.code ? claim.customerId : "" };
+  return true;
 }
 
 /** Popup-generated revenue for a period, total and per popup (shop currency). */

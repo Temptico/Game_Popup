@@ -71,7 +71,6 @@ export function rowToSettings(row: Popup): PopupSettings {
     trigger: row.trigger === "delay" || row.trigger === "exit" ? row.trigger : "both",
     frequency: (["session", "once", "day", "week", "always"] as const).find((f) => f === row.frequency) ?? "session",
     noCart: row.noCart,
-    saveCode: row.saveCode,
     teaser: row.teaser,
     tiered: row.tiered,
     tierValues: parseTierValues(row.tierValues),

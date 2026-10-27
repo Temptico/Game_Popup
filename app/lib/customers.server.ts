@@ -23,7 +23,7 @@ function consentInput() {
 export async function upsertCustomer(
   admin: AdminApi,
   { email, firstName, consent, locale }: { email: string; firstName: string; consent: boolean; locale?: string },
-): Promise<{ ok: boolean; created: boolean; id?: string; error?: string }> {
+): Promise<{ ok: boolean; created: boolean; error?: string }> {
   const create = (withLocale: boolean) => admin.graphql(
     `#graphql
     mutation GameDiscountCustomerCreate($input: CustomerInput!) {
@@ -51,7 +51,7 @@ export async function upsertCustomer(
   );
   if (locale && localeRejected) createJson = await (await create(false)).json();
   const created = createJson.data?.customerCreate;
-  if (created?.customer?.id) return { ok: true, created: true, id: created.customer.id };
+  if (created?.customer?.id) return { ok: true, created: true };
 
   const errors: { field: string[] | null; message: string }[] = created?.userErrors ?? [];
   const taken = errors.some(
@@ -94,5 +94,5 @@ export async function upsertCustomer(
     );
   }
 
-  return { ok: true, created: false, id };
+  return { ok: true, created: false };
 }

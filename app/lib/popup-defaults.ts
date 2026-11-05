@@ -806,6 +806,8 @@ export interface PopupSettings {
   frequency: "session" | "once" | "day" | "week" | "always";
   // Don't open by itself for shoppers with something in the cart
   noCart: boolean;
+  // Pages where it never opens: normalized paths, one per line
+  excludePages: string;
   teaser: boolean;
   tiered: boolean;
   // Best → worst: won on 1st, 2nd, 3rd+ attempt
@@ -895,6 +897,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   frequency: "session",
   teaser: true,
   noCart: true,
+  excludePages: "",
   tiered: false,
   tierValues: [15, 10, 5],
   urgencyMinutes: 0,
@@ -1111,6 +1114,7 @@ export function parseSettings(input: Record<string, unknown>): {
         : "session",
       teaser: input.teaser !== false && input.teaser !== "false",
       noCart: input.noCart === true || input.noCart === "true",
+      excludePages: normalizePages(input.excludePages),
       tiered,
       tierValues,
       urgencyMinutes: Math.round(num(input.urgencyMinutes, 0, 0, 1440)),
@@ -1124,4 +1128,30 @@ export function parseSettings(input: Record<string, unknown>): {
       ab,
     },
   };
+}
+
+export const EXCLUDE_MAX = 30;
+
+/** Paths of the pages listed by the merchant: full links or paths, one per line. */
+export function excludedPaths(text: string) {
+  return text.split("\n").filter(Boolean);
+}
+
+function normalizePages(input: unknown) {
+  const out: string[] = [];
+  for (const raw of String(input ?? "").split(/[\n,]/)) {
+    let line = raw.trim();
+    if (!line) continue;
+    try {
+      // Full links: keep only the path. Paths: drop ?query and #hash.
+      line = /^https?:\/\//i.test(line) ? new URL(line).pathname : line.split(/[?#]/)[0];
+      line = decodeURI(line);
+    } catch {
+      continue;
+    }
+    line = ("/" + line.replace(/^\/+/, "")).replace(/\/+$/, "").toLowerCase() || "/";
+    if (line.length <= 200 && !out.includes(line)) out.push(line);
+    if (out.length >= EXCLUDE_MAX) break;
+  }
+  return out.join("\n");
 }

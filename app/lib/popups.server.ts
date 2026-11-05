@@ -2,6 +2,7 @@ import type { Popup } from "@prisma/client";
 import { billingEnabled } from "./billing.server";
 import db from "../db.server";
 import {
+  excludedPaths,
   DEFAULT_STRINGS,
   LANGUAGES,
   parseAbJson,
@@ -71,6 +72,7 @@ export function rowToSettings(row: Popup): PopupSettings {
     trigger: row.trigger === "delay" || row.trigger === "exit" ? row.trigger : "both",
     frequency: (["session", "once", "day", "week", "always"] as const).find((f) => f === row.frequency) ?? "session",
     noCart: row.noCart,
+    excludePages: row.excludePages,
     teaser: row.teaser,
     tiered: row.tiered,
     tierValues: parseTierValues(row.tierValues),
@@ -262,6 +264,8 @@ export async function storefrontPopups(admin: AdminApi, rows: Popup[]) {
       trigger: s.trigger,
       frequency: s.frequency,
       ...(s.noCart ? { nc: 1 } : {}),
+      // Pages where it never opens (paths, matched with the pages under them).
+      ...(s.excludePages ? { ex: excludedPaths(s.excludePages) } : {}),
       teaser: s.teaser,
       // Resolved per language so the storefront script carries no translations.
       strings,

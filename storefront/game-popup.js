@@ -31,6 +31,18 @@
       .then(function (r) { return r.json(); })
       .then(function (r) { if (r.ok) run(r.popup); }, function () {});
   }
+  // Pages the merchant excluded (and the pages under them), also behind a language prefix (/en/...).
+  var path = function (x) { try { x = decodeURI(x); } catch (e) { /* keep */ } return (x.replace(/\/+$/, '') || '/').toLowerCase(); };
+  var here = path(location.pathname);
+  var root = path((window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || '/');
+  var paths = [here];
+  if (root !== '/' && here.indexOf(root) === 0) paths.push(here.slice(root.length) || '/');
+  var allowed = function (p) {
+    return !(p.ex || []).some(function (e) {
+      return paths.some(function (h) { return h === e || (e !== '/' && h.indexOf(e + '/') === 0); });
+    });
+  };
+  popups = popups.filter(allowed);
   // Specific page targets win over "all pages".
   var first = popups.filter(matches)[0] || popups.filter(function (p) { return p.target === 'all'; })[0];
   if (first) run(first);

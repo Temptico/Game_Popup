@@ -211,6 +211,15 @@ export default function PopupEditor() {
               <FormLayout>
                 <TextField label="Name (only you see it)" value={s.name} onChange={set("name")} autoComplete="off" />
                 <Select label="Show it on" options={[...TARGETS]} value={s.target} onChange={set("target")} />
+                <TextField
+                  label="Don't show on these pages (optional)"
+                  value={s.excludePages}
+                  onChange={set("excludePages")}
+                  multiline={3}
+                  placeholder={"/pages/contact\n/collections/sale"}
+                  helpText="Paste one link per line. Each link also covers the pages under it."
+                  autoComplete="off"
+                />
                 <Select
                   label="When it opens"
                   options={[...TRIGGERS]}
@@ -754,6 +763,9 @@ function Summary({ settings: s, branding }: { settings: PopupSettings; branding:
     ["Game", GAMES.find((g) => g.value === s.gameType)?.label ?? s.gameType],
     ["Discount", discount],
     ["Shows on", TARGETS.find((t) => t.value === s.target)?.label ?? s.target],
+    ...(s.excludePages
+      ? ([["Hidden on", `${s.excludePages.split("\n").length} page link(s)`]] as [string, string][])
+      : []),
     ["Opens", TRIGGERS.find((t) => t.value === s.trigger)?.label ?? s.trigger],
   ];
   return (

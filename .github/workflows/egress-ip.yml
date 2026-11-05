@@ -1,0 +1,69 @@
+name: Static outbound IP
+
+# Shopify requires public apps to allowlist the IP addresses that call the
+# Admin API. Fly.io machines have no fixed outbound address by default, so
+# this gives the app one (a static egress IP in fra) and prints it for the
+# Dev Dashboard's IP allowlist.
+#
+#   action = show      only prints the current outbound addresses
+#   action = allocate  allocates the static IP (once), restarts the machine
+#                      and checks the machine really uses it
+on:
+  workflow_dispatch:
+    inputs:
+      instance:
+        description: "Store copy name (e.g. temptico). Leave empty for the public app."
+        required: false
+        type: string
+      action:
+        description: "show or allocate"
+        required: true
+        default: show
+        type: choice
+        options: [show, allocate]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: egress-ip-${{ inputs.instance || 'public' }}
+  cancel-in-progress: false
+
+jobs:
+  egress:
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: ${{ inputs.instance && format('enigmaplay-{0}', inputs.instance) || secrets.FLY_APP_NAME }}
+      REGION: fra
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Current IP addresses
+        run: flyctl ips list --app "$APP" 2>&1 | sed "s/$APP/<app>/g"
+
+      - name: Allocate static outbound IP
+        if: inputs.action == 'allocate'
+        run: |
+          if flyctl ips list --app "$APP" 2>&1 | grep -qi egress; then
+            echo "The app already has a static outbound IP."
+          else
+            flyctl ips allocate-egress --app "$APP" --region "$REGION" --yes
+          fi
+          # Running machines pick up the new address on restart.
+          for id in $(flyctl machines list --app "$APP" --json | jq -r '.[].id'); do
+            flyctl machines restart "$id" --app "$APP"
+          done
+          flyctl ips list --app "$APP" 2>&1 | sed "s/$APP/<app>/g"
+
+      - name: Address the machine really uses for outbound calls
+        run: |
+          for i in 1 2 3 4 5 6; do
+            out=$(flyctl ssh console --app "$APP" -C "node -e \"Promise.all(['https://api.ipify.org','https://api64.ipify.org'].map(u=>fetch(u).then(r=>r.text()).catch(e=>'error '+e.message))).then(a=>console.log('IPv4: '+a[0]+'  |  IPv6 or IPv4: '+a[1]))\"" 2>&1) && break
+            sleep 10
+          done
+          echo "$out" | grep -E "IPv4|error" || { echo "$out" | tail -5; exit 1; }
+
+      - name: Shopify still reachable from the machine
+        run: |
+          flyctl ssh console --app "$APP" -C "node -e \"fetch('https://shopify.dev').then(r=>console.log('shopify.dev HTTP '+r.status)).catch(e=>{console.log('FAILED '+e.message);process.exit(1)})\""

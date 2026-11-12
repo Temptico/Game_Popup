@@ -17,7 +17,7 @@ interface ShopInfo {
   email?: string;
   contactEmail?: string;
   primaryDomain?: { url?: string };
-  billingAddress?: { countryCodeV2?: string };
+  shopAddress?: { countryCodeV2?: string };
   plan?: { displayName?: string };
   currencyCode?: string;
 }
@@ -109,7 +109,7 @@ async function shopInfo(admin: AdminApi): Promise<ShopInfo> {
   try {
     const res = await admin.graphql(`#graphql
       query GameDiscountInstallInfo {
-        shop { name email contactEmail primaryDomain { url } billingAddress { countryCodeV2 } plan { displayName } currencyCode }
+        shop { name email contactEmail primaryDomain { url } shopAddress { countryCodeV2 } plan { displayName } currencyCode }
       }`);
     return ((await res.json()) as { data?: { shop?: ShopInfo } }).data?.shop ?? {};
   } catch (e) {
@@ -129,7 +129,7 @@ export async function alertOnInstall(shop: string, admin: AdminApi) {
 
   const info = await shopInfo(admin);
   const name = info.name || shop;
-  const country = info.billingAddress?.countryCodeV2 ?? "";
+  const country = info.shopAddress?.countryCodeV2 ?? "";
   const merchantEmail = info.contactEmail || info.email || "";
   const draft = onboardingDraft(LANG_BY_COUNTRY[country] ?? "en", name);
   const text = `${reinstall ? "Reinstalled" : "New install"}: ${name}

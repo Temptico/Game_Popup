@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import type { Popup } from "@prisma/client";
+import { safeZone } from "./timezone";
 
 interface AdminApi {
   graphql: (
@@ -107,4 +108,19 @@ export async function getShopCurrency(admin: AdminApi): Promise<string> {
     query GameDiscountCurrency { shop { currencyCode } }`);
   const json = await res.json();
   return json.data?.shop?.currencyCode ?? "";
+}
+
+// The store's time zone rarely changes: remembered per shop for an hour.
+const zones = new Map<string, { tz: string; at: number }>();
+
+/** The store's IANA time zone (e.g. "Europe/Ljubljana"), for the scheduled pause. */
+export async function getShopTimezone(admin: AdminApi, shop: string): Promise<string> {
+  const hit = zones.get(shop);
+  if (hit && Date.now() - hit.at < 3600_000) return hit.tz;
+  const res = await admin.graphql(`#graphql
+    query GameDiscountTimezone { shop { ianaTimezone } }`);
+  const json = await res.json();
+  const tz = safeZone(json.data?.shop?.ianaTimezone);
+  zones.set(shop, { tz, at: Date.now() });
+  return tz;
 }

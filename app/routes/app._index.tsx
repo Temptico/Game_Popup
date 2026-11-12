@@ -24,6 +24,8 @@ import db from "../db.server";
 import { livePopups, publishConfig, syncPublish } from "../lib/popups.server";
 import { getCounts } from "../lib/analytics.server";
 import { getRevenue } from "../lib/revenue.server";
+import { getShopTimezone } from "../lib/discounts.server";
+import { shortLabel } from "../lib/timezone";
 import { PLAN_LABELS, getPlan } from "../lib/plans";
 import { DEFAULT_ACCENT, DEFAULT_PRIMARY, TARGETS, type GameType } from "../lib/popup-defaults";
 import { ColorsPicture, EmbedPicture, GameThumb, PublishPicture, SetupGuide } from "../components/SetupGuide";
@@ -38,7 +40,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   // Republishes only if the plan or the paused state changed (e.g. returning
   // from the billing approval screen).
-  const { plan, billing } = await syncPublish(admin, shop);
+  const [{ plan, billing }, tz] = await Promise.all([syncPublish(admin, shop), getShopTimezone(admin, shop)]);
   const popups = await db.popup.findMany({ where: { shop }, orderBy: { createdAt: "asc" } });
   const live = new Set(billing.paused ? [] : livePopups(popups).map((p) => p.id));
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
@@ -80,6 +82,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       ab: p.abEnabled,
       active: p.active,
       live: live.has(p.id),
+      // Scheduled pause: "now" (running) or "soon" (ahead), with its end for the badge.
+      pause:
+        p.pauseFrom && p.pauseUntil && p.pauseUntil.getTime() > Date.now()
+          ? {
+              now: p.pauseFrom.getTime() <= Date.now(),
+              from: shortLabel(p.pauseFrom, tz),
+              until: shortLabel(p.pauseUntil, tz),
+            }
+          : null,
       discountCode: p.codeMode === "unique" ? "Unique per winner" : p.discountCode,
       target: p.target,
       counts: byPopup[p.id] ?? { view: 0, submit: 0, play: 0, win: 0 },
@@ -414,6 +425,11 @@ export default function Index() {
                         <Badge>Draft</Badge>
                       )}
                       {p.ab && p.active && <Badge tone="info">A/B test</Badge>}
+                      {p.pause && p.active && (
+                        <Badge tone={p.pause.now ? "attention" : undefined}>
+                          {p.pause.now ? `Paused until ${p.pause.until}` : `Pause ${p.pause.from} – ${p.pause.until}`}
+                        </Badge>
+                      )}
                     </InlineStack>
                   </IndexTable.Cell>
                   <IndexTable.Cell>{p.discountCode}</IndexTable.Cell>

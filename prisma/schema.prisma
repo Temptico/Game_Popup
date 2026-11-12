@@ -91,6 +91,9 @@ model Popup {
   noCart           Boolean @default(false)
   // Pages where it never opens: one path per line ("/pages/contact"); covers pages under it
   excludePages     String  @default("")
+  // Scheduled pause: not shown on the storefront between these instants
+  pauseFrom        DateTime?
+  pauseUntil       DateTime?
   // JSON-encoded CustomStrings ({ sl: { introTitle: "..." }, ... })
   strings        String   @default("{}")
   createdAt      DateTime @default(now())

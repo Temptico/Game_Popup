@@ -1,6 +1,7 @@
 import type { Popup } from "@prisma/client";
 import { billingEnabled } from "./billing.server";
 import db from "../db.server";
+import { dateToLocal, localToDate } from "./timezone";
 import {
   excludedPaths,
   DEFAULT_STRINGS,
@@ -37,7 +38,7 @@ const NAME_CODE = { required: "", optional: "o", hidden: "h" } as const;
 // Games with their own texts (see GAME_TEXTS).
 const OWN_TEXTS = new Set(["flipper", "pong", "wheel", "none"]);
 
-export function rowToSettings(row: Popup): PopupSettings {
+export function rowToSettings(row: Popup, tz = "UTC"): PopupSettings {
   let strings: CustomStrings = {};
   try {
     strings = JSON.parse(row.strings || "{}");
@@ -73,6 +74,8 @@ export function rowToSettings(row: Popup): PopupSettings {
     frequency: (["session", "once", "day", "week", "always"] as const).find((f) => f === row.frequency) ?? "session",
     noCart: row.noCart,
     excludePages: row.excludePages,
+    pauseFrom: dateToLocal(row.pauseFrom, tz),
+    pauseUntil: dateToLocal(row.pauseUntil, tz),
     teaser: row.teaser,
     tiered: row.tiered,
     tierValues: parseTierValues(row.tierValues),
@@ -124,10 +127,13 @@ export function parseTierValues(raw: string): [number, number, number] {
   return [v[0] || 15, v[1] || 10, v[2] || 5];
 }
 
-export function settingsToRow(s: PopupSettings) {
-  const { ab, ...rest } = s;
+/** `tz`: the store's time zone, for the scheduled pause. */
+export function settingsToRow(s: PopupSettings, tz = "UTC") {
+  const { ab, pauseFrom, pauseUntil, ...rest } = s;
   return {
     ...rest,
+    pauseFrom: localToDate(pauseFrom, tz),
+    pauseUntil: localToDate(pauseUntil, tz),
     strings: JSON.stringify(s.strings),
     tierValues: s.tierValues.join(","),
     wheelSegments: JSON.stringify(s.wheelSegments),
@@ -180,7 +186,7 @@ export function livePopups(popups: Popup[]) {
  * the published config, and what a draft preview loads through the app proxy.
  */
 export async function storefrontPopups(admin: AdminApi, rows: Popup[]) {
-  const all = rows.map(rowToSettings);
+  const all = rows.map((r) => rowToSettings(r));
   // Reward labels are written exactly like the won value: the wheel stops on it.
   // Shared codes have no known value (gifts on the wheel, no value in the headline).
   const currency = all.some(
@@ -266,6 +272,10 @@ export async function storefrontPopups(admin: AdminApi, rows: Popup[]) {
       ...(s.noCart ? { nc: 1 } : {}),
       // Pages where it never opens (paths, matched with the pages under them).
       ...(s.excludePages ? { ex: excludedPaths(s.excludePages) } : {}),
+      // Scheduled pause [start, end] in ms; the storefront checks the visitor's clock.
+      ...(p.pauseFrom && p.pauseUntil && p.pauseUntil.getTime() > Date.now()
+        ? { off: [p.pauseFrom.getTime(), p.pauseUntil.getTime()] }
+        : {}),
       teaser: s.teaser,
       // Resolved per language so the storefront script carries no translations.
       strings,

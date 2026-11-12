@@ -42,7 +42,9 @@
       return paths.some(function (h) { return h === e || (e !== '/' && h.indexOf(e + '/') === 0); });
     });
   };
-  popups = popups.filter(allowed);
+  // Scheduled pause set by the merchant: [start, end] in ms.
+  var now = Date.now();
+  popups = popups.filter(function (p) { return allowed(p) && !(p.off && now >= p.off[0] && now < p.off[1]); });
   // Specific page targets win over "all pages".
   var first = popups.filter(matches)[0] || popups.filter(function (p) { return p.target === 'all'; })[0];
   if (first) run(first);

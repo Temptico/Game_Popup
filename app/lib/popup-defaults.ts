@@ -1,3 +1,4 @@
+import { isLocalDateTime } from "./timezone";
 // Shared between the admin UI and the server. The storefront receives fully
 // resolved strings through the published metafield (see publishConfig).
 
@@ -808,6 +809,9 @@ export interface PopupSettings {
   noCart: boolean;
   // Pages where it never opens: normalized paths, one per line
   excludePages: string;
+  // Scheduled pause in store time ("2026-11-27T08:00"), both or neither
+  pauseFrom: string;
+  pauseUntil: string;
   teaser: boolean;
   tiered: boolean;
   // Best → worst: won on 1st, 2nd, 3rd+ attempt
@@ -898,6 +902,8 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   teaser: true,
   noCart: true,
   excludePages: "",
+  pauseFrom: "",
+  pauseUntil: "",
   tiered: false,
   tierValues: [15, 10, 5],
   urgencyMinutes: 0,
@@ -1057,6 +1063,17 @@ export function parseSettings(input: Record<string, unknown>): {
   if (!HEX.test(primaryColor)) errors.primaryColor = "Use a hex color like #830522.";
   if (!HEX.test(accentColor)) errors.accentColor = "Use a hex color like #d9caa0.";
 
+  let pauseFrom = String(input.pauseFrom ?? "").trim();
+  let pauseUntil = String(input.pauseUntil ?? "").trim();
+  if (pauseFrom || pauseUntil) {
+    if (!isLocalDateTime(pauseFrom) || !isLocalDateTime(pauseUntil)) {
+      errors.pauseFrom = "Enter both when the pause starts and when it ends.";
+    } else if (pauseUntil <= pauseFrom) {
+      errors.pauseFrom = "The pause must end after it starts.";
+    }
+    if (errors.pauseFrom) pauseFrom = pauseUntil = "";
+  }
+
   const target = TARGETS.some((t) => t.value === input.target)
     ? String(input.target)
     : d.target;
@@ -1115,6 +1132,8 @@ export function parseSettings(input: Record<string, unknown>): {
       teaser: input.teaser !== false && input.teaser !== "false",
       noCart: input.noCart === true || input.noCart === "true",
       excludePages: normalizePages(input.excludePages),
+      pauseFrom,
+      pauseUntil,
       tiered,
       tierValues,
       urgencyMinutes: Math.round(num(input.urgencyMinutes, 0, 0, 1440)),

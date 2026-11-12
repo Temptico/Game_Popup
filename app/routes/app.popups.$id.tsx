@@ -63,6 +63,7 @@ import {
 } from "../lib/popups.server";
 import { getAbResults, getDiscountUsage } from "../lib/analytics.server";
 import { previewFeatures } from "../lib/billing.server";
+import { getShopTimezone } from "../lib/discounts.server";
 import type { BrandColorsResult } from "../lib/brand-colors.server";
 import { GamePicker, GameThumb } from "../components/GamePicker";
 import { WheelEditor } from "../components/WheelEditor";
@@ -75,10 +76,10 @@ const EMAIL_TIMING = [
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  const { plan } = await getInstallation(admin);
+  const [{ plan }, tz] = await Promise.all([getInstallation(admin), getShopTimezone(admin, session.shop)]);
 
   if (params.id === "new") {
-    return { id: null, settings: DEFAULT_SETTINGS, plan, codeExists: true, abResults: null, preview: previewFeatures(), shop: session.shop };
+    return { id: null, settings: DEFAULT_SETTINGS, plan, codeExists: true, abResults: null, preview: previewFeatures(), shop: session.shop, tz };
   }
   const row = await db.popup.findFirst({ where: { id: params.id, shop: session.shop } });
   if (!row) throw redirect("/app");
@@ -87,7 +88,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     row.discountCode ? getDiscountUsage(admin, row.discountCode) : 0,
     row.abStartedAt ? getAbResults(row.id, row.abStartedAt) : null,
   ]);
-  return { id: row.id, settings: rowToSettings(row), plan, codeExists: usage !== null, abResults, preview: previewFeatures(), shop: session.shop };
+  return { id: row.id, settings: rowToSettings(row, tz), plan, codeExists: usage !== null, abResults, preview: previewFeatures(), shop: session.shop, tz };
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
@@ -105,7 +106,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   // Switching an A/B test on (re)starts its results.
   const abStart = settings.abEnabled && !existing?.abEnabled ? { abStartedAt: new Date() } : {};
-  const data = { ...settingsToRow(settings), ...abStart };
+  const tz = await getShopTimezone(admin, shop);
+  const data = { ...settingsToRow(settings, tz), ...abStart };
   const row = isNew
     ? await db.popup.create({ data: { ...data, shop } })
     : await db.popup.update({ where: { id: params.id }, data });
@@ -139,7 +141,7 @@ const wizardSteps = (game: GameType): { title: string; section?: number }[] => [
 ];
 
 export default function PopupEditor() {
-  const { id, settings: initial, plan, codeExists, abResults, preview, shop } = useLoaderData<typeof loader>();
+  const { id, settings: initial, plan, codeExists, abResults, preview, shop, tz } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const errors: ValidationErrors = actionData?.errors ?? {};
   const submit = useSubmit();
@@ -240,6 +242,29 @@ export default function PopupEditor() {
                   checked={s.noCart}
                   onChange={set("noCart")}
                 />
+                <BlockStack gap="200">
+                  <FormLayout.Group condensed>
+                    <TextField
+                      label="Pause from (optional)"
+                      type="datetime-local"
+                      value={s.pauseFrom}
+                      onChange={set("pauseFrom")}
+                      autoComplete="off"
+                      error={errors.pauseFrom}
+                    />
+                    <TextField label="Turn back on at" type="datetime-local" value={s.pauseUntil} onChange={set("pauseUntil")} autoComplete="off" />
+                  </FormLayout.Group>
+                  <InlineStack gap="200" blockAlign="center">
+                    <Text as="span" variant="bodySm" tone="subdued">
+                      {`Store time (${tz}). During the pause the popup and its floating button don't show, for example while another sale is running. It turns back on by itself.`}
+                    </Text>
+                    {(s.pauseFrom || s.pauseUntil) && (
+                      <Button variant="plain" onClick={() => setS((x) => ({ ...x, pauseFrom: "", pauseUntil: "" }))}>
+                        Clear pause
+                      </Button>
+                    )}
+                  </InlineStack>
+                </BlockStack>
                 <Checkbox
                   label={s.gameType === "none" ? "Show a floating “Get a discount” button after the popup is closed" : "Show a floating “Play for a discount” button after the popup is closed"}
                   helpText="A small button in the corner, so visitors can come back to the game. After a win it shows their code."

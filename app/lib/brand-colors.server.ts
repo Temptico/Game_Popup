@@ -76,9 +76,15 @@ const isGray = (c: RGB) => saturation(c) < 0.15;
 export function colorsFromHtml(html: string): { colors: RGB[]; source: string } {
   const embed = html.match(/<script[^>]+id="gd-brand"[^>]*>([^<]*)<\/script>/);
   if (embed) {
-    const found = embed[1]
-      .split(",")
-      .map(parseColor)
+    // A JSON list of the two colors (older theme embeds: "primary,secondary").
+    let list: unknown = null;
+    try {
+      list = JSON.parse(embed[1]);
+    } catch {
+      list = embed[1].split(",");
+    }
+    const found = (Array.isArray(list) ? list : [])
+      .map((c) => parseColor(String(c ?? "")))
       .filter((c): c is RGB => !!c && !isNearWhite(c));
     if (found.length) return { colors: found, source: "brand" };
   }

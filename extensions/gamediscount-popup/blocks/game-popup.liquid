@@ -6,7 +6,7 @@
 {%- comment -%} Brand colors (Settings → Brand) for the app's "Use my store colors" button. {%- endcomment -%}
 {%- assign gd_brand = shop.brand.colors -%}
 {%- if gd_brand.primary.size > 0 or gd_brand.secondary.size > 0 -%}
-  <script type="text/plain" id="gd-brand">{{ gd_brand.primary[0].background }},{{ gd_brand.secondary[0].background }}</script>
+  <script type="application/json" id="gd-brand">[{{ gd_brand.primary[0].background | append: "" | json }},{{ gd_brand.secondary[0].background | append: "" | json }}]</script>
 {%- endif -%}
 {%- assign gd_config = app.metafields.gamediscount.config -%}
 {%- comment -%} Also with no live popup: "Preview on store" (?gd_preview=…) shows a draft. {%- endcomment -%}

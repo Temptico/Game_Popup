@@ -34,6 +34,8 @@
       proxy: "/apps/gamediscount",
       assets: {
         ui: {{ 'gd-ui.js' | asset_url | json }},
+        // Loaded with the popup, so it never holds up the page.
+        css: {{ 'game-popup.css' | asset_url | json }},
         paddle: {{ 'gd-paddle.js' | asset_url | json }},
         flipper: {{ 'gd-flipper.js' | asset_url | json }},
         pong: {{ 'gd-pong.js' | asset_url | json }},
@@ -49,7 +51,6 @@
   "name": "Kodra Play popup",
   "target": "body",
   "javascript": "game-popup.js",
-  "stylesheet": "game-popup.css",
   "settings": [
     {
       "type": "paragraph",

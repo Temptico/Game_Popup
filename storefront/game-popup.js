@@ -129,9 +129,17 @@
         document.head.appendChild(sc);
       });
     }
+    // The popup's styles; a failed load still lets the popup open.
+    function style(href) {
+      return new Promise(function (resolve) {
+        var l = document.createElement('link');
+        l.rel = 'stylesheet'; l.href = href; l.onload = resolve; l.onerror = resolve;
+        document.head.appendChild(l);
+      });
+    }
     var ui;
     function withUI(fn) {
-      ui = ui || script(ctx.assets.ui).then(function () {
+      ui = ui || Promise.all([script(ctx.assets.ui), ctx.assets.css && style(ctx.assets.css)]).then(function () {
         return window.GameDiscountUI({
           popup: popup, cfg: cfg, ctx: ctx, t: t, locale: locale, testMode: testMode,
           local: local, session: session, post: post, track: track, script: script,

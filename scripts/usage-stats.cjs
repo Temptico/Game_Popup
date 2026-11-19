@@ -20,6 +20,7 @@ const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "-");
     const o = orders.find((x) => x.shop === shop);
     const installed = sessions.some((s) => s.shop === shop) && !(st.uninstalledAt && (!st.installedAt || st.uninstalledAt > st.installedAt));
     return {
+      shop,
       installed: installed ? "yes" : "no",
       since: day(st.installedAt),
       removed: day(st.uninstalledAt),
@@ -36,9 +37,10 @@ const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "-");
     };
   });
   rows.sort((a, b) => (a.since < b.since ? -1 : 1));
-  rows.forEach((r, i) => (r.store = `Store ${i + 1}`));
+  // NAMES=1 (only when the workflow encrypts the output): the store's domain instead of a number.
+  rows.forEach((r, i) => (r.store = process.env.NAMES === "1" ? r.shop : `Store ${i + 1}`));
   console.log(`Stores ever seen: ${rows.length}, installed now: ${rows.filter((r) => r.installed === "yes").length}`);
-  console.table(rows.map(({ store, ...r }) => ({ store, ...r })));
+  console.table(rows.map(({ store, shop, ...r }) => ({ store, ...r })));
   await db.$disconnect();
 })().catch((e) => {
   console.error(e.message);

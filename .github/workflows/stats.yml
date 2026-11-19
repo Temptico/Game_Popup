@@ -9,6 +9,10 @@ on:
         description: "Store copy name (e.g. temptico). Leave empty for the public app."
         required: false
         type: string
+      public_key:
+        description: "Optional: base64 of a PEM public key. The table then shows store domains, encrypted for that key's owner."
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -30,3 +34,19 @@ jobs:
           flyctl ssh console --app "$APP" -C "sh -c 'cd /app && echo $code | base64 -d > .usage-stats.cjs && node .usage-stats.cjs; s=\$?; rm -f .usage-stats.cjs; exit \$s'" 2>&1 \
             | grep -v "^Connecting to" \
             | sed -E 's/[a-z0-9-]+\.myshopify\.com/<shop>/g; s/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<email>/g'
+      - name: Usage per store with names (encrypted)
+        if: inputs.public_key != ''
+        env:
+          PUBKEY: ${{ inputs.public_key }}
+        run: |
+          set -o pipefail
+          echo "$PUBKEY" | base64 -d > pub.pem
+          code=$(base64 -w0 scripts/usage-stats.cjs)
+          flyctl ssh console --app "$APP" -C "sh -c 'cd /app && echo $code | base64 -d > .usage-stats.cjs && NAMES=1 node .usage-stats.cjs; s=\$?; rm -f .usage-stats.cjs; exit \$s'" > report.txt 2>&1
+          # Only the encrypted report reaches the log: a random key encrypts it, the public key encrypts that key.
+          openssl rand -hex 32 > k.txt
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in report.txt -pass file:k.txt | base64 -w0 > report.enc
+          openssl pkeyutl -encrypt -pubin -inkey pub.pem -pkeyopt rsa_padding_mode:oaep -in k.txt | base64 -w0 > k.enc
+          rm -f report.txt k.txt
+          echo "KEY:$(cat k.enc)"
+          echo "DATA:$(cat report.enc)"

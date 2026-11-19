@@ -31,7 +31,7 @@ async function send(subject: string, text: string) {
       signal: AbortSignal.timeout(8000),
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.ALERT_FROM_EMAIL || "Kodra Play <apps@enigma101.com>",
+        from: process.env.ALERT_FROM_EMAIL || "Kodra Play <apps@kodraapps.com>",
         to: process.env.INSTALL_ALERT_EMAIL,
         subject,
         text,

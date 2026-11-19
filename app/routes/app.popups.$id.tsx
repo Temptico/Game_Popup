@@ -355,11 +355,10 @@ export default function PopupEditor() {
                     <FormLayout>
                       {s.gameType === "pong" && (
                         <Select
-                          label="Computer level"
+                          label={<InfoLabel info="Medium: most people win within a few tries. Hard: fewer winners.">Computer level</InfoLabel>}
                           options={[...DIFFICULTIES]}
                           value={s.difficulty}
                           onChange={(v) => set("difficulty")(v as PopupSettings["difficulty"])}
-                          helpText="Medium: most people win within a few tries. Hard: fewer winners."
                         />
                       )}
                       {s.gameType !== "pong" && (
@@ -367,7 +366,7 @@ export default function PopupEditor() {
                       )}
                       {s.gameType === "paddle" && (
                         <Select
-                          label="Ball speed"
+                          label={<InfoLabel info="Slower ball = more winners.">Ball speed</InfoLabel>}
                           options={[
                             ...BALL_SPEEDS.map(({ label, value }) => ({ label, value })),
                             ...(ballSpeedOf(Number(s.vx), Number(s.vy)) === "custom"
@@ -379,7 +378,6 @@ export default function PopupEditor() {
                             const p = BALL_SPEEDS.find((b) => b.value === v);
                             if (p) setS((prev) => ({ ...prev, vx: p.vx, vy: p.vy }));
                           }}
-                          helpText="Slower ball = more winners."
                         />
                       )}
                       <TextField label="Tries per visitor" type="number" min={1} value={String(s.maxAttempts)} onChange={setNum("maxAttempts")} autoComplete="off" />
@@ -391,7 +389,17 @@ export default function PopupEditor() {
                   <Text as="h3" variant="headingSm">{s.gameType === "wheel" ? "Rewards on the wheel" : "Discount"}</Text>
                   <FormLayout>
                     <Select
-                      label="Discount code"
+                      label={
+                        <InfoLabel
+                          info={
+                            s.codeMode === "unique"
+                              ? "Each winner gets their own code that works once. It can't be shared on coupon sites."
+                              : "Every winner gets the same code. You create it in Discounts."
+                          }
+                        >
+                          Discount code
+                        </InfoLabel>
+                      }
                       options={[
                         { label: "The same code for everyone", value: "static" },
                         { label: "A new code for each winner (recommended)", value: "unique" },
@@ -399,11 +407,6 @@ export default function PopupEditor() {
                       value={s.codeMode}
                       onChange={(v) => set("codeMode")(v as PopupSettings["codeMode"])}
                       error={errors.codeMode}
-                      helpText={
-                        s.codeMode === "unique"
-                          ? "Each winner gets their own code that works once. It can't be shared on coupon sites."
-                          : "Every winner gets the same code. You create it in Discounts."
-                      }
                     />
                     {s.gameType === "wheel" && s.codeMode !== "unique" && (
                       <Banner tone="warning">
@@ -423,7 +426,15 @@ export default function PopupEditor() {
                         />
                         {s.gameType !== "wheel" && (
                           <TextField
-                            label={s.discountType === "percentage" ? "Discount (%)" : "Discount (amount)"}
+                            label={
+                              skill && s.tiered ? (
+                                <InfoLabel info="Set per try below.">{s.discountType === "percentage" ? "Discount (%)" : "Discount (amount)"}</InfoLabel>
+                              ) : s.discountType === "percentage" ? (
+                                "Discount (%)"
+                              ) : (
+                                "Discount (amount)"
+                              )
+                            }
                             type="number"
                             min={0}
                             suffix={unit || undefined}
@@ -431,7 +442,6 @@ export default function PopupEditor() {
                             onChange={(v) => setS((prev) => ({ ...prev, discountValue: v as unknown as number }))}
                             error={errors.discountValue}
                             disabled={skill && s.tiered}
-                            helpText={skill && s.tiered ? "Set per try below." : undefined}
                             autoComplete="off"
                           />
                         )}
@@ -439,8 +449,7 @@ export default function PopupEditor() {
                     )}
                     {s.codeMode === "unique" && (
                       <Checkbox
-                        label="Show the discount in the title, e.g. “Win up to 20% off”"
-                        helpText="More people play when they know what they can win."
+                        label={<InfoLabel info="More people play when they know what they can win.">Show the discount in the title, e.g. “Win up to 20% off”</InfoLabel>}
                         checked={s.showValue}
                         onChange={set("showValue")}
                       />
@@ -489,8 +498,7 @@ export default function PopupEditor() {
                           </InlineGrid>
                         )}
                         <Checkbox
-                          label="Give a small discount to players who lose"
-                          helpText="Everyone who leaves their email gets a code. Winners still get the bigger discount."
+                          label={<InfoLabel info="Everyone who leaves their email gets a code. Winners still get the bigger discount.">Give a small discount to players who lose</InfoLabel>}
                           checked={s.consolation}
                           onChange={set("consolation")}
                         />
@@ -511,52 +519,57 @@ export default function PopupEditor() {
                     {s.codeMode === "unique" && (
                       <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                         <TextField
-                          label="Code starts with"
+                          label={<InfoLabel info={`Example: ${s.codePrefix ? `${s.codePrefix}-` : ""}K7M2QX9A`}>Code starts with</InfoLabel>}
                           value={s.codePrefix}
                           onChange={(v) => set("codePrefix")(v.toUpperCase())}
                           error={errors.codePrefix}
-                          helpText={`Example: ${s.codePrefix ? `${s.codePrefix}-` : ""}K7M2QX9A`}
                           autoComplete="off"
                         />
                         <TextField
-                          label="Code works for (days)"
+                          label={
+                            <InfoLabel info={s.urgencyMinutes > 0 ? "The countdown below is used instead." : "0 = no end date. A short time gets people to buy sooner."}>
+                              Code works for (days)
+                            </InfoLabel>
+                          }
                           type="number"
                           min={0}
                           value={String(s.codeExpiryDays)}
                           onChange={(v) => setS((prev) => ({ ...prev, codeExpiryDays: v as unknown as number }))}
                           disabled={s.urgencyMinutes > 0}
-                          helpText={s.urgencyMinutes > 0 ? "The countdown below is used instead." : "0 = no end date. A short time gets people to buy sooner."}
                           autoComplete="off"
                         />
                       </InlineGrid>
                     )}
                     {s.codeMode === "unique" && (
                       <TextField
-                        label="Countdown (minutes)"
+                        label={<InfoLabel info="0 = off. The code stops working after this many minutes, and winners see a timer.">Countdown (minutes)</InfoLabel>}
                         type="number"
                         min={0}
                         value={String(s.urgencyMinutes)}
                         onChange={(v) => setS((prev) => ({ ...prev, urgencyMinutes: v as unknown as number }))}
-                        helpText="0 = off. The code stops working after this many minutes, and winners see a timer."
                         autoComplete="off"
                       />
                     )}
                     <TextField
-                      label={s.codeMode === "unique" ? "Backup code (optional)" : "Your discount code"}
+                      label={
+                        <InfoLabel
+                          info={
+                            s.codeMode === "unique"
+                              ? "Only used if a new code can't be made (rare). Visitors only see it after they win."
+                              : "Create it first in Discounts. Visitors only see it after they win."
+                          }
+                        >
+                          {s.codeMode === "unique" ? "Backup code (optional)" : "Your discount code"}
+                        </InfoLabel>
+                      }
                       value={s.discountCode}
                       onChange={(v) => set("discountCode")(v.toUpperCase())}
                       error={errors.discountCode}
                       autoComplete="off"
                       helpText={
-                        <>
-                          {s.codeMode === "unique"
-                            ? "Only used if a new code can't be made (rare). Create it in "
-                            : "Create it first in "}
-                          <Link url="shopify:admin/discounts" target="_top">
-                            Discounts
-                          </Link>
-                          . Visitors only see it after they win.
-                        </>
+                        <Link url="shopify:admin/discounts" target="_top">
+                          Open Discounts
+                        </Link>
                       }
                     />
                     {id && initial.discountCode && !codeExists && (
@@ -576,9 +589,7 @@ export default function PopupEditor() {
                   <Button onClick={() => brand.load("/app/brand-colors")} loading={brand.state !== "idle"}>
                     Use my store colors
                   </Button>
-                  <Text as="span" variant="bodySm" tone="subdued">
-                    Reads your theme and fills both colors. You can still adjust them.
-                  </Text>
+                  <InfoLabel info="Reads your theme and fills both colors. You can still adjust them.">{""}</InfoLabel>
                 </InlineStack>
                 <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                   <ColorField label="Background color" value={s.primaryColor} onChange={set("primaryColor")} error={errors.primaryColor} />
@@ -586,7 +597,7 @@ export default function PopupEditor() {
                 </InlineGrid>
                 <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                   <RangeSlider
-                    label="Popup size on desktop"
+                    label={<InfoLabel info={`${SIZE_LIMITS.desktop.min}–${SIZE_LIMITS.desktop.max}% of the standard size`}>Popup size on desktop</InfoLabel>}
                     min={SIZE_LIMITS.desktop.min}
                     max={SIZE_LIMITS.desktop.max}
                     step={5}
@@ -594,10 +605,9 @@ export default function PopupEditor() {
                     onChange={(v) => { set("sizeDesktop")(Number(v)); setDevice("desktop"); }}
                     output
                     suffix={<Text as="span" variant="bodyMd">{s.sizeDesktop}%</Text>}
-                    helpText={`${SIZE_LIMITS.desktop.min}–${SIZE_LIMITS.desktop.max}% of the standard size`}
                   />
                   <RangeSlider
-                    label="Popup size on phones"
+                    label={<InfoLabel info={`${SIZE_LIMITS.mobile.min}–${SIZE_LIMITS.mobile.max}% of the standard size`}>Popup size on phones</InfoLabel>}
                     min={SIZE_LIMITS.mobile.min}
                     max={SIZE_LIMITS.mobile.max}
                     step={5}
@@ -605,7 +615,6 @@ export default function PopupEditor() {
                     onChange={(v) => { set("sizeMobile")(Number(v)); setDevice("phone"); }}
                     output
                     suffix={<Text as="span" variant="bodyMd">{s.sizeMobile}%</Text>}
-                    helpText={`${SIZE_LIMITS.mobile.min}–${SIZE_LIMITS.mobile.max}% of the standard size`}
                   />
                 </InlineGrid>
                 <InlineStack gap="200">
@@ -1045,8 +1054,7 @@ function AbTab({
   return (
     <BlockStack gap="400">
       <Checkbox
-        label="A/B test: half of the visitors see version B"
-        helpText="Each visitor always sees the same version. Version A is your popup as it is now."
+        label={<InfoLabel info="Each visitor always sees the same version. Version A is your popup as it is now.">A/B test: half of the visitors see version B</InfoLabel>}
         checked={s.abEnabled}
         onChange={(on) =>
           setS((prev) => ({ ...prev, abEnabled: on, ab: on && !prev.abEnabled ? { ...abFromSettings(prev), strings: prev.ab.strings } : prev.ab }))
@@ -1123,15 +1131,19 @@ function AbTab({
               </InlineGrid>
             )}
             {s.codeMode === "static" && (
-              <TextField label="Discount code for B (optional)" autoComplete="off" value={b.discountCode}
-                onChange={(v) => setB("discountCode", v.toUpperCase())}
-                helpText={`Create a second code in Discounts to test a different discount (A uses ${s.discountCode || "its code"}). Empty = same code as A; orders then can't be split by variant.`} />
+              <TextField
+                label={
+                  <InfoLabel info={`Create a second code in Discounts to test a different discount (A uses ${s.discountCode || "its code"}). Empty = same code as A; orders then can't be split by variant.`}>
+                    Discount code for B (optional)
+                  </InfoLabel>
+                }
+                autoComplete="off" value={b.discountCode}
+                onChange={(v) => setB("discountCode", v.toUpperCase())} />
             )}
 
-            <Select label="Texts for language"
+            <Select label={<InfoLabel info="Empty = same text as A.">Texts for language</InfoLabel>}
               options={LANGUAGES.map((l) => ({ label: LANGUAGE_LABELS[l], value: l }))}
-              value={lang} onChange={(v) => setLang(v as Language)}
-              helpText="Empty = same text as A." />
+              value={lang} onChange={(v) => setLang(v as Language)} />
             <TextField label="Title for B" autoComplete="off" value={b.strings[lang]?.introTitle ?? ""}
               placeholder={textOf(b.gameType, "introTitle")} onChange={(v) => setBString("introTitle", v)} />
             <TextField label="Text under the title for B" autoComplete="off" value={b.strings[lang]?.introDesc ?? ""}

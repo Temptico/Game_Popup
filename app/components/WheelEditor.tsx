@@ -1,4 +1,5 @@
 import { Badge, BlockStack, Button, InlineGrid, InlineStack, Text, TextField } from "@shopify/polaris";
+import { InfoLabel } from "./InfoLabel";
 import { WHEEL_MAX_SEGMENTS, type WheelSegment } from "../lib/popup-defaults";
 
 /** Spin wheel rewards: discount + chance per row, the chances' total and a live wheel. */
@@ -45,7 +46,7 @@ export function WheelEditor({
             </div>
             <div style={{ flex: 1 }}>
               <TextField
-                label={i === 0 ? "Chance" : `Chance ${i + 1}`}
+                label={i === 0 ? <InfoLabel info="Each visitor spins once. The wheel shows only these discounts and lands on one using your chances.">Chance</InfoLabel> : `Chance ${i + 1}`}
                 labelHidden={i > 0}
                 type="number"
                 min={1}
@@ -77,9 +78,6 @@ export function WheelEditor({
             {error}
           </Text>
         )}
-        <Text as="p" variant="bodySm" tone="subdued">
-          Each visitor spins once. The wheel shows only these discounts and lands on one using your chances.
-        </Text>
       </BlockStack>
       <WheelPreview labels={segments.map((x) => `${x.value}${unit === "%" ? "%" : ""}`)} primary={primary} accent={accent} />
     </InlineGrid>

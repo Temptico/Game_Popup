@@ -192,3 +192,40 @@ export async function fetchStoreColors(shop: string): Promise<BrandColorsResult>
   }
   return result;
 }
+
+export type EmbedStatus = "on" | "off" | "unknown";
+const embedCache = new Map<string, { status: EmbedStatus; at: number }>();
+
+/** Whether the storefront's page has the app embed in it (the theme's App embeds switch). */
+export function embedFromHtml(html: string): EmbedStatus {
+  return /\/assets\/game-popup\.js|GameDiscountContext|id="gd-brand"/.test(html) ? "on" : "off";
+}
+
+/**
+ * Reads the live storefront's home page: "unknown" when it can't tell (password
+ * page, store unreachable). Remembered for 5 minutes unless `fresh`.
+ */
+export async function checkEmbed(shop: string, fresh = false): Promise<EmbedStatus> {
+  const hit = embedCache.get(shop);
+  if (!fresh && hit && Date.now() - hit.at < 300_000) return hit.status;
+  let status: EmbedStatus = "unknown";
+  try {
+    const res = await fetch(`https://${shop}/`, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(5000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; KodraPlay-EmbedCheck/1.0; +https://apps.shopify.com/game-discount)",
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "en",
+        "Cache-Control": "no-cache",
+      },
+    });
+    if (res.ok && !new URL(res.url).pathname.startsWith("/password")) {
+      status = embedFromHtml((await res.text()).slice(0, 3_000_000));
+    }
+  } catch {
+    /* unreachable: unknown */
+  }
+  embedCache.set(shop, { status, at: Date.now() });
+  return status;
+}

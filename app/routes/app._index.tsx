@@ -25,6 +25,7 @@ import { livePopups, publishConfig, syncPublish } from "../lib/popups.server";
 import { getCounts } from "../lib/analytics.server";
 import { getRevenue } from "../lib/revenue.server";
 import { getShopTimezone } from "../lib/discounts.server";
+import { checkEmbed } from "../lib/brand-colors.server";
 import { shortLabel } from "../lib/timezone";
 import { PLAN_LABELS, getPlan } from "../lib/plans";
 import { DEFAULT_ACCENT, DEFAULT_PRIMARY, TARGETS, type GameType } from "../lib/popup-defaults";
@@ -43,6 +44,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const [{ plan, billing }, tz] = await Promise.all([syncPublish(admin, shop), getShopTimezone(admin, shop)]);
   const popups = await db.popup.findMany({ where: { shop }, orderBy: { createdAt: "asc" } });
   const live = new Set(billing.paused ? [] : livePopups(popups).map((p) => p.id));
+  // Is the theme's App embeds switch on? Read from the live storefront; "Check again" skips the cache.
+  const embed = popups.length ? await checkEmbed(shop, new URL(request.url).searchParams.has("embedCheck")) : "unknown";
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
   // Previous 30 days, for the change shown under each number.
   const before = new Date(since.getTime() - 30 * 24 * 3600 * 1000);
@@ -71,6 +74,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     sales: { amount: revenue.amount, currency: revenue.currency, usd: revenue.usd },
     prev,
     lastSeen: lastView?.createdAt.toISOString() ?? null,
+    embed,
     review: {
       ask: goodMoment && !state?.reviewAskedAt,
       banner: goodMoment && !state?.reviewHidden,
@@ -151,7 +155,9 @@ const targetLabel = (v: string) => TARGETS.find((t) => t.value === v)?.label ?? 
 const EMBED_HINT_KEY = "gd_embed_hint_dismissed";
 
 export default function Index() {
-  const { popups, plan, billing, apiKey, showPlans, review, sales, lastSeen, guideHidden, prev } = useLoaderData<typeof loader>();
+  const { popups, plan, billing, apiKey, showPlans, review, sales, lastSeen, guideHidden, prev, embed } = useLoaderData<typeof loader>();
+  const anyLive = popups.some((p) => p.live);
+  const embedOn = embed === "on" || (embed === "unknown" && lastSeen !== null);
   // Revenue in the store's currency; plan limits stay in USD.
   const money = (n: number) =>
     sales.currency
@@ -163,7 +169,7 @@ export default function Index() {
   const [guideOff, setGuideOff] = useState(guideHidden);
   const first = popups[0];
   const colors = { primary: first?.primaryColor ?? DEFAULT_PRIMARY, accent: first?.accentColor ?? DEFAULT_ACCENT };
-  const allDone = popups.length > 0 && popups.some((p) => p.active) && lastSeen !== null &&
+  const allDone = popups.length > 0 && popups.some((p) => p.active) && embedOn &&
     popups.some((p) => p.primaryColor !== DEFAULT_PRIMARY || p.accentColor !== DEFAULT_ACCENT);
   const showGuide = !guideOff && !allDone;
   const totals = popups.reduce(
@@ -305,8 +311,8 @@ export default function Index() {
               },
               {
                 title: "Switch it on in your theme",
-                text: "In the theme editor, open App embeds, switch on “Kodra Play popup” and click Save. This step turns green once a visitor has seen the popup.",
-                done: lastSeen !== null,
+                text: "In the theme editor, open App embeds, switch on “Kodra Play popup” and click Save. This step turns green once your store shows the popup.",
+                done: embedOn,
                 action: { label: "Open theme editor", url: embedUrl, external: true },
                 picture: <EmbedPicture />,
               },
@@ -341,6 +347,24 @@ export default function Index() {
             <p>Is Kodra Play working for you? A short review helps other stores find it and keeps the app improving.</p>
           </Banner>
         )}
+        {embed === "off" && anyLive && (
+          <Banner
+            title="Your popup is live, but your store doesn't show it yet"
+            tone="critical"
+            action={{ content: "Turn it on in my theme", url: embedUrl, target: "_top" }}
+            secondaryAction={{ content: "Check again", onAction: () => navigate("/app?embedCheck=1") }}
+          >
+            <p>The theme's App embeds switch for Kodra Play is off, so visitors don't see the popup. The button opens your theme editor with it switched on: just click Save.</p>
+          </Banner>
+        )}
+        {embed === "on" && anyLive && seenDaysAgo === null && (
+          <InlineStack gap="200" blockAlign="center">
+            <Badge tone="success">✓ Live on your store</Badge>
+            <Text as="span" variant="bodySm" tone="subdued">
+              Your theme shows the popup. Visits will appear here as soon as someone sees it.
+            </Text>
+          </InlineStack>
+        )}
         {seenDaysAgo !== null && seenDaysAgo <= 7 && popups.some((p) => p.live) && (
           <InlineStack gap="200" blockAlign="center">
             <Badge tone="success">✓ Live on your store</Badge>
@@ -349,7 +373,7 @@ export default function Index() {
             </Text>
           </InlineStack>
         )}
-        {seenDaysAgo !== null && seenDaysAgo > 7 && popups.some((p) => p.live) && (
+        {seenDaysAgo !== null && seenDaysAgo > 7 && popups.some((p) => p.live) && embed === "unknown" && (
           <Banner
             title={`No visitor has seen the popup for ${Math.floor(seenDaysAgo)} days`}
             tone="warning"
@@ -358,7 +382,7 @@ export default function Index() {
             <p>Make sure “Kodra Play popup” is switched on under App embeds in your current theme (a new theme needs it switched on again).</p>
           </Banner>
         )}
-        {seenDaysAgo === null && showEmbedHint && !showGuide && (
+        {seenDaysAgo === null && embed === "unknown" && showEmbedHint && !showGuide && (
           <Banner
             title="Step 1: turn on the popup in your theme"
             tone="info"

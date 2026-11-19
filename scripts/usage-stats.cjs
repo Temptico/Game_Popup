@@ -43,15 +43,42 @@ const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "-");
       // The staff member who opened the app (online sessions keep their name and email).
       const user = await db.session.findFirst({ where: { shop: r.shop, email: { not: null } }, orderBy: { expires: "desc" } });
       if (user) Object.assign(r, { name: [user.firstName, user.lastName].filter(Boolean).join(" "), email: user.email });
-      const sess = await db.session.findFirst({ where: { shop: r.shop, isOnline: false } });
-      if (!sess || (sess.expires && sess.expires < new Date())) continue;
+      let sess = await db.session.findFirst({ where: { shop: r.shop, isOnline: false } });
+      if (!sess) continue;
+      // Expired offline token: refresh it the way the app itself would on its next request,
+      // and save the new tokens so the app keeps working with them.
+      if (sess.expires && sess.expires < new Date() && sess.refreshToken && (!sess.refreshTokenExpires || sess.refreshTokenExpires > new Date())) {
+        try {
+          const res = await fetch(`https://${r.shop}/admin/oauth/access_token`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify({ client_id: process.env.SHOPIFY_API_KEY, client_secret: process.env.SHOPIFY_API_SECRET, grant_type: "refresh_token", refresh_token: sess.refreshToken }),
+          });
+          const t = await res.json();
+          if (!t.access_token) { r.note = `refresh ${res.status}`; continue; }
+          sess = await db.session.update({
+            where: { id: sess.id },
+            data: {
+              accessToken: t.access_token,
+              expires: t.expires_in ? new Date(Date.now() + t.expires_in * 1000) : null,
+              refreshToken: t.refresh_token ?? sess.refreshToken,
+              refreshTokenExpires: t.refresh_token_expires_in ? new Date(Date.now() + t.refresh_token_expires_in * 1000) : sess.refreshTokenExpires,
+            },
+          });
+        } catch (e) {
+          r.note = "refresh failed";
+          continue;
+        }
+      }
       try {
         const res = await fetch(`https://${r.shop}/admin/api/2026-07/graphql.json`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": sess.accessToken },
           body: JSON.stringify({ query: "{ shop { name email contactEmail plan { displayName partnerDevelopment } } }" }),
         });
-        const shop = (await res.json()).data?.shop;
+        const json = await res.json();
+        const shop = json.data?.shop;
+        if (!shop) r.note = `shop query ${res.status}`;
         if (shop) Object.assign(r, { name: shop.name, email: shop.contactEmail || shop.email || r.email, shopifyPlan: shop.plan.partnerDevelopment ? "dev store" : shop.plan.displayName });
       } catch {
         /* leave blank */
@@ -62,7 +89,7 @@ const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "-");
   rows.forEach((r, i) => (r.store = process.env.NAMES === "1" ? r.shop : `Store ${i + 1}`));
   console.log(`Stores ever seen: ${rows.length}, installed now: ${rows.filter((r) => r.installed === "yes").length}`);
   console.table(rows.map(({ store, shop, name, email, shopifyPlan, ...r }) => ({ store, ...r })));
-  if (process.env.NAMES === "1") console.table(rows.map(({ store, name, email, shopifyPlan }) => ({ store, name, email, shopifyPlan })));
+  if (process.env.NAMES === "1") console.table(rows.map(({ store, name, email, shopifyPlan, note }) => ({ store, name, email, shopifyPlan, note })));
     const counts = await db.session.groupBy({ by: ["shop", "isOnline"], _count: { _all: true }, _max: { expires: true } });
     console.table(counts.map((c) => ({ shop: c.shop, online: c.isOnline, n: c._count._all, expires: c._max.expires })));
   await db.$disconnect();

@@ -1,0 +1,30 @@
+name: Usage stats
+
+# How many stores installed the app and how they use it. Prints numbers only:
+# store names never appear (Actions logs of this repository are public).
+on:
+  workflow_dispatch:
+    inputs:
+      instance:
+        description: "Store copy name (e.g. temptico). Leave empty for the public app."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: ${{ inputs.instance && format('enigmaplay-{0}', inputs.instance) || secrets.FLY_APP_NAME }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Usage per store (anonymous)
+        run: |
+          code=$(base64 -w0 scripts/usage-stats.cjs)
+          flyctl ssh console --app "$APP" -C "sh -c 'cd /app && echo $code | base64 -d > /tmp/usage-stats.cjs && node /tmp/usage-stats.cjs'" 2>&1 \
+            | grep -v "^Connecting to" \
+            | sed -E 's/[a-z0-9-]+\.myshopify\.com/<shop>/g; s/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<email>/g'

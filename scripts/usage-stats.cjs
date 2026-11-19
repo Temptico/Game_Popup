@@ -40,6 +40,9 @@ const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "-");
   // With names: the store's name and contact email from Shopify (offline token, still valid while installed).
   if (process.env.NAMES === "1") {
     for (const r of rows) {
+      // The staff member who opened the app (online sessions keep their name and email).
+      const user = await db.session.findFirst({ where: { shop: r.shop, email: { not: null } }, orderBy: { expires: "desc" } });
+      if (user) Object.assign(r, { name: [user.firstName, user.lastName].filter(Boolean).join(" "), email: user.email });
       const sess = await db.session.findFirst({ where: { shop: r.shop, isOnline: false } });
       if (!sess || (sess.expires && sess.expires < new Date())) continue;
       try {
@@ -49,7 +52,7 @@ const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "-");
           body: JSON.stringify({ query: "{ shop { name email contactEmail plan { displayName partnerDevelopment } } }" }),
         });
         const shop = (await res.json()).data?.shop;
-        if (shop) Object.assign(r, { name: shop.name, email: shop.contactEmail || shop.email, shopifyPlan: shop.plan.partnerDevelopment ? "dev store" : shop.plan.displayName });
+        if (shop) Object.assign(r, { name: shop.name, email: shop.contactEmail || shop.email || r.email, shopifyPlan: shop.plan.partnerDevelopment ? "dev store" : shop.plan.displayName });
       } catch {
         /* leave blank */
       }
@@ -60,6 +63,8 @@ const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "-");
   console.log(`Stores ever seen: ${rows.length}, installed now: ${rows.filter((r) => r.installed === "yes").length}`);
   console.table(rows.map(({ store, shop, name, email, shopifyPlan, ...r }) => ({ store, ...r })));
   if (process.env.NAMES === "1") console.table(rows.map(({ store, name, email, shopifyPlan }) => ({ store, name, email, shopifyPlan })));
+    const counts = await db.session.groupBy({ by: ["shop", "isOnline"], _count: { _all: true }, _max: { expires: true } });
+    console.table(counts.map((c) => ({ shop: c.shop, online: c.isOnline, n: c._count._all, expires: c._max.expires })));
   await db.$disconnect();
 })().catch((e) => {
   console.error(e.message);

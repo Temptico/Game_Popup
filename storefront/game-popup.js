@@ -245,10 +245,12 @@
     // Scrolled part of the page, or (phones) scrolled back up quickly after reading: about to leave.
     var upTouch = !hasMouse && (mode === 'both' || mode === 'exit');
     if (mode === 'scroll' || upTouch) {
-      var lastY = window.scrollY, lastT = Date.now(), maxY = lastY;
+      var lastY = window.scrollY, lastT = Date.now(), maxY = lastY, start = lastT, armed = false;
       window.addEventListener('scroll', function () {
         var y = window.scrollY, t = Date.now(), h = document.documentElement.scrollHeight - window.innerHeight;
-        if (mode === 'scroll' && h > 0 && (y / h) * 100 >= (popup.sp || 50)) fire();
+        // Scrolling counts after 8 s on the page: a quick jump to the footer looks for
+        // contact or shipping info, so it opens at 8 s instead, if they're still here.
+        if (mode === 'scroll' && !armed && h > 0 && (y / h) * 100 >= (popup.sp || 50)) { armed = true; setTimeout(fire, Math.max(0, start + 8000 - t)); }
         if (upTouch && maxY > 600 && lastY - y > 120 && t - lastT < 250) fire();
         if (t - lastT > 100) { lastY = y; lastT = t; }
         maxY = Math.max(maxY, y);

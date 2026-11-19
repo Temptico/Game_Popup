@@ -24,7 +24,9 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Usage per store (anonymous)
         run: |
+          set -o pipefail
           code=$(base64 -w0 scripts/usage-stats.cjs)
-          flyctl ssh console --app "$APP" -C "sh -c 'cd /app && echo $code | base64 -d > /tmp/usage-stats.cjs && node /tmp/usage-stats.cjs'" 2>&1 \
+          # Run from /app so it finds the app's Prisma client; removed right after.
+          flyctl ssh console --app "$APP" -C "sh -c 'cd /app && echo $code | base64 -d > .usage-stats.cjs && node .usage-stats.cjs; s=\$?; rm -f .usage-stats.cjs; exit \$s'" 2>&1 \
             | grep -v "^Connecting to" \
             | sed -E 's/[a-z0-9-]+\.myshopify\.com/<shop>/g; s/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<email>/g'

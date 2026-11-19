@@ -37,6 +37,16 @@ const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "-");
     };
   });
   rows.sort((a, b) => (a.since < b.since ? -1 : 1));
+  // App embed on in the live theme? (same check as the dashboard; "?" = password page or unreachable)
+  for (const r of rows) {
+    try {
+      const res = await fetch(`https://${r.shop}/`, { redirect: "follow", signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0 (compatible; KodraPlay-EmbedCheck/1.0)" } });
+      const html = res.ok && !new URL(res.url).pathname.startsWith("/password") ? await res.text() : null;
+      r.embed = html === null ? "?" : /\/assets\/game-popup\.js|GameDiscountContext|id="gd-brand"/.test(html) ? "on" : "off";
+    } catch {
+      r.embed = "?";
+    }
+  }
   // With names: the store's name and contact email from Shopify (offline token, still valid while installed).
   if (process.env.NAMES === "1") {
     for (const r of rows) {

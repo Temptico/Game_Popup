@@ -67,6 +67,7 @@ import { getShopTimezone } from "../lib/discounts.server";
 import type { BrandColorsResult } from "../lib/brand-colors.server";
 import { GamePicker, GameThumb } from "../components/GamePicker";
 import { WheelEditor } from "../components/WheelEditor";
+import { FormSection, InfoLabel } from "../components/InfoLabel";
 
 const ALL_GAMES = GAMES.map((g) => g.value);
 const EMAIL_TIMING = [
@@ -211,137 +212,135 @@ export default function PopupEditor() {
     <>
             {at(0) && (
               <FormLayout>
+                <FormSection>Where it shows</FormSection>
                 <TextField label="Name (only you see it)" value={s.name} onChange={set("name")} autoComplete="off" />
                 <Select label="Show it on" options={[...TARGETS]} value={s.target} onChange={set("target")} />
                 <TextField
-                  label="Don't show on these pages (optional)"
+                  label={<InfoLabel info="Paste one link per line, e.g. /pages/contact. Each link also covers the pages under it, so /collections/sale also hides it on the products opened from that collection.">Don't show on these pages (optional)</InfoLabel>}
                   value={s.excludePages}
                   onChange={set("excludePages")}
-                  multiline={3}
-                  placeholder={"/pages/contact\n/collections/sale"}
-                  helpText="Paste one link per line. Each link also covers the pages under it."
+                  multiline={2}
+                  placeholder="e.g. /pages/contact"
                   autoComplete="off"
                 />
+
+                <FormSection>Timing</FormSection>
                 <Select
-                  label="When it opens"
+                  label={<InfoLabel info="About to leave: on computers when the mouse heads for the browser bar, on phones when they scroll back up quickly. Scroll: when they've scrolled down part of the page. Each option also opens after the wait, whichever comes first.">When it opens</InfoLabel>}
                   options={[...TRIGGERS]}
                   value={s.trigger}
                   onChange={(v) => set("trigger")(v as PopupSettings["trigger"])}
                 />
+                <FormLayout.Group condensed>
+                  <TextField
+                    label={<InfoLabel info={s.trigger === "exit" ? "With “Only when they’re about to leave”, the wait is used only on phones." : "Seconds after the page loads."}>Wait before it opens (seconds)</InfoLabel>}
+                    type="number"
+                    min={0}
+                    value={String(s.delaySec)}
+                    onChange={setNum("delaySec")}
+                    autoComplete="off"
+                  />
+                  {(s.trigger === "scroll" || (s.abEnabled && s.ab.trigger === "scroll")) && (
+                    <TextField
+                      label={<InfoLabel info="It opens at whichever comes first: the wait or this much scrolling.">Or after scrolling</InfoLabel>}
+                      type="number"
+                      min={10}
+                      max={100}
+                      suffix="% of the page"
+                      value={String(s.scrollPct)}
+                      onChange={(v) => setS((x) => ({ ...x, scrollPct: v as unknown as number }))}
+                      autoComplete="off"
+                    />
+                  )}
+                </FormLayout.Group>
                 <Select
-                  label="How often it opens by itself"
+                  label={<InfoLabel info="Per visitor. After someone wins, it doesn't open by itself again. The floating button still works.">How often it opens by itself</InfoLabel>}
                   options={[...FREQUENCIES]}
                   value={s.frequency}
                   onChange={(v) => set("frequency")(v as PopupSettings["frequency"])}
-                  helpText="Per visitor. After someone wins, it doesn't open by itself again."
                 />
-                {(s.trigger === "scroll" || (s.abEnabled && s.ab.trigger === "scroll")) && (
-                  <TextField
-                    label="Or when they've scrolled down (% of the page)"
-                    type="number"
-                    min={10}
-                    max={100}
-                    suffix="%"
-                    value={String(s.scrollPct)}
-                    onChange={(v) => setS((x) => ({ ...x, scrollPct: v as unknown as number }))}
-                    autoComplete="off"
-                    helpText="It opens at whichever comes first: the wait below or this much scrolling."
-                  />
-                )}
-                <TextField label="Wait before it opens (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />
+
+                <FormSection>Who sees it</FormSection>
                 <Checkbox
-                  label="Don't show it to people who already have something in the cart"
-                  helpText="They're about to buy anyway. The popup would only interrupt them and give away a discount."
+                  label={<InfoLabel info="They're about to buy anyway. The popup would only interrupt them and give away a discount.">Not for people with something in the cart</InfoLabel>}
                   checked={s.noCart}
                   onChange={set("noCart")}
                 />
                 <Checkbox
-                  label="Don't show it to people who already have a discount code"
-                  helpText="For example from an influencer link like yourstore.com/discount/ANNA20, or a code already in the cart. A second code would only confuse them."
+                  label={<InfoLabel info="For example from an influencer link like yourstore.com/discount/ANNA20, or a code already in the cart. A second code would only confuse them. Codes won in this popup don't count.">Not for people who already have a discount code</InfoLabel>}
                   checked={s.hideWithCode}
                   onChange={set("hideWithCode")}
                 />
                 <FormLayout.Group condensed>
                   <TextField
-                    label="Not on the first page for visitors from"
+                    label={<InfoLabel info="One per line, e.g. instagram. Matches the link's utm_source or utm_campaign tag, or the site they came from. Instagram's own browser often hides where a visitor came from, so tag your Instagram links with utm_source=instagram.">Not on the first page for visitors from</InfoLabel>}
                     value={s.sourceFirst}
                     onChange={set("sourceFirst")}
                     multiline={2}
-                    placeholder={"instagram\ntiktok"}
+                    placeholder="e.g. instagram"
                     autoComplete="off"
                   />
                   <TextField
-                    label="Never for visitors from"
+                    label={<InfoLabel info="One per line, e.g. an influencer's campaign name. Matches the link's utm_source or utm_campaign tag, or the site they came from.">Never for visitors from</InfoLabel>}
                     value={s.sourceAll}
                     onChange={set("sourceAll")}
                     multiline={2}
-                    placeholder={"anna"}
+                    placeholder="e.g. anna"
                     autoComplete="off"
                   />
                 </FormLayout.Group>
-                <Text as="p" variant="bodySm" tone="subdued">
-                  One per line. Matches the link's utm_source or utm_campaign tag, or the site they came from. Instagram's own browser often hides where a visitor came from, so tag your Instagram links with utm_source=instagram.
-                </Text>
-                <BlockStack gap="200">
-                  <FormLayout.Group condensed>
-                    <TextField
-                      label="Pause from (optional)"
-                      type="datetime-local"
-                      value={s.pauseFrom}
-                      onChange={set("pauseFrom")}
-                      autoComplete="off"
-                      error={errors.pauseFrom}
-                    />
-                    <TextField label="Turn back on at" type="datetime-local" value={s.pauseUntil} onChange={set("pauseUntil")} autoComplete="off" />
-                  </FormLayout.Group>
-                  <InlineStack gap="200" blockAlign="center">
-                    <Text as="span" variant="bodySm" tone="subdued">
-                      {`Store time (${tz}). During the pause the popup and its floating button don't show, for example while another sale is running. It turns back on by itself.`}
-                    </Text>
-                    {(s.pauseFrom || s.pauseUntil) && (
-                      <Button variant="plain" onClick={() => setS((x) => ({ ...x, pauseFrom: "", pauseUntil: "" }))}>
-                        Clear pause
-                      </Button>
-                    )}
-                  </InlineStack>
-                </BlockStack>
+
+                <FormSection>Pause</FormSection>
+                <FormLayout.Group condensed>
+                  <TextField
+                    label={<InfoLabel info={`Store time (${tz}). During the pause the popup and its floating button don't show, for example while another sale is running. It turns back on by itself.`}>Pause from (optional)</InfoLabel>}
+                    type="datetime-local"
+                    value={s.pauseFrom}
+                    onChange={set("pauseFrom")}
+                    autoComplete="off"
+                    error={errors.pauseFrom}
+                  />
+                  <TextField label="Turn back on at" type="datetime-local" value={s.pauseUntil} onChange={set("pauseUntil")} autoComplete="off" />
+                </FormLayout.Group>
+                {(s.pauseFrom || s.pauseUntil) && (
+                  <Button variant="plain" onClick={() => setS((x) => ({ ...x, pauseFrom: "", pauseUntil: "" }))}>
+                    Clear pause
+                  </Button>
+                )}
+
+                <FormSection>Sign-up form</FormSection>
                 <Checkbox
-                  label={s.gameType === "none" ? "Show a floating “Get a discount” button after the popup is closed" : "Show a floating “Play for a discount” button after the popup is closed"}
-                  helpText="A small button in the corner, so visitors can come back to the game. After a win it shows their code."
+                  label={<InfoLabel info="A small button in the corner, so visitors can come back to the game. After a win it shows their code.">{s.gameType === "none" ? "Floating “Get a discount” button after closing" : "Floating “Play for a discount” button after closing"}</InfoLabel>}
                   checked={s.teaser}
                   onChange={set("teaser")}
                 />
                 {skill && (
                   <Select
-                    label="When to ask for the email"
+                    label={<InfoLabel info="After a win: winners want their code, but people who lose leave no email. Try both with an A/B test.">When to ask for the email</InfoLabel>}
                     options={EMAIL_TIMING}
                     value={s.emailAfter ? "after" : "before"}
                     onChange={(v) => set("emailAfter")(v === "after")}
-                    helpText="After a win: winners want their code, but people who lose leave no email. Try both with an A/B test."
                   />
                 )}
                 <Select
-                  label="Name field"
+                  label={<InfoLabel info="Fewer fields = more sign-ups. Hidden: visitors only enter their email.">Name field</InfoLabel>}
                   options={[...NAME_FIELDS]}
                   value={s.nameField}
                   onChange={(v) => set("nameField")(v as PopupSettings["nameField"])}
-                  helpText="Fewer fields = more sign-ups. Hidden: visitors only enter their email."
                 />
                 <Checkbox
-                  label={s.gameType === "none" ? "Require marketing consent checkbox to get the code" : "Require marketing consent checkbox to play"}
-                  helpText="Emails are saved as customers in Shopify. People who tick the box can get your marketing emails. Recommended in the EU."
+                  label={<InfoLabel info="Emails are saved as customers in Shopify. People who tick the box can get your marketing emails. Recommended in the EU.">{s.gameType === "none" ? "Require marketing consent to get the code" : "Require marketing consent to play"}</InfoLabel>}
                   checked={s.requireConsent}
                   onChange={set("requireConsent")}
                 />
                 <Checkbox
-                  label="Double opt-in: people confirm by email (recommended in Germany and Austria)"
-                  helpText="Also turn on Shopify Settings → Notifications → Customer marketing confirmation. Visitors still get their code right away."
+                  label={<InfoLabel info="People confirm their subscription by email. Recommended in Germany and Austria. Also turn on Shopify Settings → Notifications → Customer marketing confirmation. Visitors still get their code right away.">Double opt-in</InfoLabel>}
                   checked={s.doubleOptIn}
                   disabled={!s.requireConsent}
                   onChange={set("doubleOptIn")}
                 />
                 <Checkbox
-                  label="Add the code to the cart automatically"
+                  label={<InfoLabel info="Winners don't have to type the code: it's applied at checkout.">Add the code to the cart automatically</InfoLabel>}
                   checked={s.autoApply}
                   onChange={set("autoApply")}
                 />

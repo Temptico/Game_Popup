@@ -666,8 +666,11 @@ const isNameField = (v: unknown): v is NameField => NAME_FIELDS.some((f) => f.va
 export const TRIGGERS = [
   { label: "When they’re about to leave, or after the wait (recommended)", value: "both" },
   { label: "After the wait", value: "delay" },
-  { label: "Only when they’re about to leave (phones: after the wait)", value: "exit" },
+  { label: "After the wait, or when they scroll down the page", value: "scroll" },
+  { label: "Only when they’re about to leave (phones: when they scroll back up, or after the wait)", value: "exit" },
 ] as const;
+export type Trigger = (typeof TRIGGERS)[number]["value"];
+export const isTrigger = (v: unknown): v is Trigger => TRIGGERS.some((t) => t.value === v);
 
 export const FREQUENCIES = [
   { label: "Once per visit (recommended)", value: "session" },
@@ -759,7 +762,7 @@ export const DEFAULT_ACCENT = "#d9caa0";
 /** What variant B of an A/B test changes; everything else is the same as A. */
 export interface AbVariant {
   gameType: GameType;
-  trigger: "both" | "delay" | "exit";
+  trigger: Trigger;
   delaySec: number;
   // Unique codes: B's discount (single value, or per attempt when tiered)
   discountValue: number;
@@ -802,11 +805,18 @@ export interface PopupSettings {
   codeExpiryDays: number;
   gameType: GameType;
   difficulty: "easy" | "medium" | "hard";
-  trigger: "both" | "delay" | "exit";
+  trigger: Trigger;
   // How often the popup may open by itself; the floating button always works.
   frequency: "session" | "once" | "day" | "week" | "always";
   // Don't open by itself for shoppers with something in the cart
   noCart: boolean;
+  // Not shown to visitors who already have another code (influencer link, code in the cart)
+  hideWithCode: boolean;
+  // Visit sources (utm_source / utm_campaign / referring site): hidden on the first page, or the whole visit
+  sourceFirst: string;
+  sourceAll: string;
+  // "scroll" trigger: opens once this % of the page is scrolled
+  scrollPct: number;
   // Pages where it never opens: normalized paths, one per line
   excludePages: string;
   // Scheduled pause in store time ("2026-11-27T08:00"), both or neither
@@ -901,6 +911,10 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   frequency: "session",
   teaser: true,
   noCart: true,
+  hideWithCode: true,
+  sourceFirst: "",
+  sourceAll: "",
+  scrollPct: 50,
   excludePages: "",
   pauseFrom: "",
   pauseUntil: "",
@@ -953,7 +967,7 @@ export function parseAbVariant(input: unknown, fallback: AbVariant = DEFAULT_SET
   }
   return {
     gameType: isGameType(o.gameType) ? o.gameType : fallback.gameType,
-    trigger: o.trigger === "delay" || o.trigger === "exit" || o.trigger === "both" ? o.trigger : fallback.trigger,
+    trigger: isTrigger(o.trigger) ? o.trigger : fallback.trigger,
     delaySec: Math.round(num(o.delaySec, fallback.delaySec, 0, 600)),
     discountValue: num(o.discountValue, fallback.discountValue, 0.01, 100000),
     tierValues: [0, 1, 2].map((i) => num(tiers[i], fallback.tierValues[i], 0.01, 100000)) as [number, number, number],
@@ -1125,12 +1139,16 @@ export function parseSettings(input: Record<string, unknown>): {
       difficulty: DIFFICULTIES.some((x) => x.value === input.difficulty)
         ? (input.difficulty as PopupSettings["difficulty"])
         : "medium",
-      trigger: input.trigger === "delay" || input.trigger === "exit" ? input.trigger : "both",
+      trigger: isTrigger(input.trigger) ? input.trigger : "both",
       frequency: FREQUENCIES.some((f) => f.value === input.frequency)
         ? (input.frequency as PopupSettings["frequency"])
         : "session",
       teaser: input.teaser !== false && input.teaser !== "false",
       noCart: input.noCart === true || input.noCart === "true",
+      hideWithCode: input.hideWithCode === true || input.hideWithCode === "true",
+      sourceFirst: normalizeSources(input.sourceFirst),
+      sourceAll: normalizeSources(input.sourceAll),
+      scrollPct: Math.round(num(input.scrollPct, d.scrollPct, 10, 100)),
       excludePages: normalizePages(input.excludePages),
       pauseFrom,
       pauseUntil,
@@ -1171,6 +1189,17 @@ function normalizePages(input: unknown) {
     line = ("/" + line.replace(/^\/+/, "")).replace(/\/+$/, "").toLowerCase() || "/";
     if (line.length <= 200 && !out.includes(line)) out.push(line);
     if (out.length >= EXCLUDE_MAX) break;
+  }
+  return out.join("\n");
+}
+
+/** Visit sources the merchant lists ("instagram", "magdalena"), one per line, lower case. */
+function normalizeSources(input: unknown) {
+  const out: string[] = [];
+  for (const raw of String(input ?? "").split(/[\n,]/)) {
+    const v = raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 60);
+    if (v && !out.includes(v)) out.push(v);
+    if (out.length >= 20) break;
   }
   return out.join("\n");
 }

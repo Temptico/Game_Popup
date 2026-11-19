@@ -235,6 +235,19 @@ export default function PopupEditor() {
                   onChange={(v) => set("frequency")(v as PopupSettings["frequency"])}
                   helpText="Per visitor. After someone wins, it doesn't open by itself again."
                 />
+                {(s.trigger === "scroll" || (s.abEnabled && s.ab.trigger === "scroll")) && (
+                  <TextField
+                    label="Or when they've scrolled down (% of the page)"
+                    type="number"
+                    min={10}
+                    max={100}
+                    suffix="%"
+                    value={String(s.scrollPct)}
+                    onChange={(v) => setS((x) => ({ ...x, scrollPct: v as unknown as number }))}
+                    autoComplete="off"
+                    helpText="It opens at whichever comes first: the wait below or this much scrolling."
+                  />
+                )}
                 <TextField label="Wait before it opens (seconds)" type="number" min={0} value={String(s.delaySec)} onChange={setNum("delaySec")} autoComplete="off" disabled={s.trigger === "exit"} helpText={s.trigger === "exit" ? "Used only on mobile." : undefined} />
                 <Checkbox
                   label="Don't show it to people who already have something in the cart"
@@ -242,6 +255,33 @@ export default function PopupEditor() {
                   checked={s.noCart}
                   onChange={set("noCart")}
                 />
+                <Checkbox
+                  label="Don't show it to people who already have a discount code"
+                  helpText="For example from an influencer link like yourstore.com/discount/ANNA20, or a code already in the cart. A second code would only confuse them."
+                  checked={s.hideWithCode}
+                  onChange={set("hideWithCode")}
+                />
+                <FormLayout.Group condensed>
+                  <TextField
+                    label="Not on the first page for visitors from"
+                    value={s.sourceFirst}
+                    onChange={set("sourceFirst")}
+                    multiline={2}
+                    placeholder={"instagram\ntiktok"}
+                    autoComplete="off"
+                  />
+                  <TextField
+                    label="Never for visitors from"
+                    value={s.sourceAll}
+                    onChange={set("sourceAll")}
+                    multiline={2}
+                    placeholder={"anna"}
+                    autoComplete="off"
+                  />
+                </FormLayout.Group>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  One per line. Matches the link's utm_source or utm_campaign tag, or the site they came from. Instagram's own browser often hides where a visitor came from, so tag your Instagram links with utm_source=instagram.
+                </Text>
                 <BlockStack gap="200">
                   <FormLayout.Group condensed>
                     <TextField

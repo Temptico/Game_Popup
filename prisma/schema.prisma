@@ -89,6 +89,13 @@ model Popup {
   emailAfter       Boolean @default(false)
   // Don't open by itself for shoppers with something in the cart (on for new popups)
   noCart           Boolean @default(false)
+  // Not shown to visitors who already have another discount code (on for new popups)
+  hideWithCode     Boolean @default(false)
+  // Visit sources, one per line: hidden on the visit's first page / for the whole visit
+  sourceFirst      String  @default("")
+  sourceAll        String  @default("")
+  // "scroll" trigger: % of the page scrolled
+  scrollPct        Int     @default(50)
   // Pages where it never opens: one path per line ("/pages/contact"); covers pages under it
   excludePages     String  @default("")
   // Scheduled pause: not shown on the storefront between these instants

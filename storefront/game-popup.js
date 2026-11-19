@@ -31,6 +31,30 @@
       .then(function (r) { return r.json(); })
       .then(function (r) { if (r.ok) run(r.popup); }, function () {});
   }
+  // ---------- this visit (sessionStorage): where it came from, pages seen, a discount code it brought ----------
+  var ss = function (k, v) {
+    try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) { /* blocked */ }
+    return null;
+  };
+  var q = function (n) { try { return new URLSearchParams(location.search).get(n) || ''; } catch (e) { return ''; } };
+  var dec = function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } };
+  var src = ss('gd_src');
+  if (src === null) {
+    var ref = '';
+    try { ref = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) { /* keep */ }
+    if (ref === location.hostname) ref = '';
+    src = [q('utm_source'), q('utm_campaign'), ref, q('fbclid') ? 'fbclid' : ''].join(' ').toLowerCase();
+    ss('gd_src', src);
+  }
+  var pages = (Number(ss('gd_pages')) || 0) + 1;
+  ss('gd_pages', String(pages));
+  var fromSrc = function (list) { return (list || []).some(function (s) { return src.indexOf(s) >= 0; }); };
+  // A code from a link (/discount/CODE or ?discount=CODE) is kept for the visit; Shopify also keeps it in a cookie.
+  var linkCode = (location.pathname.match(/\/discount\/([^/?#]+)/) || [])[1] || q('discount');
+  if (linkCode) ss('gd_code', dec(linkCode));
+  var cookieCode = (document.cookie.match(/(?:^|;\s*)discount_code=([^;]*)/) || [])[1];
+  var visitCodes = [ss('gd_code'), cookieCode && dec(cookieCode)].concat(ctx.cartCodes || []);
+
   // Pages the merchant excluded (and the pages under them), also behind a language prefix (/en/...).
   var path = function (x) { try { x = decodeURI(x); } catch (e) { /* keep */ } return (x.replace(/\/+$/, '') || '/').toLowerCase(); };
   var here = path(location.pathname);
@@ -44,7 +68,11 @@
   };
   // Scheduled pause set by the merchant: [start, end] in ms.
   var now = Date.now();
-  popups = popups.filter(function (p) { return allowed(p) && !(p.off && now >= p.off[0] && now < p.off[1]); });
+  popups = popups.filter(function (p) {
+    return allowed(p) && !(p.off && now >= p.off[0] && now < p.off[1]) &&
+      // Sources the merchant listed: not at all, or not on the visit's first page.
+      !fromSrc(p.sa) && !(pages === 1 && fromSrc(p.sf));
+  });
   // Specific page targets win over "all pages".
   var first = popups.filter(matches)[0] || popups.filter(function (p) { return p.target === 'all'; })[0];
   if (first) run(first);
@@ -156,6 +184,20 @@
 
     // ---------- trigger ----------
     if (claimed) return withUI(function (u) { u.winner(); });
+    // The visitor already has someone else's code (an influencer link, a code in the cart): a second
+    // code would only confuse them. Codes won in Kodra Play don't count.
+    var own = [];
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('gd_claimed_') === 0) own.push(String((JSON.parse(localStorage.getItem(k)) || {}).code || '').toUpperCase());
+      }
+    } catch (e) { /* blocked or unreadable */ }
+    var foreign = function (list) {
+      return list.some(function (c) { return c && String(c).split(',').some(function (x) { x = x.trim().toUpperCase(); return x && own.indexOf(x) < 0; }); });
+    };
+    var codeCheck = popup.hd && !testMode;
+    if (codeCheck && foreign(visitCodes)) return;
     if (dismissed) return teaserOnly();
 
     // Frequency cap for automatic opening (the floating button still works).
@@ -175,11 +217,14 @@
     function fire() {
       if (fired) return;
       fired = true;
-      if (!cartCheck) return show();
-      // The cart may have changed since the page loaded (cart drawers add without a reload).
+      if (!cartCheck && !codeCheck) return show();
+      // The cart may have changed since the page loaded (cart drawers add items and codes without a reload).
       fetch(((window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || '/') + 'cart.js', { credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
-        .then(function (c) { if (!c.item_count) show(); }, show);
+        .then(function (c) {
+          var codes = (c.cart_level_discount_applications || []).filter(function (d) { return d.type === 'discount_code'; }).map(function (d) { return d.title; });
+          if (!(cartCheck && c.item_count) && !(codeCheck && foreign(codes))) show();
+        }, show);
     }
     function show() {
       session.set(KEY_SHOWN, '1');
@@ -188,14 +233,26 @@
       withUI(function (u) { u.open(); });
     }
     var mode = testMode ? 'delay' : popup.trigger || 'both';
-    // Exit intent needs a mouse; touch devices always use the delay.
-    if (mode !== 'delay' && hasMouse) {
+    // Exit intent needs a mouse; touch devices use the delay and scrolling back up quickly.
+    if ((mode === 'both' || mode === 'exit') && hasMouse) {
       document.addEventListener('mouseout', function (e) {
         if (!e.relatedTarget && e.clientY <= 0) fire();
       });
     }
     if (mode !== 'exit' || !hasMouse) {
       setTimeout(fire, testMode ? 500 : Math.max(0, Number(popup.delaySec) || 0) * 1000);
+    }
+    // Scrolled part of the page, or (phones) scrolled back up quickly after reading: about to leave.
+    var upTouch = !hasMouse && (mode === 'both' || mode === 'exit');
+    if (mode === 'scroll' || upTouch) {
+      var lastY = window.scrollY, lastT = Date.now(), maxY = lastY;
+      window.addEventListener('scroll', function () {
+        var y = window.scrollY, t = Date.now(), h = document.documentElement.scrollHeight - window.innerHeight;
+        if (mode === 'scroll' && h > 0 && (y / h) * 100 >= (popup.sp || 50)) fire();
+        if (upTouch && maxY > 600 && lastY - y > 120 && t - lastT < 250) fire();
+        if (t - lastT > 100) { lastY = y; lastT = t; }
+        maxY = Math.max(maxY, y);
+      }, { passive: true });
     }
   }
 })();

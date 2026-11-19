@@ -4,6 +4,7 @@ import db from "../db.server";
 import { dateToLocal, localToDate } from "./timezone";
 import {
   excludedPaths,
+  isTrigger,
   DEFAULT_STRINGS,
   LANGUAGES,
   parseAbJson,
@@ -70,9 +71,13 @@ export function rowToSettings(row: Popup, tz = "UTC"): PopupSettings {
     codeExpiryDays: row.codeExpiryDays,
     gameType: isGameType(row.gameType) ? row.gameType : "paddle",
     difficulty: row.difficulty === "easy" || row.difficulty === "hard" ? row.difficulty : "medium",
-    trigger: row.trigger === "delay" || row.trigger === "exit" ? row.trigger : "both",
+    trigger: isTrigger(row.trigger) ? row.trigger : "both",
     frequency: (["session", "once", "day", "week", "always"] as const).find((f) => f === row.frequency) ?? "session",
     noCart: row.noCart,
+    hideWithCode: row.hideWithCode,
+    sourceFirst: row.sourceFirst,
+    sourceAll: row.sourceAll,
+    scrollPct: row.scrollPct,
     excludePages: row.excludePages,
     pauseFrom: dateToLocal(row.pauseFrom, tz),
     pauseUntil: dateToLocal(row.pauseUntil, tz),
@@ -270,6 +275,11 @@ export async function storefrontPopups(admin: AdminApi, rows: Popup[]) {
       trigger: s.trigger,
       frequency: s.frequency,
       ...(s.noCart ? { nc: 1 } : {}),
+      // Visitors with another code; visit sources (whole visit / first page); scroll depth for "scroll".
+      ...(s.hideWithCode ? { hd: 1 } : {}),
+      ...(s.sourceAll ? { sa: s.sourceAll.split("\n") } : {}),
+      ...(s.sourceFirst ? { sf: s.sourceFirst.split("\n") } : {}),
+      ...(s.trigger === "scroll" || (s.abEnabled && s.ab.trigger === "scroll") ? { sp: s.scrollPct } : {}),
       // Pages where it never opens (paths, matched with the pages under them).
       ...(s.excludePages ? { ex: excludedPaths(s.excludePages) } : {}),
       // Scheduled pause [start, end] in ms; the storefront checks the visitor's clock.

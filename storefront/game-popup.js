@@ -245,12 +245,14 @@
     // Scrolled part of the page, or (phones) scrolled back up quickly after reading: about to leave.
     var upTouch = !hasMouse && (mode === 'both' || mode === 'exit');
     if (mode === 'scroll' || upTouch) {
-      var lastY = window.scrollY, lastT = Date.now(), maxY = lastY, start = lastT, armed = false;
+      var lastY = window.scrollY, lastT = Date.now(), maxY = lastY, armed = false;
+      // Time on the page since it started loading (the script itself runs a little later).
+      var onPage = function () { return window.performance && performance.now ? performance.now() : Date.now() - lastT; };
       window.addEventListener('scroll', function () {
         var y = window.scrollY, t = Date.now(), h = document.documentElement.scrollHeight - window.innerHeight;
-        // Scrolling counts after 8 s on the page: a quick jump to the footer looks for
-        // contact or shipping info, so it opens at 8 s instead, if they're still here.
-        if (mode === 'scroll' && !armed && h > 0 && (y / h) * 100 >= (popup.sp || 50)) { armed = true; setTimeout(fire, Math.max(0, start + 8000 - t)); }
+        // Scrolling counts after 10 s on the page (from when it started loading): a quick jump
+        // to the footer looks for contact or shipping info, so it opens at 10 s instead, if they're still here.
+        if (mode === 'scroll' && !armed && h > 0 && (y / h) * 100 >= (popup.sp || 50)) { armed = true; setTimeout(fire, Math.max(0, 10000 - onPage())); }
         if (upTouch && maxY > 600 && lastY - y > 120 && t - lastT < 250) fire();
         if (t - lastT > 100) { lastY = y; lastT = t; }
         maxY = Math.max(maxY, y);

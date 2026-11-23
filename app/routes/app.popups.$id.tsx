@@ -242,7 +242,7 @@ export default function PopupEditor() {
                   />
                   {(s.trigger === "scroll" || (s.abEnabled && s.ab.trigger === "scroll")) && (
                     <TextField
-                      label={<InfoLabel info="It opens at whichever comes first: the wait or this much scrolling.">Or after scrolling</InfoLabel>}
+                      label={<InfoLabel info="It opens at whichever comes first: the wait or this much scrolling. Scrolling counts only after 10 seconds on the page, so a quick jump to the footer doesn't open it at once.">Or after scrolling</InfoLabel>}
                       type="number"
                       min={10}
                       max={100}

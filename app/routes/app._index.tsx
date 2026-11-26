@@ -24,7 +24,7 @@ import db from "../db.server";
 import { livePopups, publishConfig, syncPublish } from "../lib/popups.server";
 import { getCounts } from "../lib/analytics.server";
 import { getRevenue } from "../lib/revenue.server";
-import { getShopTimezone } from "../lib/discounts.server";
+import { getShopTimezone, syncCodeCombinations } from "../lib/discounts.server";
 import { checkEmbed } from "../lib/brand-colors.server";
 import { shortLabel } from "../lib/timezone";
 import { PLAN_LABELS, getPlan } from "../lib/plans";
@@ -64,6 +64,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     db.shopState.findUnique({ where: { shop } }),
   ]);
   const emails = orders === 0 ? await db.event.count({ where: { shop, type: "submit" } }) : 0;
+  // One-time fix: codes handed out before codes combined with product discounts (in the background).
+  if (!state?.codesCombinedAt) {
+    await db.shopState.upsert({ where: { shop }, create: { shop, codesCombinedAt: new Date() }, update: { codesCombinedAt: new Date() } });
+    void syncCodeCombinations(admin, shop).catch((e) => console.error(`[combine] ${shop}`, e));
+  }
   const goodMoment = orders > 0 || emails >= REVIEW_AFTER_EMAILS;
 
   return {

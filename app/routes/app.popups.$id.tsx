@@ -63,7 +63,7 @@ import {
 } from "../lib/popups.server";
 import { getAbResults, getDiscountUsage } from "../lib/analytics.server";
 import { previewFeatures } from "../lib/billing.server";
-import { getShopTimezone } from "../lib/discounts.server";
+import { getShopTimezone, syncCodeCombinations } from "../lib/discounts.server";
 import type { BrandColorsResult } from "../lib/brand-colors.server";
 import { GamePicker, GameThumb } from "../components/GamePicker";
 import { WheelEditor } from "../components/WheelEditor";
@@ -108,6 +108,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   // Switching an A/B test on (re)starts its results.
   const abStart = settings.abEnabled && !existing?.abEnabled ? { abStartedAt: new Date() } : {};
   const tz = await getShopTimezone(admin, shop);
+  // Codes already handed out follow a changed combine setting (in the background).
+  if (existing && existing.combineProducts !== settings.combineProducts) {
+    void syncCodeCombinations(admin, shop, [existing.id]).catch((e) => console.error(`[combine] ${shop}`, e));
+  }
   const data = { ...settingsToRow(settings, tz), ...abStart };
   const row = isNew
     ? await db.popup.create({ data: { ...data, shop } })
@@ -446,6 +450,17 @@ export default function PopupEditor() {
                           />
                         )}
                       </InlineGrid>
+                    )}
+                    {s.codeMode === "unique" && (
+                      <Checkbox
+                        label={
+                          <InfoLabel info="Winners' codes then work together with your other product discounts, such as quantity breaks, bundles or automatic discounts. Turned off, Shopify removes those at checkout when the code is used. Codes never combine with another order code.">
+                            Combine with product discounts (recommended)
+                          </InfoLabel>
+                        }
+                        checked={s.combineProducts}
+                        onChange={set("combineProducts")}
+                      />
                     )}
                     {s.codeMode === "unique" && (
                       <Checkbox

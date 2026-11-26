@@ -817,6 +817,8 @@ export interface PopupSettings {
   sourceAll: string;
   // "scroll" trigger: opens once this % of the page is scrolled
   scrollPct: number;
+  // Unique codes combine with product discounts (quantity breaks, bundles, automatic discounts)
+  combineProducts: boolean;
   // Pages where it never opens: normalized paths, one per line
   excludePages: string;
   // Scheduled pause in store time ("2026-11-27T08:00"), both or neither
@@ -915,6 +917,7 @@ export const DEFAULT_SETTINGS: PopupSettings = {
   sourceFirst: "",
   sourceAll: "",
   scrollPct: 50,
+  combineProducts: true,
   excludePages: "",
   pauseFrom: "",
   pauseUntil: "",
@@ -1149,6 +1152,7 @@ export function parseSettings(input: Record<string, unknown>): {
       sourceFirst: normalizeSources(input.sourceFirst),
       sourceAll: normalizeSources(input.sourceAll),
       scrollPct: Math.round(num(input.scrollPct, d.scrollPct, 10, 100)),
+      combineProducts: input.combineProducts !== false && input.combineProducts !== "false",
       excludePages: normalizePages(input.excludePages),
       pauseFrom,
       pauseUntil,

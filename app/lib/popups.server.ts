@@ -78,6 +78,7 @@ export function rowToSettings(row: Popup, tz = "UTC"): PopupSettings {
     sourceFirst: row.sourceFirst,
     sourceAll: row.sourceAll,
     scrollPct: row.scrollPct,
+    combineProducts: row.combineProducts,
     excludePages: row.excludePages,
     pauseFrom: dateToLocal(row.pauseFrom, tz),
     pauseUntil: dateToLocal(row.pauseUntil, tz),

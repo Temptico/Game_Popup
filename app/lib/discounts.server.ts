@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import type { Popup } from "@prisma/client";
 import { safeZone } from "./timezone";
+import db from "../db.server";
 
 interface AdminApi {
   graphql: (
@@ -29,7 +30,7 @@ export const hashEmail = (shop: string, email: string) =>
  */
 export async function createUniqueDiscount(
   admin: AdminApi,
-  popup: Pick<Popup, "name" | "discountType" | "codePrefix">,
+  popup: Pick<Popup, "name" | "discountType" | "codePrefix" | "combineProducts">,
   { amount, endsAt }: { amount: number; endsAt: Date | null },
 ): Promise<{ code: string; discountId: string }> {
   const now = new Date();
@@ -61,7 +62,9 @@ export async function createUniqueDiscount(
             customerGets: { value, items: { all: true } },
             usageLimit: 1,
             appliesOncePerCustomer: true,
-            combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: true },
+            // Never with another order code; with product discounts (quantity breaks, bundles,
+            // automatic discounts) unless the merchant turned it off, so those don't vanish at checkout.
+            combinesWith: combinesWith(popup.combineProducts),
           },
         },
       },
@@ -123,4 +126,45 @@ export async function getShopTimezone(admin: AdminApi, shop: string): Promise<st
   const tz = safeZone(json.data?.shop?.ianaTimezone);
   zones.set(shop, { tz, at: Date.now() });
   return tz;
+}
+
+const combinesWith = (products: boolean) => ({ orderDiscounts: false, productDiscounts: products, shippingDiscounts: true });
+
+/**
+ * Updates the codes already handed out (unused and not expired) to the popup's
+ * combine setting. Runs in the background: one small mutation per code.
+ */
+export async function syncCodeCombinations(admin: AdminApi, shop: string, popupIds?: string[]) {
+  const popups = await db.popup.findMany({
+    where: { shop, codeMode: "unique", ...(popupIds ? { id: { in: popupIds } } : {}) },
+    select: { id: true, combineProducts: true },
+  });
+  const used = new Set((await db.attributedOrder.findMany({ where: { shop }, select: { code: true } })).map((o) => o.code.toUpperCase()));
+  let updated = 0, failed = 0;
+  for (const p of popups) {
+    const claims = await db.claim.findMany({
+      where: { shop, popupId: p.id, discountId: { not: null }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+      select: { code: true, discountId: true },
+    });
+    for (const c of claims) {
+      if (!c.discountId || (c.code && used.has(c.code.toUpperCase()))) continue;
+      try {
+        const res = await admin.graphql(
+          `#graphql
+          mutation GameDiscountCombine($id: ID!, $input: DiscountCodeBasicInput!) {
+            discountCodeBasicUpdate(id: $id, basicCodeDiscount: $input) { userErrors { message } }
+          }`,
+          { variables: { id: c.discountId, input: { combinesWith: combinesWith(p.combineProducts) } } },
+        );
+        const errors = (await res.json()).data?.discountCodeBasicUpdate?.userErrors ?? [];
+        if (errors.length) failed++;
+        else updated++;
+      } catch {
+        failed++;
+      }
+      await new Promise((r) => setTimeout(r, 250)); // stay well inside the API rate limit
+    }
+  }
+  console.log(`[combine] ${shop}: ${updated} codes updated, ${failed} failed`);
+  return { updated, failed };
 }

@@ -48,6 +48,11 @@ import {
   type GameType,
   TARGETS,
   TRIGGERS,
+  TIMING_PRESETS,
+  EXPIRY_PRESETS,
+  timingPresetOf,
+  expiryPresetOf,
+  advancedInUse,
   FREQUENCIES,
   parseSettings,
   type Language,
@@ -159,6 +164,24 @@ export default function PopupEditor() {
   useEffect(() => setS(initial), [initial]);
 
   const [device, setDevice] = useState<"desktop" | "phone">("desktop");
+  // Simple view by default: the essentials only; "Show advanced settings" reveals everything.
+  const [adv, setAdv] = useState(false);
+  useEffect(() => {
+    try {
+      setAdv(localStorage.getItem("gd_advanced") === "1");
+    } catch {
+      /* storage blocked: simple view */
+    }
+  }, []);
+  const toggleAdv = () =>
+    setAdv((v) => {
+      try {
+        localStorage.setItem("gd_advanced", v ? "0" : "1");
+      } catch {
+        /* ignore */
+      }
+      return !v;
+    });
 
   // "Use my store colors": fills both color fields from the shop's theme.
   const shopify = useAppBridge();
@@ -204,6 +227,14 @@ export default function PopupEditor() {
   const [step, setStep] = useState(0);
   const WIZARD_STEPS = wizardSteps(s.gameType);
   const at = (section: number) => (wizard ? WIZARD_STEPS[step].section === section : tab === section);
+  // Texts and the A/B test are advanced tabs.
+  const tabs = tabsFor(s.gameType).slice(0, adv ? 5 : 3);
+  useEffect(() => {
+    if (!adv && tab > 2) setTab(0);
+  }, [adv, tab]);
+  const hiddenInUse = advancedInUse(s);
+  const timing = timingPresetOf(s);
+  const expiry = expiryPresetOf(s);
   const dirty = !wizard && JSON.stringify(s) !== JSON.stringify(initial);
   const previewUrl = `https://${shop}/?gd_preview=${id}`;
 
@@ -219,6 +250,7 @@ export default function PopupEditor() {
                 <FormSection>Where it shows</FormSection>
                 <TextField label="Name (only you see it)" value={s.name} onChange={set("name")} autoComplete="off" />
                 <Select label="Show it on" options={[...TARGETS]} value={s.target} onChange={set("target")} />
+                {adv && (
                 <TextField
                   label={<InfoLabel info="Paste one link per line, e.g. /pages/contact. Each link also covers the pages under it, so /collections/sale also hides it on the products opened from that collection.">Don't show on these pages (optional)</InfoLabel>}
                   value={s.excludePages}
@@ -227,8 +259,25 @@ export default function PopupEditor() {
                   placeholder="e.g. /pages/contact"
                   autoComplete="off"
                 />
+                )}
 
                 <FormSection>Timing</FormSection>
+                {!adv && (
+                  <Select
+                    label={<InfoLabel info="About to leave: on computers when the mouse heads for the browser bar, on phones when they scroll back up quickly. It opens once per visit; after someone wins it doesn't open by itself again.">When it opens</InfoLabel>}
+                    options={[
+                      ...TIMING_PRESETS.map(({ value, label }) => ({ value, label })),
+                      ...(timing === "custom" ? [{ value: "custom", label: "Custom (see advanced settings)" }] : []),
+                    ]}
+                    value={timing}
+                    onChange={(v) => {
+                      const p = TIMING_PRESETS.find((x) => x.value === v);
+                      if (p) setS((x) => ({ ...x, ...p.set }));
+                    }}
+                  />
+                )}
+                {adv && (
+                <>
                 <Select
                   label={<InfoLabel info="About to leave: on computers when the mouse heads for the browser bar, on phones when they scroll back up quickly. Scroll: when they've scrolled down part of the page. Each option also opens after the wait, whichever comes first.">When it opens</InfoLabel>}
                   options={[...TRIGGERS]}
@@ -263,7 +312,11 @@ export default function PopupEditor() {
                   value={s.frequency}
                   onChange={(v) => set("frequency")(v as PopupSettings["frequency"])}
                 />
+                </>
+                )}
 
+                {adv && (
+                <>
                 <FormSection>Who sees it</FormSection>
                 <Checkbox
                   label={<InfoLabel info="They're about to buy anyway. The popup would only interrupt them and give away a discount.">Not for people with something in the cart</InfoLabel>}
@@ -348,12 +401,14 @@ export default function PopupEditor() {
                   checked={s.autoApply}
                   onChange={set("autoApply")}
                 />
+                </>
+                )}
               </FormLayout>
             )}
 
             {at(1) && (
               <BlockStack gap="500">
-                {skill && (
+                {skill && adv && (
                   <BlockStack gap="300">
                     <Text as="h3" variant="headingSm">Game</Text>
                     <FormLayout>
@@ -451,7 +506,7 @@ export default function PopupEditor() {
                         )}
                       </InlineGrid>
                     )}
-                    {s.codeMode === "unique" && (
+                    {s.codeMode === "unique" && adv && (
                       <Checkbox
                         label={
                           <InfoLabel info="Winners' codes then work together with your other product discounts, such as quantity breaks, bundles or automatic discounts. Turned off, Shopify removes those at checkout when the code is used. Codes never combine with another order code.">
@@ -462,7 +517,7 @@ export default function PopupEditor() {
                         onChange={set("combineProducts")}
                       />
                     )}
-                    {s.codeMode === "unique" && (
+                    {s.codeMode === "unique" && adv && (
                       <Checkbox
                         label={<InfoLabel info="More people play when they know what they can win.">Show the discount in the title, e.g. “Win up to 20% off”</InfoLabel>}
                         checked={s.showValue}
@@ -479,7 +534,7 @@ export default function PopupEditor() {
                         error={errors.wheelSegments}
                       />
                     )}
-                    {s.codeMode === "unique" && skill && (
+                    {s.codeMode === "unique" && skill && adv && (
                       <BlockStack gap="300">
                         {/* Kept for popups that already use it; not offered to new ones. */}
                         {initial.tiered && (
@@ -532,6 +587,20 @@ export default function PopupEditor() {
                       </BlockStack>
                     )}
                     {s.codeMode === "unique" && (
+                      <Select
+                        label={<InfoLabel info="A short time gets people to buy sooner. With the 30-minute option winners see a timer.">Code works for</InfoLabel>}
+                        options={[
+                          ...EXPIRY_PRESETS.map(({ value, label }) => ({ value, label })),
+                          ...(expiry === "custom" ? [{ value: "custom", label: adv ? "Custom (set below)" : "Custom (see advanced settings)" }] : []),
+                        ]}
+                        value={expiry}
+                        onChange={(v) => {
+                          const p = EXPIRY_PRESETS.find((x) => x.value === v);
+                          if (p) setS((x) => ({ ...x, ...p.set }));
+                        }}
+                      />
+                    )}
+                    {s.codeMode === "unique" && adv && (
                       <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                         <TextField
                           label={<InfoLabel info={`Example: ${s.codePrefix ? `${s.codePrefix}-` : ""}K7M2QX9A`}>Code starts with</InfoLabel>}
@@ -555,7 +624,7 @@ export default function PopupEditor() {
                         />
                       </InlineGrid>
                     )}
-                    {s.codeMode === "unique" && (
+                    {s.codeMode === "unique" && adv && (
                       <TextField
                         label={<InfoLabel info="0 = off. The code stops working after this many minutes, and winners see a timer.">Countdown (minutes)</InfoLabel>}
                         type="number"
@@ -565,6 +634,7 @@ export default function PopupEditor() {
                         autoComplete="off"
                       />
                     )}
+                    {(s.codeMode !== "unique" || adv) && (
                     <TextField
                       label={
                         <InfoLabel
@@ -587,6 +657,7 @@ export default function PopupEditor() {
                         </Link>
                       }
                     />
+                    )}
                     {id && initial.discountCode && !codeExists && (
                       <Banner tone="warning">
                         “{initial.discountCode}” doesn’t exist in your Discounts yet — winners will get a code
@@ -610,6 +681,7 @@ export default function PopupEditor() {
                   <ColorField label="Background color" value={s.primaryColor} onChange={set("primaryColor")} error={errors.primaryColor} />
                   <ColorField label="Button color" value={s.accentColor} onChange={set("accentColor")} error={errors.accentColor} />
                 </InlineGrid>
+                {adv && (
                 <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                   <RangeSlider
                     label={<InfoLabel info={`${SIZE_LIMITS.desktop.min}–${SIZE_LIMITS.desktop.max}% of the standard size`}>Popup size on desktop</InfoLabel>}
@@ -632,6 +704,7 @@ export default function PopupEditor() {
                     suffix={<Text as="span" variant="bodyMd">{s.sizeMobile}%</Text>}
                   />
                 </InlineGrid>
+                )}
                 <InlineStack gap="200">
                   <Button pressed={device === "desktop"} onClick={() => setDevice("desktop")}>Desktop preview</Button>
                   <Button pressed={device === "phone"} onClick={() => setDevice("phone")}>Phone preview</Button>
@@ -756,9 +829,25 @@ export default function PopupEditor() {
           <Layout.Section>
             <Card>
               {!wizard ? (
-                <Tabs tabs={tabsFor(s.gameType)} selected={tab} onSelect={setTab}>
-                  <Box paddingBlockStart="400">{sections}</Box>
-                </Tabs>
+                <BlockStack gap="200">
+                  <Tabs tabs={tabs} selected={Math.min(tab, tabs.length - 1)} onSelect={setTab}>
+                    <Box paddingBlockStart="400">{sections}</Box>
+                  </Tabs>
+                  <Box paddingBlockStart="200" borderBlockStartWidth="025" borderColor="border">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Button variant="plain" onClick={toggleAdv}>
+                        {adv ? "Hide advanced settings" : "Show advanced settings"}
+                      </Button>
+                      {!adv && (
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          {hiddenInUse > 0
+                            ? `${hiddenInUse} changed from the default`
+                            : "Who sees it, pause, form fields, texts, A/B test and more"}
+                        </Text>
+                      )}
+                    </InlineStack>
+                  </Box>
+                </BlockStack>
               ) : step === WIZARD_STEPS.length - 1 ? (
                 <Summary settings={s} branding={branded} />
               ) : (

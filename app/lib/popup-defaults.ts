@@ -1207,3 +1207,62 @@ function normalizeSources(input: unknown) {
   }
   return out.join("\n");
 }
+
+/** "When it opens" in the simple view: one choice that sets the trigger, the wait, scrolling and how often. */
+export const TIMING_PRESETS = [
+  { value: "gentle", label: "When they’re about to leave, or after 15 seconds (recommended)", set: { trigger: "both", delaySec: 15, frequency: "session" } },
+  { value: "scroll", label: "When they scroll down half the page, or after 30 seconds", set: { trigger: "scroll", delaySec: 30, scrollPct: 50, frequency: "session" } },
+  { value: "early", label: "After 5 seconds", set: { trigger: "delay", delaySec: 5, frequency: "session" } },
+  { value: "leaving", label: "Only when they’re about to leave", set: { trigger: "exit", delaySec: 15, frequency: "session" } },
+] as const satisfies readonly { value: string; label: string; set: Partial<PopupSettings> }[];
+
+/** The preset these settings match, or "custom". */
+export function timingPresetOf(s: Pick<PopupSettings, "trigger" | "delaySec" | "frequency" | "scrollPct">) {
+  const hit = TIMING_PRESETS.find((p) =>
+    Object.entries(p.set).every(([k, v]) => String(s[k as keyof typeof s]) === String(v)),
+  );
+  return hit?.value ?? "custom";
+}
+
+/** How long a winner's code works: one choice instead of the days and countdown fields. */
+export const EXPIRY_PRESETS = [
+  { value: "30m", label: "30 minutes, with a countdown", set: { urgencyMinutes: 30, codeExpiryDays: 0 } },
+  { value: "1d", label: "24 hours", set: { urgencyMinutes: 0, codeExpiryDays: 1 } },
+  { value: "7d", label: "7 days (recommended)", set: { urgencyMinutes: 0, codeExpiryDays: 7 } },
+  { value: "30d", label: "30 days", set: { urgencyMinutes: 0, codeExpiryDays: 30 } },
+  { value: "never", label: "No end date", set: { urgencyMinutes: 0, codeExpiryDays: 0 } },
+] as const satisfies readonly { value: string; label: string; set: Partial<PopupSettings> }[];
+
+export function expiryPresetOf(s: Pick<PopupSettings, "urgencyMinutes" | "codeExpiryDays">) {
+  const hit = EXPIRY_PRESETS.find(
+    (p) => Number(s.urgencyMinutes) === p.set.urgencyMinutes && (p.set.urgencyMinutes > 0 || Number(s.codeExpiryDays) === p.set.codeExpiryDays),
+  );
+  return hit?.value ?? "custom";
+}
+
+/** Advanced settings changed from their defaults (shown as a count while they're hidden). */
+export function advancedInUse(s: PopupSettings) {
+  const d = DEFAULT_SETTINGS;
+  return [
+    s.excludePages !== "",
+    timingPresetOf(s) === "custom",
+    !s.noCart,
+    !s.hideWithCode,
+    s.sourceFirst !== "" || s.sourceAll !== "",
+    s.pauseFrom !== "",
+    !s.teaser,
+    s.emailAfter,
+    s.nameField !== d.nameField,
+    !s.requireConsent || s.doubleOptIn,
+    !s.autoApply,
+    s.sizeDesktop !== 100 || s.sizeMobile !== 100,
+    !s.combineProducts,
+    !s.showValue,
+    s.consolation,
+    s.tiered,
+    s.codeMode === "unique" && s.codePrefix !== d.codePrefix,
+    expiryPresetOf(s) === "custom",
+    Object.keys(s.strings).length > 0,
+    s.abEnabled,
+  ].filter(Boolean).length;
+}

@@ -1266,3 +1266,67 @@ export function advancedInUse(s: PopupSettings) {
     s.abEnabled,
   ].filter(Boolean).length;
 }
+
+/** New popup: start from a goal; each one sets the game and the settings that serve it. */
+export const GOAL_PRESETS: { value: string; title: string; text: string; set: Partial<PopupSettings> }[] = [
+  {
+    value: "emails",
+    title: "More emails",
+    text: "A short game. Everyone who plays leaves an email, and players who lose still get a small code.",
+    set: {
+      name: "Email game",
+      gameType: "paddle",
+      codeMode: "unique",
+      discountValue: 10,
+      consolation: true,
+      consolationValue: 5,
+      emailAfter: false,
+      showValue: true,
+      trigger: "both",
+      delaySec: 15,
+      frequency: "session",
+      urgencyMinutes: 0,
+      codeExpiryDays: 7,
+    },
+  },
+  {
+    value: "sales",
+    title: "More sales now",
+    text: "A spin wheel where every spin wins, and a code that works for 30 minutes with a countdown.",
+    set: {
+      name: "Spin to win",
+      gameType: "wheel",
+      codeMode: "unique",
+      wheelSegments: [
+        { value: 5, chance: 40 },
+        { value: 10, chance: 35 },
+        { value: 15, chance: 20 },
+        { value: 20, chance: 5 },
+      ],
+      showValue: true,
+      trigger: "both",
+      delaySec: 15,
+      frequency: "session",
+      urgencyMinutes: 30,
+      codeExpiryDays: 0,
+    },
+  },
+  {
+    value: "simple",
+    title: "Quick and simple",
+    text: "No game: visitors leave their email and get the code right away.",
+    set: {
+      name: "Sign-up discount",
+      gameType: "none",
+      codeMode: "unique",
+      discountValue: 10,
+      consolation: false,
+      showValue: true,
+      trigger: "both",
+      delaySec: 15,
+      frequency: "session",
+      urgencyMinutes: 0,
+      codeExpiryDays: 7,
+    },
+  },
+];

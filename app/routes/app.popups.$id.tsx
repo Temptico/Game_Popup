@@ -49,6 +49,7 @@ import {
   TARGETS,
   TRIGGERS,
   TIMING_PRESETS,
+  GOAL_PRESETS,
   EXPIRY_PRESETS,
   timingPresetOf,
   expiryPresetOf,
@@ -143,7 +144,7 @@ const tabsFor = (game: GameType) => [
 
 // New popup, step by step: each step shows one of the editor's sections (tab index).
 const wizardSteps = (game: GameType): { title: string; section?: number }[] => [
-  { title: "Choose a game" },
+  { title: "Goal and game" },
   { title: SKILL_GAMES.includes(game) ? "Game and discount" : game === "wheel" ? "Wheel and rewards" : "Set the discount", section: 1 },
   { title: "Match your store", section: 2 },
   { title: "When and where it shows", section: 0 },
@@ -225,6 +226,8 @@ export default function PopupEditor() {
   // New popups are set up step by step; saved ones are edited in tabs with the save bar.
   const wizard = !id;
   const [step, setStep] = useState(0);
+  // New popup: the goal picked on the first step (it only pre-fills settings).
+  const [goal, setGoal] = useState("");
   const WIZARD_STEPS = wizardSteps(s.gameType);
   const at = (section: number) => (wizard ? WIZARD_STEPS[step].section === section : tab === section);
   // Texts and the A/B test are advanced tabs.
@@ -808,7 +811,43 @@ export default function PopupEditor() {
         {(!wizard || step === 0) && (
             <Card>
               <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">{wizard ? "Choose a game" : "Game"}</Text>
+                {wizard && (
+                  <BlockStack gap="200">
+                    <Text as="h2" variant="headingMd">What do you want?</Text>
+                    <InlineGrid columns={{ xs: 1, sm: 3 }} gap="300">
+                      {GOAL_PRESETS.map((g) => (
+                        <button
+                          key={g.value}
+                          type="button"
+                          onClick={() => {
+                            setGoal(g.value);
+                            setS((x) => ({ ...x, ...g.set }));
+                          }}
+                          aria-pressed={goal === g.value}
+                          style={{
+                            textAlign: "left",
+                            font: "inherit",
+                            color: "inherit",
+                            cursor: "pointer",
+                            padding: 12,
+                            borderRadius: 12,
+                            background: goal === g.value ? "var(--p-color-bg-surface-selected)" : "var(--p-color-bg-surface)",
+                            border: goal === g.value ? "2px solid var(--p-color-border-focus)" : "1px solid var(--p-color-border)",
+                          }}
+                        >
+                          <BlockStack gap="100">
+                            <Text as="span" fontWeight="semibold">{g.title}</Text>
+                            <Text as="span" variant="bodySm" tone="subdued">{g.text}</Text>
+                          </BlockStack>
+                        </button>
+                      ))}
+                    </InlineGrid>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Optional: a goal fills in the game, discount and timing for you. You can change everything in the next steps.
+                    </Text>
+                  </BlockStack>
+                )}
+                <Text as="h2" variant="headingMd">{wizard && !goal ? "Or choose a game" : "Game"}</Text>
                 <GamePicker
                   value={s.gameType}
                   onChange={set("gameType")}

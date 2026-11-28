@@ -705,11 +705,6 @@ export default function PopupEditor() {
                   />
                 </InlineGrid>
                 )}
-                <InlineStack gap="200">
-                  <Button pressed={device === "desktop"} onClick={() => setDevice("desktop")}>Desktop preview</Button>
-                  <Button pressed={device === "phone"} onClick={() => setDevice("phone")}>Phone preview</Button>
-                </InlineStack>
-                <Preview settings={s} branding={branded} device={device} />
               </BlockStack>
             )}
 
@@ -808,8 +803,9 @@ export default function PopupEditor() {
             <Steps steps={WIZARD_STEPS} current={step} onSelect={setStep} />
           </Layout.Section>
         )}
+        <Layout.Section>
+          <BlockStack gap="400">
         {(!wizard || step === 0) && (
-          <Layout.Section>
             <Card>
               <BlockStack gap="300">
                 <Text as="h2" variant="headingMd">{wizard ? "Choose a game" : "Game"}</Text>
@@ -823,10 +819,8 @@ export default function PopupEditor() {
                 {errors.gameType && <Text as="p" tone="critical">{errors.gameType}</Text>}
               </BlockStack>
             </Card>
-          </Layout.Section>
         )}
         {(!wizard || step > 0) && (
-          <Layout.Section>
             <Card>
               {!wizard ? (
                 <BlockStack gap="200">
@@ -857,10 +851,8 @@ export default function PopupEditor() {
                 </BlockStack>
               )}
             </Card>
-          </Layout.Section>
         )}
         {wizard && (
-          <Layout.Section>
             <InlineStack align="space-between">
               <Button onClick={() => (step === 0 ? navigate("/app") : setStep(step - 1))}>{step === 0 ? "Cancel" : "Back"}</Button>
               {step < WIZARD_STEPS.length - 1 ? (
@@ -872,6 +864,26 @@ export default function PopupEditor() {
                 </InlineStack>
               )}
             </InlineStack>
+        )}
+          </BlockStack>
+        </Layout.Section>
+        {/* The popup as visitors see it, next to the settings (the last wizard step shows its own). */}
+        {!(wizard && step === WIZARD_STEPS.length - 1) && (
+          <Layout.Section variant="oneThird">
+            <div style={{ position: "sticky", top: 16 }}>
+              <Card>
+                <BlockStack gap="300">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text as="h2" variant="headingSm">Preview</Text>
+                    <ButtonGroup variant="segmented">
+                      <Button size="slim" pressed={device === "desktop"} onClick={() => setDevice("desktop")}>Desktop</Button>
+                      <Button size="slim" pressed={device === "phone"} onClick={() => setDevice("phone")}>Phone</Button>
+                    </ButtonGroup>
+                  </InlineStack>
+                  <Preview settings={s} branding={branded} device={device} />
+                </BlockStack>
+              </Card>
+            </div>
           </Layout.Section>
         )}
       </Layout>
@@ -1017,10 +1029,7 @@ function Preview({ settings: s, branding, device }: { settings: PopupSettings; b
   const nameShown = s.nameField !== "hidden";
   return (
     <BlockStack gap="200">
-      <InlineStack align="space-between" blockAlign="center">
-        <Text as="h3" variant="headingSm">
-          Preview
-        </Text>
+      <InlineStack blockAlign="center">
         <ButtonGroup variant="segmented">
           {(
             [
